@@ -1,0 +1,291 @@
+/* lås skjermen – ingen scroll */
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+.cmdbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  height: 160px;
+  padding: 0; /* ikke padding her */
+
+  /* IKKE flex her */
+  display: block;
+
+  background: linear-gradient(
+    180deg,
+    rgba(38, 78, 44, 0.96) 0%,
+    rgba(24, 54, 30, 0.96) 45%,
+    rgba(10, 20, 12, 0.98) 100%
+  );
+  border-top: 2px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.55);
+
+  z-index: 50;
+  box-sizing: border-box;
+}
+
+.cmdbar__inner {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.cmdbar__portrait {
+  position: absolute;
+  left: 1px;
+  bottom: 5px;
+  width: 150px;
+  height: 150px;
+  display: grid;
+  place-items: center;
+}
+
+.cmdbar__portraitImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* ikke kutt gul ramme */
+  display: block;
+
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.cmdbar__centerRow {
+  position: absolute;
+  left: 50%;
+  bottom: 16px; /* legg den på samme "bunnlinje" */
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cmdbar__icons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  align-self: center;
+}
+
+/* store ikon-knapper */
+.cmdbar__slot {
+  width: 96px;
+  height: 96px;
+  padding: 0;
+
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+
+  transform-origin: 50% 100%;
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    filter 140ms ease;
+}
+
+.cmdbar__slot:hover {
+  transform: translateY(-18px) scale(1.16) rotate(-2deg);
+  filter: brightness(1.25) saturate(1.15);
+  /* Kraftig glow */
+  box-shadow:
+    0 28px 50px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(255, 255, 255, 0.18);
+}
+
+.cmdbar__slot:active {
+  transform: translateY(-10px) scale(1.12);
+}
+
+.cmdbar__icon {
+  width: 96px;
+  height: 96px;
+
+  object-fit: contain; /* <- VIKTIG: cover kutter kanter */
+  border-radius: 0; /* <- ikke rund av */
+  display: block; /* <- unngår rare inline gaps */
+
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* Informasjonstekst for ikonene */
+.cmdbar__text {
+  border-radius: 8px;
+  padding: 8px 10px;
+
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(210, 255, 225, 0.18);
+
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+  align-self: center;
+}
+
+.cmdbar__title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: white;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.55);
+}
+
+.cmdbar__desc {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.3rem;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.cmdbar__text {
+  flex: 1 1 auto;
+  max-width: 420px;
+  width: clamp(220px, 38vw, 420px);
+}
+
+.cmdbar__icons {
+  flex: 0 0 auto;
+}
+.cmdbar__slot {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .cmdbar__icon {
+    width: 80px;
+    height: 80px;
+  }
+  .cmdbar__slot {
+    width: 80px;
+    height: 80px;
+  }
+  .cmdbar__portrait {
+    width: 92px;
+    height: 92px;
+  }
+  .cmdbar__title {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  .cmdbar {
+    height: 140px;
+  }
+  .cmdbar__icon {
+    width: 68px;
+    height: 68px;
+  }
+  .cmdbar__slot {
+    width: 68px;
+    height: 68px;
+  }
+  .cmdbar__portrait {
+    width: 80px;
+    height: 80px;
+  }
+
+  /* tekstboksen må gi etter først */
+  .cmdbar__text {
+    width: 240px;
+  }
+  .cmdbar__title {
+    font-size: 18px;
+  }
+  .cmdbar__desc {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 520px) {
+  /* på veldig smalt: skjul beskrivelse */
+  .cmdbar__desc {
+    display: none;
+  }
+  .cmdbar__text {
+    width: 200px;
+  }
+}
+
+/* ------ Bakgrunnsbilde -------- */
+
+.battleScene {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+
+  /* så ikke innhold havner under cmdbar -- VIKTIG */
+  padding-bottom: 160px;
+}
+
+.battleScene_overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  background:
+    radial-gradient(
+      circle at 50% 25%,
+      rgba(0, 0, 0, 0.12),
+      rgba(0, 0, 0, 0.35)
+    ),
+    linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 55%);
+}
+
+/* Dette er en variabel som endrer på høyden på command baren og padding på
+battlescene bilde. */
+:root {
+  --hud-height: 160px;
+}
+
+.cmdbar {
+  height: var(--hud-height);
+}
+
+.battleScene {
+  padding-bottom: var(--hud-height);
+}
+
+/* ---------- SPRITE --------- */
+
+.battleScene {
+  position: relative;
+  overflow: hidden;
+}
+
+.battleScene__playerSprite {
+  position: absolute;
+
+  /* Plassering: juster disse to til du liker det */
+  left: 140px;
+  bottom: 80px; /* overlap i cmdbar-området (0–160px) */
+
+  height: 420px; /* skaler spriten (endre dette) */
+  width: auto;
+
+  image-rendering: pixelated;
+  pointer-events: none;
+
+  z-index: 10; /* cmdbar har z-index: 50, så den dekker spriten */
+}
