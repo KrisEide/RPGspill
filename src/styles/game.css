@@ -9,6 +9,196 @@ body {
   overflow: hidden;
 }
 
+/* ---------- PARTY STATUS ---------- */
+
+.partyStatus {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 30;
+
+  display: grid;
+  width: min(360px, calc(100vw - 28px));
+  gap: 10px;
+}
+
+.statusCard {
+  min-width: 0;
+  padding: 8px;
+
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 10px;
+
+  color: white;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 18, 0.96),
+    rgba(7, 15, 11, 0.96)
+  );
+  border: 2px solid #d5a72f;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 226, 116, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
+.statusCard--active {
+  border-color: #ffe078;
+  box-shadow:
+    inset 0 0 0 2px rgba(255, 236, 168, 0.35),
+    0 0 16px rgba(255, 211, 79, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
+.statusCard__portraitFrame {
+  width: 84px;
+  height: 84px;
+  padding: 2px;
+
+  overflow: hidden;
+  background: #111b16;
+  border: 2px solid #d5a72f;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 231, 143, 0.25);
+}
+
+.statusCard__portrait {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.statusCard__content {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+}
+
+.statusCard__heading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.statusCard__name {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+
+  font-size: 17px;
+  line-height: 1.15;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusCard__level {
+  flex: 0 0 auto;
+  color: #ffd34f;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.statusCard__resource {
+  min-width: 0;
+}
+
+.statusCard__resourceLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 700;
+  text-shadow: 0 1px 2px black;
+}
+
+.statusCard__resourceIcon {
+  width: 15px;
+  flex: 0 0 15px;
+  text-align: center;
+}
+
+.statusCard__resourceIcon--hp {
+  color: #ff2538;
+}
+
+.statusCard__resourceIcon--pp {
+  color: #48a7ff;
+}
+
+.statusCard__bar {
+  height: 12px;
+  overflow: hidden;
+  padding: 1px;
+
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(232, 205, 111, 0.8);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.statusCard__barFill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 320ms ease-out;
+}
+
+.statusCard__barFill--hp {
+  background: linear-gradient(to bottom, #ff4b55, #dc0619);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.statusCard__barFill--pp {
+  background: linear-gradient(to bottom, #25a7ff, #065dcc);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.4);
+}
+
+@media (max-width: 520px) {
+  .partyStatus {
+    top: 8px;
+    left: 8px;
+    width: calc(100vw - 16px);
+    gap: 6px;
+  }
+
+  .statusCard {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 8px;
+    padding: 6px;
+  }
+
+  .statusCard__portraitFrame {
+    width: 64px;
+    height: 64px;
+  }
+
+  .statusCard__content {
+    gap: 3px;
+  }
+
+  .statusCard__name {
+    font-size: 15px;
+  }
+
+  .statusCard__level,
+  .statusCard__resourceLabel {
+    font-size: 12px;
+  }
+
+  .statusCard__bar {
+    height: 9px;
+  }
+}
+
 .cmdbar {
   position: fixed;
   left: 0;
@@ -111,6 +301,16 @@ body {
 
 .cmdbar__slot:active {
   transform: translateY(-10px) scale(1.12);
+}
+
+.cmdbar__slot:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7) brightness(0.65);
+}
+
+.cmdbar__slot:disabled:hover {
+  transform: none;
+  box-shadow: none;
 }
 
 .cmdbar__icon {
@@ -240,7 +440,7 @@ body {
   padding-bottom: 160px;
 }
 
-.battleScene_overlay {
+.battleScene__overlay {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -275,18 +475,413 @@ battlescene bilde. */
   overflow: hidden;
 }
 
-.battleScene__playerSprite {
+.battleScene__playerUnit {
   position: absolute;
-
-  /* Plassering: juster disse to til du liker det */
-  left: 140px;
   bottom: 80px; /* overlap i cmdbar-området (0–160px) */
 
-  height: 420px; /* skaler spriten (endre dette) */
-  width: auto;
-
-  image-rendering: pixelated;
+  width: 630px;
+  height: 420px;
   pointer-events: none;
 
   z-index: 10; /* cmdbar har z-index: 50, så den dekker spriten */
+}
+
+.battleScene__playerUnit--one {
+  left: 140px;
+}
+
+.battleScene__playerUnit--two {
+  left: 600px;
+}
+
+.battleScene__playerSprite {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  image-rendering: pixelated;
+  transition: opacity 120ms linear;
+}
+
+.battleScene__playerSprite--idle {
+  opacity: 1;
+}
+
+.battleScene__playerSprite--attack {
+  opacity: 0;
+}
+
+.battleScene__playerUnit--attacking {
+  z-index: 12;
+  animation: playerAdvance 1450ms ease-in-out both;
+}
+
+.battleScene__playerUnit--attacking .battleScene__playerSprite--idle {
+  animation: idleSpriteCrossfade 1450ms linear both;
+}
+
+.battleScene__playerUnit--attacking .battleScene__playerSprite--attack {
+  animation: attackSpriteCrossfade 1450ms linear both;
+}
+
+@keyframes playerAdvance {
+  0% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(1);
+  }
+  20% {
+    filter: brightness(1.1);
+    transform: translate(10px, -3px) scale(1.005);
+  }
+  45% {
+    filter: brightness(1.2);
+    transform: translate(58px, -20px) scale(1.02);
+  }
+  62% {
+    filter: brightness(1.12);
+    transform: translate(48px, -16px) scale(1.015);
+  }
+  100% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@keyframes idleSpriteCrossfade {
+  0%,
+  16% {
+    opacity: 1;
+  }
+  26%,
+  80% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes attackSpriteCrossfade {
+  0%,
+  16% {
+    opacity: 0;
+  }
+  26%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.battleScene__enemyUnit {
+  position: absolute;
+  left: 70%;
+  top: 37%;
+  transform: translate(-50%, -50%);
+
+  width: 560px;
+  height: 373px;
+
+  z-index: 9;
+}
+
+.battleScene__enemySpriteStage {
+  position: absolute;
+  inset: 0;
+
+  transition:
+    filter 160ms ease,
+    opacity 240ms ease,
+    transform 160ms ease;
+}
+
+.battleScene__enemySprite {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.battleScene__enemySprite--idle {
+  opacity: 1;
+}
+
+.battleScene__enemySprite--attack {
+  opacity: 0;
+}
+
+.battleScene__enemyHitbox {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 31px);
+  transform: translate(-50%, -50%);
+
+  width: 330px;
+  height: 235px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+
+  z-index: 4;
+}
+
+.battleScene__enemyUnit--selectable .battleScene__enemyHitbox {
+  cursor: pointer;
+}
+
+.battleScene__enemyUnit--selectable .battleScene__enemySpriteStage {
+  filter: brightness(1.08) drop-shadow(0 0 10px rgba(255, 220, 90, 0.7));
+}
+
+.battleScene__enemyUnit--selectable:has(.battleScene__enemyHitbox:hover)
+  .battleScene__enemySpriteStage {
+  filter: brightness(1.2) drop-shadow(0 0 18px rgba(255, 220, 90, 0.95));
+  transform: scale(1.025);
+}
+
+.battleScene__enemyUnit--defeated .battleScene__enemySpriteStage {
+  filter: grayscale(0.8);
+  opacity: 0.35;
+}
+
+.battleScene__enemyUnit--attacking .battleScene__enemySpriteStage {
+  z-index: 3;
+  animation: enemyAdvance 1450ms ease-in-out both;
+}
+
+.battleScene__enemyUnit--attacking .battleScene__enemySprite--idle {
+  animation: idleSpriteCrossfade 1450ms linear both;
+}
+
+.battleScene__enemyUnit--attacking .battleScene__enemySprite--attack {
+  animation: attackSpriteCrossfade 1450ms linear both;
+}
+
+@keyframes enemyAdvance {
+  0% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(1);
+  }
+  20% {
+    filter: brightness(1.1);
+    transform: translate(-8px, 3px) scale(1.005);
+  }
+  45% {
+    filter: brightness(1.2);
+    transform: translate(-50px, 18px) scale(1.02);
+  }
+  62% {
+    filter: brightness(1.12);
+    transform: translate(-42px, 14px) scale(1.015);
+  }
+  100% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* ---------- DAMAGE NUMBER ---------- */
+
+.damageNumber {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  z-index: 20;
+  transform: translate(-50%, -50%);
+
+  width: 165px;
+  aspect-ratio: 1260 / 715;
+
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: damageNumberPop 750ms ease-out both;
+}
+
+.battleScene__enemyUnit > .damageNumber {
+  top: 60%;
+}
+
+.damageNumber__frame {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.damageNumber__value {
+  position: relative;
+  z-index: 1;
+
+  color: #fff4c9;
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+  -webkit-text-stroke: 1px rgba(64, 18, 8, 0.9);
+  text-shadow:
+    0 3px 0 #4c120b,
+    0 0 8px rgba(255, 206, 91, 0.8);
+}
+
+.damageNumber--critical {
+  width: 190px;
+}
+
+.damageNumber--critical .damageNumber__value {
+  color: #fff09b;
+  font-size: 50px;
+  text-shadow:
+    0 3px 0 #6f1608,
+    0 0 12px rgba(255, 157, 45, 0.95);
+}
+
+@keyframes damageNumberPop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -45%) scale(0.72);
+  }
+  24% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  62% {
+    opacity: 1;
+    transform: translate(-50%, -54%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -68%) scale(0.96);
+  }
+}
+
+.enemyStatus {
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+
+  width: 190px;
+  padding: 7px 9px;
+
+  color: white;
+  text-align: left;
+  background: rgba(8, 14, 10, 0.92);
+  border: 2px solid #d5a72f;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.enemyStatus__heading {
+  color: #ffd34f;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.enemyStatus__value {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.enemyStatus__bar {
+  height: 10px;
+  margin-top: 3px;
+  overflow: hidden;
+  padding: 1px;
+
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(232, 205, 111, 0.8);
+  border-radius: 2px;
+}
+
+.enemyStatus__barFill {
+  height: 100%;
+  background: linear-gradient(to bottom, #ff4b55, #dc0619);
+  transition: width 320ms ease-out;
+}
+
+.battleRound {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 31;
+  transform: translateX(-50%);
+
+  padding: 6px 12px;
+  color: #ffd34f;
+  font-size: 15px;
+  font-weight: 800;
+  background: rgba(8, 14, 10, 0.88);
+  border: 1px solid rgba(213, 167, 47, 0.8);
+  border-radius: 6px;
+}
+
+.combatLog {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  z-index: 31;
+  transform: translateX(-50%);
+
+  width: min(420px, calc(100vw - 32px));
+  padding: 8px 10px;
+
+  color: white;
+  font-size: 13px;
+  text-align: center;
+  background: rgba(8, 14, 10, 0.78);
+  border-radius: 6px;
+  text-shadow: 0 1px 2px black;
+}
+
+.battlePrompt {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--hud-height) + 12px);
+  z-index: 60;
+  transform: translateX(-50%);
+
+  min-width: 260px;
+  padding: 8px 14px;
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  background: rgba(8, 14, 10, 0.92);
+  border: 2px solid #d5a72f;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+}
+
+@media (max-width: 700px) {
+  .battleScene__enemyUnit {
+    left: 74%;
+    top: 39%;
+    width: 420px;
+    height: 280px;
+  }
+
+  .battleScene__enemyHitbox {
+    top: calc(50% + 23px);
+    width: 255px;
+    height: 180px;
+  }
+
+  .enemyStatus {
+    top: 24px;
+    width: 150px;
+  }
 }

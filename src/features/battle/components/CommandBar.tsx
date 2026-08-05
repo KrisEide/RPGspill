@@ -5,13 +5,19 @@ import magicIcon from "../../../assets/commandBarUi/magicicon.png";
 import itemsIcon from "../../../assets/commandBarUi/inventoryicon.png";
 import portrait from "../../../assets/portraits/Character1_1.png";
 
-type CommandId = "attack" | "magic" | "items";
+type CommandId = "attack" | "abilities" | "items";
 
 type Props = {
   portraitSrc?: string;
+  attackDisabled?: boolean;
+  onAttackSelect: () => void;
 };
 
-export default function CommandBar({ portraitSrc }: Props) {
+export default function CommandBar({
+  portraitSrc,
+  attackDisabled = false,
+  onAttackSelect,
+}: Props) {
   const [selected, setSelected] = useState<CommandId>("attack");
   const [hovered, setHovered] = useState<CommandId | null>(null);
 
@@ -24,7 +30,7 @@ export default function CommandBar({ portraitSrc }: Props) {
         icon: attackIcon,
       },
       {
-        id: "Abilities" as const,
+        id: "abilities" as const,
         title: "Abilities",
         desc: "Spells/skills (kommer senere).",
         icon: magicIcon,
@@ -63,7 +69,13 @@ export default function CommandBar({ portraitSrc }: Props) {
                   key={c.id}
                   type="button"
                   className={`cmdbar__slot ${isSelected ? "cmdbar__slot--selected" : ""}`}
-                  onClick={() => setSelected(c.id)}
+                  disabled={c.id === "attack" && attackDisabled}
+                  onClick={() => {
+                    setSelected(c.id);
+                    if (c.id === "attack") {
+                      onAttackSelect();
+                    }
+                  }}
                   onMouseEnter={() => setHovered(c.id)}
                   onMouseLeave={() => setHovered(null)}
                   aria-label={c.title}

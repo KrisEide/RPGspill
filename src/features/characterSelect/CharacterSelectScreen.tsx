@@ -13,21 +13,31 @@ import portrait8 from "../../assets/portraits/Character3_2.png";
 import portrait9 from "../../assets/portraits/Character3_3.png";
 
 import startBackground from "../../assets/backgrounds/menu/StartScreen.png";
-
-export type PlayerDraft = {
-  name: string;
-  portraitSrc: string;
-  characterId: "char1" | "char2";
-};
+import type {
+  CharacterDraft,
+  GameMode,
+  PlayerId,
+} from "../../game/types";
 
 type Props = {
+  gameMode: GameMode;
+  playerId: PlayerId;
   onBack: () => void; // tilbake til StartScreen
-  onConfirm: (player: PlayerDraft) => void; // videre til BattleScreen
+  onConfirm: (character: CharacterDraft) => void;
 };
 
 type Step = "character" | "portrait";
 
-export default function CharacterSelectScreen({ onBack, onConfirm }: Props) {
+export default function CharacterSelectScreen({
+  gameMode,
+  playerId,
+  onBack,
+  onConfirm,
+}: Props) {
+  const number = playerId === "player1" ? "1" : "2";
+  const playerLabel =
+    gameMode === "singlePlayer" ? `Character ${number}` : `Player ${number}`;
+
   const characters = useMemo(
     () => [
       {
@@ -87,7 +97,7 @@ export default function CharacterSelectScreen({ onBack, onConfirm }: Props) {
         {step === "character" && (
           <>
             <h2 className="text-4xl font-extrabold text-center">
-              Character Select
+              {playerLabel}: Character Select
             </h2>
 
             <div className="mt-10 flex justify-center gap-8">
@@ -129,7 +139,7 @@ export default function CharacterSelectScreen({ onBack, onConfirm }: Props) {
         {step === "portrait" && activeChar && (
           <>
             <h2 className="text-4xl font-extrabold text-center">
-              Select Portrait
+              {playerLabel}: Select Portrait
             </h2>
 
             <div className="mt-8 flex flex-wrap justify-center gap-4">
