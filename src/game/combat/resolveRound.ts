@@ -2,32 +2,34 @@ import { ABILITIES } from "../../data/actions";
 import { calculateDamage } from "./calculateDamage";
 import { applyDamageVariance } from "./damageVariance";
 import { nextRandom } from "./random";
+import {
+  CHARACTER_ORDER,
+  isCharacterInstanceId,
+} from "../playerControl";
 import type {
   CombatAction,
   CombatantId,
   CombatEvent,
-  GameState,
-  PlayerId,
+  CombatState,
+  RoundResult,
   RoundOutcomePhase,
   RoundSelections,
 } from "../types";
 
-const PLAYER_ORDER: PlayerId[] = ["player1", "player2"];
-
-function isPlayerId(id: CombatantId): id is PlayerId {
-  return id === "player1" || id === "player2";
-}
-
-function getCombatant(state: GameState, id: CombatantId) {
-  if (isPlayerId(id)) {
+function getCombatant(state: CombatState, id: CombatantId) {
+  if (isCharacterInstanceId(id)) {
     return state.characters[id];
   }
 
   return state.enemies.find((enemy) => enemy.instanceId === id);
 }
 
-function updateHp(state: GameState, id: CombatantId, hp: number): GameState {
-  if (isPlayerId(id)) {
+function updateHp(
+  state: CombatState,
+  id: CombatantId,
+  hp: number,
+): CombatState {
+  if (isCharacterInstanceId(id)) {
     const character = state.characters[id];
     return {
       ...state,
@@ -47,15 +49,15 @@ function updateHp(state: GameState, id: CombatantId, hp: number): GameState {
 }
 
 function spendPp(
-  state: GameState,
+  state: CombatState,
   id: CombatantId,
   amount: number,
-): GameState {
+): CombatState {
   if (amount === 0) {
     return state;
   }
 
-  if (isPlayerId(id)) {
+  if (isCharacterInstanceId(id)) {
     const character = state.characters[id];
     return {
       ...state,
@@ -74,12 +76,12 @@ function spendPp(
   };
 }
 
-function createEnemyActions(state: GameState): CombatAction[] {
-  const livingPlayers = PLAYER_ORDER.filter(
-    (playerId) => state.characters[playerId].hp > 0,
+function createEnemyActions(state: CombatState): CombatAction[] {
+  const livingCharacters = CHARACTER_ORDER.filter(
+    (characterId) => state.characters[characterId].hp > 0,
   );
 
-  if (livingPlayers.length === 0) {
+  if (livingCharacters.length === 0) {
     return [];
   }
 
@@ -88,15 +90,16 @@ function createEnemyActions(state: GameState): CombatAction[] {
     .map((enemy, index) => ({
       actorId: enemy.instanceId,
       abilityId: enemy.abilityIds[0],
-      targetId: livingPlayers[(state.round - 1 + index) % livingPlayers.length],
+      targetId:
+        livingCharacters[(state.round - 1 + index) % livingCharacters.length],
     }));
 }
 
 function getSelectedPlayerActions(selections: RoundSelections) {
   const actions: CombatAction[] = [];
 
-  for (const playerId of PLAYER_ORDER) {
-    const action = selections[playerId];
+  for (const characterId of CHARACTER_ORDER) {
+    const action = selections[characterId];
     if (action) {
       actions.push(action);
     }
@@ -106,14 +109,14 @@ function getSelectedPlayerActions(selections: RoundSelections) {
 }
 
 export function resolveRound(
-  state: GameState,
+  state: CombatState,
   selections: RoundSelections,
-): GameState {
-  let nextState: GameState = {
+): RoundResult {
+  let nextState: CombatState = {
     ...state,
     characters: {
-      player1: { ...state.characters.player1 },
-      player2: { ...state.characters.player2 },
+      "character-1": { ...state.characters["character-1"] },
+      "character-2": { ...state.characters["character-2"] },
     },
     enemies: state.enemies.map((enemy) => ({ ...enemy })),
   };
@@ -193,8 +196,8 @@ export function resolveRound(
     }
   }
 
-  const playersAlive = PLAYER_ORDER.some(
-    (playerId) => nextState.characters[playerId].hp > 0,
+  const playersAlive = CHARACTER_ORDER.some(
+    (characterId) => nextState.characters[characterId].hp > 0,
   );
   const enemiesAlive = nextState.enemies.some((enemy) => enemy.hp > 0);
   const phase: RoundOutcomePhase = !playersAlive
@@ -204,14 +207,12 @@ export function resolveRound(
       : "selectingActions";
 
   return {
-    ...nextState,
-    randomSeed,
-    round: phase === "selectingActions" ? state.round + 1 : state.round,
-    phase,
-    roundSelections: {
-      player1: null,
-      player2: null,
+    nextState: {
+      ...nextState,
+      randomSeed,
+      round: phase === "selectingActions" ? state.round + 1 : state.round,
+      phase,
     },
-    lastRoundEvents: events,
+    events,
   };
 }

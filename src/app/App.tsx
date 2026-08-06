@@ -1,16 +1,38 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StartScreen from "../features/start/StartScreen";
 import CharacterSelectScreen from "../features/characterSelect/CharacterSelectScreen";
 import BattleScreen from "../features/battle/BattleScreen";
+import MultiplayerLobbyScreen from "../features/multiplayer/MultiplayerLobbyScreen";
+import MultiplayerCharacterReadyScreen from "../features/multiplayer/MultiplayerCharacterReadyScreen";
+import { DEFAULT_PLAYER_CHARACTER_CONTROL } from "../game/playerControl";
+import {
+  createMultiplayerRoom,
+  joinMultiplayerRoom,
+  submitMultiplayerCharacter,
+  subscribeToCharacterReadiness,
+  subscribeToGameStarted,
+  subscribeToLobby,
+  subscribeToSessionEnded,
+} from "../network/socket";
+import type {
+  CharacterReadinessState,
+  RoomConnection,
+} from "../network/protocol";
 import type {
   CharacterDraft,
+  CombatState,
   GameMode,
   GameSetup,
   PlayerId,
   PlayerSetup,
 } from "../game/types";
 
-type Screen = "start" | "character" | "battle";
+type Screen =
+  | "start"
+  | "character"
+  | "multiplayerLobby"
+  | "multiplayerCharacterReady"
+  | "battle";
 
 function createRandomSeed() {
   const values = new Uint32Array(1);
@@ -25,6 +47,57 @@ export default function App() {
     useState<PlayerId>("player1");
   const [playerOne, setPlayerOne] = useState<PlayerSetup | null>(null);
   const [gameSetup, setGameSetup] = useState<GameSetup | null>(null);
+  const [roomConnection, setRoomConnection] =
+    useState<RoomConnection | null>(null);
+  const roomConnectionRef = useRef<RoomConnection | null>(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const [characterReadiness, setCharacterReadiness] =
+    useState<CharacterReadinessState | null>(null);
+  const [multiplayerCombatState, setMultiplayerCombatState] =
+    useState<CombatState | null>(null);
+
+  useEffect(() => {
+    const unsubscribeFromLobby = subscribeToLobby((lobby) => {
+      const currentConnection = roomConnectionRef.current;
+
+      if (currentConnection?.lobby.roomCode !== lobby.roomCode) {
+        return;
+      }
+
+      const updatedConnection = { ...currentConnection, lobby };
+      roomConnectionRef.current = updatedConnection;
+      setRoomConnection(updatedConnection);
+
+      if (lobby.status === "ready") {
+        setGameMode("twoPlayer");
+        setSelectingPlayerId(updatedConnection.playerId);
+        setScreen("character");
+      }
+    });
+    const unsubscribeFromSessionEnded = subscribeToSessionEnded(() => {
+      setSessionEnded(true);
+    });
+    const unsubscribeFromCharacterReadiness =
+      subscribeToCharacterReadiness((readiness) => {
+        setCharacterReadiness((currentReadiness) =>
+          !currentReadiness ||
+          currentReadiness.roomCode === readiness.roomCode
+            ? readiness
+            : currentReadiness,
+        );
+      });
+    const unsubscribeFromGameStarted = subscribeToGameStarted((combatState) => {
+      setMultiplayerCombatState(combatState);
+      setScreen("battle");
+    });
+
+    return () => {
+      unsubscribeFromLobby();
+      unsubscribeFromSessionEnded();
+      unsubscribeFromCharacterReadiness();
+      unsubscribeFromGameStarted();
+    };
+  }, []);
 
   const startCharacterSelect = (mode: GameMode) => {
     setGameMode(mode);
@@ -34,9 +107,21 @@ export default function App() {
     setScreen("character");
   };
 
-  const confirmCharacter = (character: CharacterDraft) => {
+  const confirmCharacter = async (character: CharacterDraft) => {
+    if (gameMode === "twoPlayer" && roomConnection) {
+      await submitMultiplayerCharacter(character);
+      setScreen((currentScreen) =>
+        currentScreen === "battle"
+          ? currentScreen
+          : "multiplayerCharacterReady",
+      );
+      return;
+    }
+
     const player: PlayerSetup = {
       id: selectingPlayerId,
+      controlledCharacterId:
+        DEFAULT_PLAYER_CHARACTER_CONTROL[selectingPlayerId],
       character,
     };
 
@@ -77,8 +162,57 @@ export default function App() {
     setScreen("start");
   };
 
+  const createGame = async () => {
+    const connection = await createMultiplayerRoom();
+    roomConnectionRef.current = connection;
+    setRoomConnection(connection);
+    setCharacterReadiness(null);
+    setMultiplayerCombatState(null);
+    setSessionEnded(false);
+    setScreen("multiplayerLobby");
+  };
+
+  const joinGame = async (roomCode: string) => {
+    const connection = await joinMultiplayerRoom(roomCode);
+    roomConnectionRef.current = connection;
+    setRoomConnection(connection);
+    setCharacterReadiness(null);
+    setMultiplayerCombatState(null);
+    setSessionEnded(false);
+    setGameMode("twoPlayer");
+    setSelectingPlayerId(connection.playerId);
+    setScreen("character");
+  };
+
+  const startScreen = (
+    <StartScreen
+      onSinglePlayer={() => startCharacterSelect("singlePlayer")}
+      onCreateGame={createGame}
+      onJoinGame={joinGame}
+    />
+  );
+
   if (screen === "start") {
-    return <StartScreen onStart={startCharacterSelect} />;
+    return startScreen;
+  }
+
+  if (screen === "multiplayerLobby" && roomConnection) {
+    return (
+      <MultiplayerLobbyScreen
+        connection={roomConnection}
+        sessionEnded={sessionEnded}
+      />
+    );
+  }
+
+  if (screen === "multiplayerCharacterReady" && roomConnection) {
+    return (
+      <MultiplayerCharacterReadyScreen
+        connection={roomConnection}
+        readiness={characterReadiness}
+        sessionEnded={sessionEnded}
+      />
+    );
   }
 
   if (screen === "character") {
@@ -87,14 +221,30 @@ export default function App() {
         key={selectingPlayerId}
         gameMode={gameMode ?? "singlePlayer"}
         playerId={selectingPlayerId}
-        onBack={goBackFromCharacterSelect}
+        onBack={
+          gameMode === "singlePlayer" ? goBackFromCharacterSelect : undefined
+        }
         onConfirm={confirmCharacter}
       />
     );
   }
 
+  if (
+    screen === "battle" &&
+    multiplayerCombatState &&
+    roomConnection
+  ) {
+    return (
+      <BattleScreen
+        key={roomConnection.lobby.roomCode}
+        initialCombatState={multiplayerCombatState}
+        localPlayerId={roomConnection.playerId}
+      />
+    );
+  }
+
   if (!gameSetup) {
-    return <StartScreen onStart={startCharacterSelect} />;
+    return startScreen;
   }
 
   return <BattleScreen setup={gameSetup} />;

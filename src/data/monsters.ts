@@ -5,6 +5,7 @@ export const ENEMY_DEFINITIONS = {
     id: "level1Orc",
     name: "Orc",
     level: 1,
+    isBoss: false,
     stats: {
       maxHp: 60,
       maxPp: 0,

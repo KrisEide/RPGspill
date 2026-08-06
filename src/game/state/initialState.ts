@@ -1,13 +1,15 @@
 import { CHARACTER_PRESETS } from "../../data/presets";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
+import { createEmptyRoundSelections } from "../combat/playerActions";
 import type {
   CharacterState,
+  ClientBattleState,
+  CombatState,
   CombatStats,
   EnemyId,
   EnemyInstanceId,
   EnemyState,
   GameSetup,
-  GameState,
   PlayerSetup,
 } from "../types";
 
@@ -19,11 +21,12 @@ function copyCombatStats(stats: CombatStats): CombatStats {
 }
 
 function createCharacterState(player: PlayerSetup): CharacterState {
-  const preset = CHARACTER_PRESETS[player.character.characterId];
+  const preset = CHARACTER_PRESETS[player.character.presetId];
   const stats = copyCombatStats(preset.stats);
 
   return {
     ...player.character,
+    instanceId: player.controlledCharacterId,
     ownerId: player.id,
     level: 1,
     hp: stats.maxHp,
@@ -45,6 +48,7 @@ function createEnemyState(
     enemyId: definition.id,
     name: definition.name,
     level: definition.level,
+    isBoss: definition.isBoss,
     hp: stats.maxHp,
     pp: stats.maxPp,
     stats,
@@ -52,22 +56,42 @@ function createEnemyState(
   };
 }
 
-export function createInitialGameState(setup: GameSetup): GameState {
+export function createInitialCombatState(setup: GameSetup): CombatState {
   return {
     mode: setup.mode,
     randomSeed: setup.randomSeed,
     round: 1,
     phase: "selectingActions",
+    players: {
+      player1: {
+        id: setup.players.player1.id,
+        controlledCharacterId: setup.players.player1.controlledCharacterId,
+      },
+      player2: {
+        id: setup.players.player2.id,
+        controlledCharacterId: setup.players.player2.controlledCharacterId,
+      },
+    },
     characters: {
-      player1: createCharacterState(setup.players.player1),
-      player2: createCharacterState(setup.players.player2),
+      "character-1": createCharacterState(setup.players.player1),
+      "character-2": createCharacterState(setup.players.player2),
     },
     enemies: [createEnemyState("level1Orc", "enemy-1")],
-    roundSelections: {
-      player1: null,
-      player2: null,
-    },
+  };
+}
+
+export function createClientBattleState(
+  combat: CombatState,
+): ClientBattleState {
+  return {
+    combat,
+    phase: combat.phase,
+    roundSelections: createEmptyRoundSelections(),
     lastRoundEvents: [],
     pendingRound: null,
   };
+}
+
+export function createInitialGameState(setup: GameSetup): ClientBattleState {
+  return createClientBattleState(createInitialCombatState(setup));
 }

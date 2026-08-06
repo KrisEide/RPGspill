@@ -1,6 +1,6 @@
 import type {
   AbilityId,
-  CharacterId,
+  CharacterPresetId,
   CombatStats,
 } from "../game/types";
 
@@ -34,4 +34,4 @@ export const CHARACTER_PRESETS = {
     stats: createStartingStats(),
     startingAbilities: ["autoAttack"],
   },
-} satisfies Record<CharacterId, CharacterPreset>;
+} satisfies Record<CharacterPresetId, CharacterPreset>;

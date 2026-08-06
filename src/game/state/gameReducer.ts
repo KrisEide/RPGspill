@@ -1,10 +1,18 @@
 import { resolveRound } from "../combat/resolveRound";
+import {
+  areAllLivingPlayersReady,
+  createEmptyRoundSelections,
+  selectPlayerAction,
+} from "../combat/playerActions";
+import { isCharacterInstanceId } from "../playerControl";
 import type {
   AbilityId,
+  ClientBattleState,
   CombatEvent,
+  CombatState,
   EnemyInstanceId,
-  GameState,
   PlayerId,
+  RoundResult,
 } from "../types";
 
 export type GameAction =
@@ -19,11 +27,16 @@ export type GameAction =
     }
   | {
       type: "advanceCombatEvent";
+    }
+  | {
+      type: "receiveRoundResult";
+      result: RoundResult;
     };
 
-const PLAYER_ORDER: PlayerId[] = ["player1", "player2"];
-
-export function gameReducer(state: GameState, action: GameAction): GameState {
+export function gameReducer(
+  state: ClientBattleState,
+  action: GameAction,
+): ClientBattleState {
   if (action.type === "applyCurrentCombatEvent") {
     return applyCurrentCombatEvent(state);
   }
@@ -32,66 +45,30 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     return advanceCombatEvent(state);
   }
 
+  if (action.type === "receiveRoundResult") {
+    return beginRoundAnimation(state, action.result);
+  }
+
   if (state.phase !== "selectingActions") {
     return state;
   }
 
-  const actor = state.characters[action.playerId];
-  const target = state.enemies.find(
-    (enemy) => enemy.instanceId === action.targetId,
+  const roundSelections = selectPlayerAction(
+    state.combat,
+    state.roundSelections,
+    action,
   );
 
-  if (
-    actor.hp <= 0 ||
-    state.roundSelections[action.playerId] !== null ||
-    !actor.abilityIds.includes(action.abilityId) ||
-    !target ||
-    target.hp <= 0
-  ) {
+  if (!roundSelections) {
     return state;
   }
 
-  const roundSelections = {
-    ...state.roundSelections,
-    [action.playerId]: {
-      actorId: action.playerId,
-      abilityId: action.abilityId,
-      targetId: action.targetId,
-    },
-  };
-  const allLivingPlayersReady = PLAYER_ORDER.every(
-    (playerId) =>
-      state.characters[playerId].hp <= 0 || roundSelections[playerId] !== null,
-  );
-
-  if (allLivingPlayersReady) {
-    const resolvedState = resolveRound(state, roundSelections);
-    const finalPhase = resolvedState.phase;
-
-    if (finalPhase === "animating") {
-      return state;
-    }
-
-    if (resolvedState.lastRoundEvents.length === 0) {
-      return resolvedState;
-    }
-
-    return {
-      ...state,
-      phase: "animating",
-      randomSeed: resolvedState.randomSeed,
-      roundSelections,
-      lastRoundEvents: [],
-      pendingRound: {
-        events: resolvedState.lastRoundEvents,
-        nextEventIndex: 0,
-        currentEventApplied: false,
-        finalRound: resolvedState.round,
-        finalPhase,
-        finalCharacters: resolvedState.characters,
-        finalEnemies: resolvedState.enemies,
-      },
-    };
+  if (areAllLivingPlayersReady(state.combat, roundSelections)) {
+    const result = resolveRound(state.combat, roundSelections);
+    return beginRoundAnimation(
+      { ...state, roundSelections },
+      result,
+    );
   }
 
   return {
@@ -100,8 +77,42 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
   };
 }
 
-function applyDamageEvent(state: GameState, event: CombatEvent): GameState {
-  if (event.targetId === "player1" || event.targetId === "player2") {
+function beginRoundAnimation(
+  state: ClientBattleState,
+  result: RoundResult,
+): ClientBattleState {
+  if (state.phase !== "selectingActions") {
+    return state;
+  }
+
+  if (result.events.length === 0) {
+    return {
+      ...state,
+      combat: result.nextState,
+      phase: result.nextState.phase,
+      roundSelections: createEmptyRoundSelections(),
+      lastRoundEvents: [],
+      pendingRound: null,
+    };
+  }
+
+  return {
+    ...state,
+    phase: "animating",
+    lastRoundEvents: [],
+    pendingRound: {
+      result,
+      nextEventIndex: 0,
+      currentEventApplied: false,
+    },
+  };
+}
+
+function applyDamageEvent(
+  state: CombatState,
+  event: CombatEvent,
+): CombatState {
+  if (isCharacterInstanceId(event.targetId)) {
     return {
       ...state,
       characters: {
@@ -124,7 +135,9 @@ function applyDamageEvent(state: GameState, event: CombatEvent): GameState {
   };
 }
 
-function applyCurrentCombatEvent(state: GameState): GameState {
+function applyCurrentCombatEvent(
+  state: ClientBattleState,
+): ClientBattleState {
   const pendingRound = state.pendingRound;
 
   if (
@@ -135,17 +148,18 @@ function applyCurrentCombatEvent(state: GameState): GameState {
     return state;
   }
 
-  const event = pendingRound.events[pendingRound.nextEventIndex];
+  const event = pendingRound.result.events[pendingRound.nextEventIndex];
 
   if (!event) {
     return finishRound(state);
   }
 
-  const stateAfterEvent = applyDamageEvent(state, event);
+  const combatAfterEvent = applyDamageEvent(state.combat, event);
 
   return {
-    ...stateAfterEvent,
-    lastRoundEvents: pendingRound.events.slice(
+    ...state,
+    combat: combatAfterEvent,
+    lastRoundEvents: pendingRound.result.events.slice(
       0,
       pendingRound.nextEventIndex + 1,
     ),
@@ -156,7 +170,7 @@ function applyCurrentCombatEvent(state: GameState): GameState {
   };
 }
 
-function advanceCombatEvent(state: GameState): GameState {
+function advanceCombatEvent(state: ClientBattleState): ClientBattleState {
   const pendingRound = state.pendingRound;
 
   if (
@@ -169,7 +183,7 @@ function advanceCombatEvent(state: GameState): GameState {
 
   const nextEventIndex = pendingRound.nextEventIndex + 1;
 
-  if (nextEventIndex >= pendingRound.events.length) {
+  if (nextEventIndex >= pendingRound.result.events.length) {
     return finishRound(state);
   }
 
@@ -183,7 +197,7 @@ function advanceCombatEvent(state: GameState): GameState {
   };
 }
 
-function finishRound(state: GameState): GameState {
+function finishRound(state: ClientBattleState): ClientBattleState {
   const pendingRound = state.pendingRound;
 
   if (!pendingRound) {
@@ -192,15 +206,10 @@ function finishRound(state: GameState): GameState {
 
   return {
     ...state,
-    round: pendingRound.finalRound,
-    phase: pendingRound.finalPhase,
-    characters: pendingRound.finalCharacters,
-    enemies: pendingRound.finalEnemies,
-    roundSelections: {
-      player1: null,
-      player2: null,
-    },
-    lastRoundEvents: pendingRound.events,
+    combat: pendingRound.result.nextState,
+    phase: pendingRound.result.nextState.phase,
+    roundSelections: createEmptyRoundSelections(),
+    lastRoundEvents: pendingRound.result.events,
     pendingRound: null,
   };
 }

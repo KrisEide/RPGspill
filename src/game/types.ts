@@ -1,12 +1,22 @@
 export type PlayerId = "player1" | "player2";
 
+export type CharacterInstanceId = "character-1" | "character-2";
+
 export type EnemyInstanceId = `enemy-${number}`;
 
-export type CombatantId = PlayerId | EnemyInstanceId;
+export type CombatantId = CharacterInstanceId | EnemyInstanceId;
 
 export type GameMode = "singlePlayer" | "twoPlayer";
 
-export type CharacterId = "char1" | "char2";
+export type CharacterPresetId = "char1" | "char2";
+
+export type PortraitId =
+  | "c1p1"
+  | "c1p2"
+  | "c1p3"
+  | "c2p1"
+  | "c2p2"
+  | "c2p3";
 
 export type EnemyId = "level1Orc";
 
@@ -57,6 +67,7 @@ export type EnemyDefinition = {
   id: EnemyId;
   name: string;
   level: number;
+  isBoss: boolean;
   stats: CombatStats;
   abilityIds: AbilityId[];
 };
@@ -66,6 +77,7 @@ export type EnemyState = {
   enemyId: EnemyId;
   name: string;
   level: number;
+  isBoss: boolean;
   hp: number;
   pp: number;
   stats: CombatStats;
@@ -74,12 +86,13 @@ export type EnemyState = {
 
 export type CharacterDraft = {
   name: string;
-  portraitSrc: string;
-  characterId: CharacterId;
+  portraitId: PortraitId;
+  presetId: CharacterPresetId;
 };
 
 export type PlayerSetup = {
   id: PlayerId;
+  controlledCharacterId: CharacterInstanceId;
   character: CharacterDraft;
 };
 
@@ -90,6 +103,7 @@ export type GameSetup = {
 };
 
 export type CharacterState = CharacterDraft & {
+  instanceId: CharacterInstanceId;
   ownerId: PlayerId;
   level: number;
   hp: number;
@@ -104,7 +118,12 @@ export type CombatAction = {
   targetId: CombatantId;
 };
 
-export type RoundSelections = Record<PlayerId, CombatAction | null>;
+export type RoundSelections = Record<CharacterInstanceId, CombatAction | null>;
+
+export type PlayerState = {
+  id: PlayerId;
+  controlledCharacterId: CharacterInstanceId;
+};
 
 export type DamageEvent = {
   type: "damage";
@@ -122,23 +141,30 @@ export type RoundOutcomePhase = "selectingActions" | "victory" | "defeat";
 
 export type GamePhase = RoundOutcomePhase | "animating";
 
-export type PendingRound = {
-  events: CombatEvent[];
-  nextEventIndex: number;
-  currentEventApplied: boolean;
-  finalRound: number;
-  finalPhase: RoundOutcomePhase;
-  finalCharacters: Record<PlayerId, CharacterState>;
-  finalEnemies: EnemyState[];
-};
-
-export type GameState = {
+export type CombatState = {
   mode: GameMode;
   randomSeed: number;
   round: number;
-  phase: GamePhase;
-  characters: Record<PlayerId, CharacterState>;
+  phase: RoundOutcomePhase;
+  players: Record<PlayerId, PlayerState>;
+  characters: Record<CharacterInstanceId, CharacterState>;
   enemies: EnemyState[];
+};
+
+export type RoundResult = {
+  nextState: CombatState;
+  events: CombatEvent[];
+};
+
+export type PendingRound = {
+  result: RoundResult;
+  nextEventIndex: number;
+  currentEventApplied: boolean;
+};
+
+export type ClientBattleState = {
+  combat: CombatState;
+  phase: GamePhase;
   roundSelections: RoundSelections;
   lastRoundEvents: CombatEvent[];
   pendingRound: PendingRound | null;

@@ -205,7 +205,7 @@ body {
   right: 0;
   bottom: 0;
 
-  height: 160px;
+  height: var(--hud-height);
   padding: 0; /* ikke padding her */
 
   /* IKKE flex her */
@@ -234,8 +234,8 @@ body {
   position: absolute;
   left: 1px;
   bottom: 5px;
-  width: 150px;
-  height: 150px;
+  width: 115px;
+  height: 115px;
   padding: 3px;
   display: grid;
   place-items: center;
@@ -254,7 +254,7 @@ body {
 .cmdbar__centerRow {
   position: absolute;
   left: 50%;
-  bottom: 16px; /* legg den på samme "bunnlinje" */
+  bottom: 14px; /* legg den på samme "bunnlinje" */
   transform: translateX(-50%);
 
   display: flex;
@@ -388,9 +388,6 @@ body {
 }
 
 @media (max-width: 700px) {
-  .cmdbar {
-    height: 140px;
-  }
   .cmdbar__icon {
     width: 68px;
     height: 68px;
@@ -437,7 +434,7 @@ body {
   background-repeat: no-repeat;
 
   /* så ikke innhold havner under cmdbar -- VIKTIG */
-  padding-bottom: 160px;
+  padding-bottom: var(--hud-height);
 }
 
 .battleScene__overlay {
@@ -457,15 +454,7 @@ body {
 /* Dette er en variabel som endrer på høyden på command baren og padding på
 battlescene bilde. */
 :root {
-  --hud-height: 160px;
-}
-
-.cmdbar {
-  height: var(--hud-height);
-}
-
-.battleScene {
-  padding-bottom: var(--hud-height);
+  --hud-height: 125px;
 }
 
 /* ---------- SPRITE --------- */
@@ -477,21 +466,21 @@ battlescene bilde. */
 
 .battleScene__playerUnit {
   position: absolute;
-  bottom: 80px; /* overlap i cmdbar-området (0–160px) */
+  bottom: calc(var(--hud-height) - 80px);
 
-  width: 630px;
-  height: 420px;
+  width: 520px;
+  height: 347px;
   pointer-events: none;
 
   z-index: 10; /* cmdbar har z-index: 50, så den dekker spriten */
 }
 
 .battleScene__playerUnit--one {
-  left: 140px;
+  left: 90px;
 }
 
 .battleScene__playerUnit--two {
-  left: 600px;
+  left: 390px;
 }
 
 .battleScene__playerSprite {
@@ -579,14 +568,11 @@ battlescene bilde. */
 
 .battleScene__enemyUnit {
   position: absolute;
-  left: 70%;
-  top: 37%;
   transform: translate(-50%, -50%);
 
-  width: 560px;
-  height: 373px;
+  width: 550px;
+  height: 367px;
 
-  z-index: 9;
 }
 
 .battleScene__enemySpriteStage {
@@ -621,11 +607,11 @@ battlescene bilde. */
 .battleScene__enemyHitbox {
   position: absolute;
   left: 50%;
-  top: calc(50% + 31px);
+  top: calc(50% + 30px);
   transform: translate(-50%, -50%);
 
-  width: 330px;
-  height: 235px;
+  width: 325px;
+  height: 230px;
   padding: 0;
   border: 0;
   outline: 0;
@@ -698,7 +684,7 @@ battlescene bilde. */
   z-index: 20;
   transform: translate(-50%, -50%);
 
-  width: 165px;
+  width: 132px;
   aspect-ratio: 1260 / 715;
 
   display: grid;
@@ -725,7 +711,7 @@ battlescene bilde. */
   z-index: 1;
 
   color: #fff4c9;
-  font-size: 42px;
+  font-size: 34px;
   line-height: 1;
   font-weight: 900;
   -webkit-text-stroke: 1px rgba(64, 18, 8, 0.9);
@@ -735,12 +721,12 @@ battlescene bilde. */
 }
 
 .damageNumber--critical {
-  width: 190px;
+  width: 152px;
 }
 
 .damageNumber--critical .damageNumber__value {
   color: #fff09b;
-  font-size: 50px;
+  font-size: 40px;
   text-shadow:
     0 3px 0 #6f1608,
     0 0 12px rgba(255, 157, 45, 0.95);
@@ -767,13 +753,13 @@ battlescene bilde. */
 
 .enemyStatus {
   position: absolute;
-  top: 38px;
+  top: 39px;
   left: 50%;
   z-index: 2;
   transform: translateX(-50%);
 
-  width: 190px;
-  padding: 7px 9px;
+  width: 136px;
+  padding: 5px 7px 6px;
 
   color: white;
   text-align: left;
@@ -786,19 +772,15 @@ battlescene bilde. */
 
 .enemyStatus__heading {
   color: #ffd34f;
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 1.1;
   font-weight: 800;
 }
 
-.enemyStatus__value {
-  margin-top: 3px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .enemyStatus__bar {
-  height: 10px;
-  margin-top: 3px;
+  position: relative;
+  height: 15px;
+  margin-top: 4px;
   overflow: hidden;
   padding: 1px;
 
@@ -811,6 +793,22 @@ battlescene bilde. */
   height: 100%;
   background: linear-gradient(to bottom, #ff4b55, #dc0619);
   transition: width 320ms ease-out;
+}
+
+.enemyStatus__barValue {
+  position: absolute;
+  inset: 0;
+
+  display: grid;
+  place-items: center;
+
+  color: white;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 900;
+  text-shadow:
+    0 1px 1px black,
+    0 0 3px black;
 }
 
 .battleRound {
@@ -868,8 +866,6 @@ battlescene bilde. */
 
 @media (max-width: 700px) {
   .battleScene__enemyUnit {
-    left: 74%;
-    top: 39%;
     width: 420px;
     height: 280px;
   }
@@ -882,6 +878,6 @@ battlescene bilde. */
 
   .enemyStatus {
     top: 24px;
-    width: 150px;
+    width: 124px;
   }
 }

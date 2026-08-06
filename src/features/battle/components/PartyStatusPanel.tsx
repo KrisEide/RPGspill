@@ -1,16 +1,19 @@
-import type { CharacterState, PlayerId } from "../../../game/types";
+import type {
+  CharacterInstanceId,
+  CharacterState,
+} from "../../../game/types";
+import { CHARACTER_ORDER } from "../../../game/playerControl";
+import { getPortraitSource } from "../../characterSelect/data/characterOptions";
 
 type Props = {
-  characters: Record<PlayerId, CharacterState>;
-  activePlayerId: PlayerId | null;
+  characters: Record<CharacterInstanceId, CharacterState>;
+  activeCharacterId: CharacterInstanceId | null;
 };
 
 type CharacterStatusCardProps = {
   character: CharacterState;
   isActive: boolean;
 };
-
-const PLAYER_ORDER: PlayerId[] = ["player1", "player2"];
 
 function getResourcePercent(current: number, maximum: number) {
   if (maximum <= 0) {
@@ -34,7 +37,7 @@ function CharacterStatusCard({
       <div className="statusCard__portraitFrame">
         <img
           className="statusCard__portrait"
-          src={character.portraitSrc}
+          src={getPortraitSource(character.portraitId)}
           alt={`${character.name} portrait`}
         />
       </div>
@@ -99,15 +102,15 @@ function CharacterStatusCard({
 
 export default function PartyStatusPanel({
   characters,
-  activePlayerId,
+  activeCharacterId,
 }: Props) {
   return (
     <aside className="partyStatus" aria-label="Party status">
-      {PLAYER_ORDER.map((playerId) => (
+      {CHARACTER_ORDER.map((characterId) => (
         <CharacterStatusCard
-          key={playerId}
-          character={characters[playerId]}
-          isActive={playerId === activePlayerId}
+          key={characterId}
+          character={characters[characterId]}
+          isActive={characterId === activeCharacterId}
         />
       ))}
     </aside>

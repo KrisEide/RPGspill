@@ -2,7 +2,7 @@ import rowanIdleSprite from "../../../assets/sprites/characters/karakter1_2.png"
 import rowanAutoAttackSprite from "../../../assets/sprites/characters/karakter1_autoattack.png";
 import lyraIdleSprite from "../../../assets/sprites/characters/Karakter2_1.png";
 import lyraAutoAttackSprite from "../../../assets/sprites/characters/karakter2_autoattack.png";
-import type { CharacterId } from "../../../game/types";
+import type { CharacterPresetId } from "../../../game/types";
 
 type CharacterVisualDefinition = {
   idleSpriteSrc: string;
@@ -18,4 +18,4 @@ export const CHARACTER_VISUALS = {
     idleSpriteSrc: lyraIdleSprite,
     autoAttackSpriteSrc: lyraAutoAttackSprite,
   },
-} satisfies Record<CharacterId, CharacterVisualDefinition>;
+} satisfies Record<CharacterPresetId, CharacterVisualDefinition>;
