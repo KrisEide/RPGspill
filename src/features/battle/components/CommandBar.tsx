@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 import attackIcon from "../../../assets/commandBarUi/attackicon.png";
-import magicIcon from "../../../assets/commandBarUi/magicicon.png";
+import magicIcon from "../../../assets/commandBarUi/Magicicon.png";
 import itemsIcon from "../../../assets/commandBarUi/inventoryicon.png";
 import portrait from "../../../assets/portraits/Character1_1.png";
 
