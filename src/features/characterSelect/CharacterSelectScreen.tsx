@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import startBackground from "../../assets/backgrounds/menu/StartScreen.png";
+import startBackground from "../../assets/backgrounds/menu/startscreen.png";
 import {
   CHARACTER_OPTIONS,
   getPortraitSource,
@@ -170,7 +170,7 @@ export default function CharacterSelectScreen({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/20 outline-none focus:border-white/50"
-                placeholder="Skriv navn..."
+                placeholder="Enter a name..."
               />
             </div>
 

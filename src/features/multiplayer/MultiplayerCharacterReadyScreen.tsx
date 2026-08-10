@@ -1,4 +1,4 @@
-import startBackground from "../../assets/backgrounds/menu/StartScreen.png";
+import startBackground from "../../assets/backgrounds/menu/startscreen.png";
 import type {
   CharacterReadinessState,
   RoomConnection,

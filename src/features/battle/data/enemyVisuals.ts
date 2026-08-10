@@ -1,5 +1,5 @@
-import level1OrcSprite from "../../../assets/sprites/MonstersSprites/level1orc.png";
-import level1OrcAutoAttackSprite from "../../../assets/sprites/MonstersSprites/level1orcattack.png";
+import level1OrcSprite from "../../../assets/sprites/monsters/level1orc.png";
+import level1OrcAutoAttackSprite from "../../../assets/sprites/monsters/level1orcattack.png";
 import type { EnemyId } from "../../../game/types";
 
 type EnemyVisualDefinition = {

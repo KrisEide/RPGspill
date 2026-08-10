@@ -1,5 +1,7 @@
 import { useEffect, useReducer, useState } from "react";
-import background from "../../assets/backgrounds/Bakgrunn1.png";
+import type { CSSProperties } from "react";
+import background from "../../assets/backgrounds/bakgrunn1.png";
+import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import CommandBar from "./components/CommandBar";
 import DamageNumber from "./components/DamageNumber";
 import PartyStatusPanel from "./components/PartyStatusPanel";
@@ -38,8 +40,17 @@ type Props =
       localPlayerId: PlayerId;
     };
 
-const COMBAT_IMPACT_DELAY_MS = 650;
-const COMBAT_EVENT_DURATION_MS = 1450;
+const COMBAT_IMPACT_DELAY_MS = 550;
+const COMBAT_EVENT_DURATION_MS = 1750;
+const BACKGROUND_REVEAL_DURATION_MS = 600;
+const ENCOUNTER_ANNOUNCEMENT_DURATION_MS = 3600;
+const COMBAT_ENTRANCE_DURATION_MS = 2600;
+
+type EncounterIntroPhase =
+  | "background"
+  | "announcement"
+  | "entering"
+  | "ready";
 
 function createBattleScreenState(props: Props): ClientBattleState {
   return "setup" in props
@@ -58,6 +69,9 @@ export default function BattleScreen(props: Props) {
   const [playerReadiness, setPlayerReadiness] =
     useState<PlayerReadinessState | null>(null);
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [backgroundReady, setBackgroundReady] = useState(false);
+  const [encounterIntroPhase, setEncounterIntroPhase] =
+    useState<EncounterIntroPhase>("background");
   const isMultiplayer = "localPlayerId" in props;
   const localPlayerId = isMultiplayer ? props.localPlayerId : null;
   const combatState = gameState.combat;
@@ -74,8 +88,9 @@ export default function BattleScreen(props: Props) {
         (playerReadiness?.round === combatState.round &&
           playerReadiness.readyPlayerIds.includes(localPlayerId))),
   );
+  const encounterIntroComplete = encounterIntroPhase === "ready";
   const activePlayerId =
-    gameState.phase === "selectingActions"
+    encounterIntroComplete && gameState.phase === "selectingActions"
       ? isMultiplayer
         ? localPlayerReady
           ? null
@@ -112,6 +127,67 @@ export default function BattleScreen(props: Props) {
   const enemyFormationPositions = getEnemyFormationPositions(
     combatState.enemies,
   );
+  const encounter = ENCOUNTER_DEFINITIONS[combatState.encounterId];
+  const unitsAreWaiting =
+    encounterIntroPhase === "background" ||
+    encounterIntroPhase === "announcement";
+  const unitEntranceClass = unitsAreWaiting
+    ? "battleScene__unit--waiting"
+    : encounterIntroPhase === "entering"
+      ? "battleScene__unit--entering"
+      : "";
+  const interfaceIsVisible =
+    encounterIntroPhase === "entering" || encounterIntroComplete;
+
+  useEffect(() => {
+    const backgroundImage = new Image();
+    const finishLoading = () => {
+      setBackgroundReady(true);
+    };
+
+    backgroundImage.addEventListener("load", finishLoading);
+    backgroundImage.addEventListener("error", finishLoading);
+    backgroundImage.src = background;
+
+    if (backgroundImage.complete) {
+      finishLoading();
+    }
+
+    return () => {
+      backgroundImage.removeEventListener("load", finishLoading);
+      backgroundImage.removeEventListener("error", finishLoading);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!backgroundReady) {
+      return;
+    }
+
+    const announcementTimer = window.setTimeout(() => {
+      setEncounterIntroPhase("announcement");
+    }, BACKGROUND_REVEAL_DURATION_MS);
+    const entranceTimer = window.setTimeout(
+      () => {
+        setEncounterIntroPhase("entering");
+      },
+      BACKGROUND_REVEAL_DURATION_MS + ENCOUNTER_ANNOUNCEMENT_DURATION_MS,
+    );
+    const readyTimer = window.setTimeout(
+      () => {
+        setEncounterIntroPhase("ready");
+      },
+      BACKGROUND_REVEAL_DURATION_MS +
+        ENCOUNTER_ANNOUNCEMENT_DURATION_MS +
+        COMBAT_ENTRANCE_DURATION_MS,
+    );
+
+    return () => {
+      window.clearTimeout(announcementTimer);
+      window.clearTimeout(entranceTimer);
+      window.clearTimeout(readyTimer);
+    };
+  }, [backgroundReady]);
 
   useEffect(() => {
     if (!currentCombatEvent || gameState.phase !== "animating") {
@@ -235,10 +311,28 @@ export default function BattleScreen(props: Props) {
 
   return (
     <div
-      className="battleScene"
+      className={`battleScene ${interfaceIsVisible ? "battleScene--interface-visible" : ""}`}
       style={{ backgroundImage: `url(${background})` }}
     >
       <div className="battleScene__overlay" />
+
+      {encounterIntroPhase === "announcement" && (
+        <div
+          className="encounterAnnouncement"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="encounterAnnouncement__content">
+            <div className="encounterAnnouncement__label">
+              Encounter {encounter.number}
+            </div>
+            <div className="encounterAnnouncement__title">
+              {encounter.title}
+            </div>
+          </div>
+        </div>
+      )}
+
       <PartyStatusPanel
         characters={combatState.characters}
         activeCharacterId={activeCharacterId}
@@ -269,7 +363,7 @@ export default function BattleScreen(props: Props) {
         return (
           <div
             key={characterId}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} ${isAttacking ? "battleScene__playerUnit--attacking" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} ${unitEntranceClass} ${isAttacking ? "battleScene__playerUnit--attacking" : ""}`}
           >
             <img
               className="battleScene__playerSprite battleScene__playerSprite--idle"
@@ -308,13 +402,15 @@ export default function BattleScreen(props: Props) {
         return (
           <div
             key={enemy.instanceId}
-            className={`battleScene__enemyUnit ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""}`}
-            style={{
-              left: `${formationPosition.xPercent}%`,
-              top: `${formationPosition.yPercent}%`,
-              transform: `translate(-50%, -50%) scale(${formationPosition.scale})`,
-              zIndex: formationPosition.zIndex,
-            }}
+            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""}`}
+            style={
+              {
+                left: `${formationPosition.xPercent}%`,
+                top: `${formationPosition.yPercent}%`,
+                "--enemy-scale": formationPosition.scale,
+                zIndex: formationPosition.zIndex,
+              } as CSSProperties
+            }
           >
             <div className="enemyStatus">
               <div className="enemyStatus__heading">

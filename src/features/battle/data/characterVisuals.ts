@@ -1,6 +1,6 @@
 import rowanIdleSprite from "../../../assets/sprites/characters/karakter1_2.png";
 import rowanAutoAttackSprite from "../../../assets/sprites/characters/karakter1_autoattack.png";
-import lyraIdleSprite from "../../../assets/sprites/characters/Karakter2_1.png";
+import lyraIdleSprite from "../../../assets/sprites/characters/karakter2_1.png";
 import lyraAutoAttackSprite from "../../../assets/sprites/characters/karakter2_autoattack.png";
 import type { CharacterPresetId } from "../../../game/types";
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import startBackground from "../../assets/backgrounds/menu/StartScreen.png";
+import startBackground from "../../assets/backgrounds/menu/startscreen.png";
 
 type Props = {
   onSinglePlayer: () => void;

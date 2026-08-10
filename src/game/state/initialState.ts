@@ -1,4 +1,5 @@
 import { CHARACTER_PRESETS } from "../../data/presets";
+import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { createEmptyRoundSelections } from "../combat/playerActions";
 import type {
@@ -57,8 +58,11 @@ function createEnemyState(
 }
 
 export function createInitialCombatState(setup: GameSetup): CombatState {
+  const encounter = ENCOUNTER_DEFINITIONS.forestAmbush;
+
   return {
     mode: setup.mode,
+    encounterId: encounter.id,
     randomSeed: setup.randomSeed,
     round: 1,
     phase: "selectingActions",
@@ -76,7 +80,9 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
       "character-1": createCharacterState(setup.players.player1),
       "character-2": createCharacterState(setup.players.player2),
     },
-    enemies: [createEnemyState("level1Orc", "enemy-1")],
+    enemies: encounter.enemies.map(({ enemyId, instanceId }) =>
+      createEnemyState(enemyId, instanceId),
+    ),
   };
 }
 

@@ -1,9 +1,9 @@
-import portrait1 from "../../../assets/portraits/Character1_1.png";
-import portrait2 from "../../../assets/portraits/Character1_2.png";
-import portrait3 from "../../../assets/portraits/Character1_3.png";
-import portrait7 from "../../../assets/portraits/Character3_1.png";
-import portrait8 from "../../../assets/portraits/Character3_2.png";
-import portrait9 from "../../../assets/portraits/Character3_3.png";
+import portrait1 from "../../../assets/portraits/character1_1.png";
+import portrait2 from "../../../assets/portraits/character1_2.png";
+import portrait3 from "../../../assets/portraits/character1_3.png";
+import portrait7 from "../../../assets/portraits/character3_1.png";
+import portrait8 from "../../../assets/portraits/character3_2.png";
+import portrait9 from "../../../assets/portraits/character3_3.png";
 import type {
   CharacterPresetId,
   PortraitId,

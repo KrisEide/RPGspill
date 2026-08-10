@@ -20,6 +20,8 @@ export type PortraitId =
 
 export type EnemyId = "level1Orc";
 
+export type EncounterId = "forestAmbush";
+
 export type Element = "fire" | "water" | "earth" | "wind";
 
 export type DamageType = "physical" | "elemental";
@@ -143,6 +145,7 @@ export type GamePhase = RoundOutcomePhase | "animating";
 
 export type CombatState = {
   mode: GameMode;
+  encounterId: EncounterId;
   randomSeed: number;
   round: number;
   phase: RoundOutcomePhase;

@@ -1,5 +1,5 @@
-import damageBox from "../../../assets/Icons/damage_box.png";
-import criticalHitBox from "../../../assets/Icons/critical_hit_box.png";
+import damageBox from "../../../assets/icons/damage_box.png";
+import criticalHitBox from "../../../assets/icons/critical_hit_box.png";
 
 type Props = {
   amount: number;

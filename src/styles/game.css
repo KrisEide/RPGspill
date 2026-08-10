@@ -313,6 +313,11 @@ body {
   box-shadow: none;
 }
 
+.cmdbar__slot--unavailable {
+  cursor: not-allowed;
+  filter: saturate(0.7) brightness(0.82);
+}
+
 .cmdbar__icon {
   width: 96px;
   height: 96px;
@@ -323,6 +328,10 @@ body {
 
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+}
+
+.cmdbar__icon--spirit {
+  transform: scale(0.9);
 }
 
 /* Informasjonstekst for ikonene */
@@ -356,6 +365,84 @@ body {
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
 }
 
+.cmdbar__panel {
+  position: absolute;
+  top: 10px;
+  right: 24px;
+  bottom: 10px;
+  left: 132px;
+
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 20px;
+  padding: 10px 18px;
+
+  color: white;
+  background: rgba(6, 19, 10, 0.5);
+  border: 1px solid rgba(210, 255, 225, 0.2);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: commandPanelReveal 180ms ease-out both;
+}
+
+.cmdbar__backButton {
+  min-width: 92px;
+  padding: 9px 13px;
+
+  color: white;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.cmdbar__backButton:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 224, 120, 0.65);
+  transform: translateX(-2px);
+}
+
+.cmdbar__panelContent {
+  min-width: 0;
+  text-align: center;
+}
+
+.cmdbar__panelTitle {
+  color: #ffd34f;
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.cmdbar__emptyMessage {
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@keyframes commandPanelReveal {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .cmdbar__text {
   flex: 1 1 auto;
   max-width: 420px;
@@ -385,6 +472,10 @@ body {
   .cmdbar__title {
     font-size: 20px;
   }
+
+  .cmdbar__panel {
+    left: 106px;
+  }
 }
 
 @media (max-width: 700px) {
@@ -411,6 +502,12 @@ body {
   .cmdbar__desc {
     font-size: 12px;
   }
+
+  .cmdbar__panel {
+    left: 92px;
+    gap: 12px;
+    padding-inline: 12px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -420,6 +517,24 @@ body {
   }
   .cmdbar__text {
     width: 200px;
+  }
+
+  .cmdbar__panel {
+    right: 8px;
+    left: 88px;
+  }
+
+  .cmdbar__backButton {
+    min-width: auto;
+    padding-inline: 10px;
+  }
+
+  .cmdbar__panelTitle {
+    font-size: 17px;
+  }
+
+  .cmdbar__emptyMessage {
+    font-size: 12px;
   }
 }
 
@@ -451,10 +566,175 @@ body {
     linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 55%);
 }
 
+/* ---------- ENCOUNTER INTRO ---------- */
+
+.encounterAnnouncement {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: encounterAnnouncementReveal 3600ms ease-in-out both;
+}
+
+.encounterAnnouncement__content {
+  position: relative;
+  width: min(560px, calc(100vw - 40px));
+  padding: 22px 32px 25px;
+
+  color: white;
+  text-align: center;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.95);
+}
+
+.encounterAnnouncement__content::before,
+.encounterAnnouncement__content::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: min(420px, 72vw);
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 216, 91, 0.95),
+    transparent
+  );
+  box-shadow: 0 0 10px rgba(255, 211, 79, 0.5);
+}
+
+.encounterAnnouncement__content::before {
+  top: 0;
+}
+
+.encounterAnnouncement__content::after {
+  bottom: 0;
+}
+
+.encounterAnnouncement__label {
+  color: #ffd34f;
+  font-size: clamp(16px, 1.6vw, 22px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.encounterAnnouncement__title {
+  margin-top: 10px;
+  font-size: clamp(32px, 4vw, 56px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+}
+
+.battleScene:not(.battleScene--interface-visible) :is(
+    .partyStatus,
+    .battleRound,
+    .combatLog,
+    .battlePrompt,
+    .cmdbar
+  ) {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.battleScene--interface-visible :is(
+    .partyStatus,
+    .battleRound,
+    .combatLog,
+    .battlePrompt,
+    .cmdbar
+  ) {
+  visibility: visible;
+  animation: battleInterfaceReveal 1200ms 420ms ease-out both;
+}
+
+.battleScene__unit--waiting {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.battleScene__playerUnit.battleScene__unit--entering {
+  animation: playerEncounterEntrance 2200ms cubic-bezier(0.16, 0.8, 0.24, 1)
+    both;
+}
+
+.battleScene__playerUnit--two.battleScene__unit--entering {
+  animation-delay: 180ms;
+}
+
+.battleScene__enemyUnit.battleScene__unit--entering {
+  animation: enemyEncounterEntrance 2300ms 120ms
+    cubic-bezier(0.16, 0.8, 0.24, 1) both;
+}
+
+@keyframes encounterAnnouncementReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  16%,
+  72% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1.01);
+  }
+}
+
+@keyframes battleInterfaceReveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes playerEncounterEntrance {
+  0% {
+    opacity: 0;
+    transform: translateX(-55vw);
+  }
+  72% {
+    opacity: 1;
+    transform: translateX(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes enemyEncounterEntrance {
+  0% {
+    opacity: 0;
+    transform: translate(calc(-50% + 55vw), -50%)
+      scale(var(--enemy-scale, 1));
+  }
+  72% {
+    opacity: 1;
+    transform: translate(calc(-50% - 12px), -50%)
+      scale(var(--enemy-scale, 1));
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(var(--enemy-scale, 1));
+  }
+}
+
 /* Dette er en variabel som endrer på høyden på command baren og padding på
 battlescene bilde. */
 :root {
   --hud-height: 125px;
+  --combat-animation-duration: 1200ms;
 }
 
 /* ---------- SPRITE --------- */
@@ -504,15 +784,15 @@ battlescene bilde. */
 
 .battleScene__playerUnit--attacking {
   z-index: 12;
-  animation: playerAdvance 1450ms ease-in-out both;
+  animation: playerAdvance var(--combat-animation-duration) ease-in-out both;
 }
 
 .battleScene__playerUnit--attacking .battleScene__playerSprite--idle {
-  animation: idleSpriteCrossfade 1450ms linear both;
+  animation: idleSpriteCrossfade var(--combat-animation-duration) linear both;
 }
 
 .battleScene__playerUnit--attacking .battleScene__playerSprite--attack {
-  animation: attackSpriteCrossfade 1450ms linear both;
+  animation: attackSpriteCrossfade var(--combat-animation-duration) linear both;
 }
 
 @keyframes playerAdvance {
@@ -568,7 +848,7 @@ battlescene bilde. */
 
 .battleScene__enemyUnit {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(var(--enemy-scale, 1));
 
   width: 550px;
   height: 367px;
@@ -641,15 +921,15 @@ battlescene bilde. */
 
 .battleScene__enemyUnit--attacking .battleScene__enemySpriteStage {
   z-index: 3;
-  animation: enemyAdvance 1450ms ease-in-out both;
+  animation: enemyAdvance var(--combat-animation-duration) ease-in-out both;
 }
 
 .battleScene__enemyUnit--attacking .battleScene__enemySprite--idle {
-  animation: idleSpriteCrossfade 1450ms linear both;
+  animation: idleSpriteCrossfade var(--combat-animation-duration) linear both;
 }
 
 .battleScene__enemyUnit--attacking .battleScene__enemySprite--attack {
-  animation: attackSpriteCrossfade 1450ms linear both;
+  animation: attackSpriteCrossfade var(--combat-animation-duration) linear both;
 }
 
 @keyframes enemyAdvance {
