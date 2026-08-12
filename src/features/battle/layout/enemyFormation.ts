@@ -32,6 +32,13 @@ const THREE_ENEMY_POSITIONS: EnemyFormationPosition[] = [
   { xPercent: 69, yPercent: 49, scale: 1, zIndex: 10 },
 ];
 
+const FOUR_ENEMY_POSITIONS: EnemyFormationPosition[] = [
+  { xPercent: 63, yPercent: 34, scale: 0.72, zIndex: 8 },
+  { xPercent: 82, yPercent: 34, scale: 0.72, zIndex: 8 },
+  { xPercent: 56, yPercent: 52, scale: 0.8, zIndex: 10 },
+  { xPercent: 75, yPercent: 52, scale: 0.8, zIndex: 10 },
+];
+
 export function getEnemyFormationPositions(
   enemies: EnemyState[],
 ): EnemyFormationPosition[] {
@@ -45,6 +52,10 @@ export function getEnemyFormationPositions(
 
   if (enemies.length === 3) {
     return THREE_ENEMY_POSITIONS;
+  }
+
+  if (enemies.length === 4) {
+    return FOUR_ENEMY_POSITIONS;
   }
 
   return enemies.map((_, index) => ({

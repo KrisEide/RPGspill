@@ -1,9 +1,16 @@
-import { ABILITIES } from "../../data/actions";
-import { PLAYER_ORDER } from "../playerControl";
+import {
+  getKnownAbilityRank,
+  resolveAbility,
+} from "../abilities/abilityProgression";
+import {
+  isCharacterInstanceId,
+  PLAYER_ORDER,
+} from "../playerControl";
 import type {
   AbilityId,
+  AbilityTarget,
+  CombatantId,
   CombatState,
-  EnemyInstanceId,
   PlayerId,
   RoundSelections,
 } from "../types";
@@ -11,8 +18,43 @@ import type {
 type PlayerActionRequest = {
   playerId: PlayerId;
   abilityId: AbilityId;
-  targetId: EnemyInstanceId;
+  targetId: CombatantId | null;
 };
+
+function isValidTarget(
+  state: CombatState,
+  actorId: CombatantId,
+  targetId: CombatantId | null,
+  targetType: AbilityTarget,
+) {
+  if (targetType === "allEnemies") {
+    return (
+      targetId === null && state.enemies.some((enemy) => enemy.hp > 0)
+    );
+  }
+
+  if (targetType === "self") {
+    return targetId === actorId;
+  }
+
+  if (targetType === "singleAlly") {
+    return (
+      targetId !== null &&
+      isCharacterInstanceId(targetId) &&
+      state.characters[targetId].hp > 0
+    );
+  }
+
+  return (
+    targetId !== null &&
+    !isCharacterInstanceId(targetId) &&
+    Boolean(
+      state.enemies.find(
+        (enemy) => enemy.instanceId === targetId && enemy.hp > 0,
+      ),
+    )
+  );
+}
 
 export function createEmptyRoundSelections(): RoundSelections {
   return {
@@ -32,18 +74,25 @@ export function selectPlayerAction(
 
   const characterId = state.players[request.playerId].controlledCharacterId;
   const actor = state.characters[characterId];
-  const target = state.enemies.find(
-    (enemy) => enemy.instanceId === request.targetId,
+  const abilityRank = getKnownAbilityRank(
+    actor.abilityRanks,
+    request.abilityId,
   );
-  const ability = ABILITIES[request.abilityId];
+  const ability = abilityRank
+    ? resolveAbility(request.abilityId, abilityRank)
+    : null;
 
   if (
     actor.hp <= 0 ||
     selections[characterId] !== null ||
-    !actor.abilityIds.includes(request.abilityId) ||
+    !ability ||
     actor.pp < ability.ppCost ||
-    !target ||
-    target.hp <= 0
+    !isValidTarget(
+      state,
+      characterId,
+      request.targetId,
+      ability.target,
+    )
   ) {
     return null;
   }

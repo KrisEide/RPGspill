@@ -14,12 +14,16 @@ import {
 } from "../../src/game/combat/playerActions";
 import { resolveRound } from "../../src/game/combat/resolveRound";
 import { createInitialCombatState } from "../../src/game/state/initialState";
+import { startEncounter } from "../../src/game/state/encounterState";
+import { PLACEHOLDER_UPGRADE_CHOICES } from "../../src/data/upgrades";
+import { ENCOUNTER_DEFINITIONS } from "../../src/data/encounters";
 import type {
   CharacterDraft,
   CombatState,
   GameSetup,
   PlayerId,
   RoundSelections,
+  UpgradeChoiceId,
 } from "../../src/game/types";
 import type {
   CharacterReadinessState,
@@ -31,6 +35,7 @@ import type {
   RoomConnection,
   ServerToClientEvents,
   SocketData,
+  UpgradeReadinessState,
 } from "../../src/network/protocol";
 
 type ConnectedPlayer = {
@@ -45,6 +50,7 @@ type GameRoom = {
   player2: ConnectedPlayer | null;
   combatState: CombatState | null;
   roundSelections: RoundSelections;
+  upgradeSelections: Record<PlayerId, UpgradeChoiceId | null>;
 };
 
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -163,6 +169,23 @@ function createPlayerReadinessState(room: GameRoom): PlayerReadinessState {
   };
 }
 
+function createUpgradeReadinessState(
+  room: GameRoom,
+): UpgradeReadinessState {
+  const completedEncounterId = room.combatState?.encounterId;
+
+  if (!completedEncounterId) {
+    throw new Error("Cannot create upgrade readiness without combat state.");
+  }
+
+  return {
+    completedEncounterId,
+    readyPlayerIds: PLAYER_ORDER.filter(
+      (playerId) => room.upgradeSelections[playerId] !== null,
+    ),
+  };
+}
+
 function startBattleIfReady(room: GameRoom) {
   if (
     room.combatState ||
@@ -207,6 +230,10 @@ io.on("connection", (socket) => {
       player2: null,
       combatState: null,
       roundSelections: createEmptyRoundSelections(),
+      upgradeSelections: {
+        player1: null,
+        player2: null,
+      },
     };
 
     rooms.set(roomCode, room);
@@ -329,6 +356,52 @@ io.on("connection", (socket) => {
     room.combatState = result.nextState;
     room.roundSelections = createEmptyRoundSelections();
     io.to(room.code).emit("roundResolved", result);
+  });
+
+  socket.on("selectUpgrade", (request, respond) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+    const choiceExists = PLACEHOLDER_UPGRADE_CHOICES.some(
+      (choice) => choice.id === request.choiceId,
+    );
+    const nextEncounterId = room?.combatState
+      ? ENCOUNTER_DEFINITIONS[room.combatState.encounterId]
+          .nextEncounterId
+      : null;
+
+    if (
+      !room ||
+      !room.combatState ||
+      !playerId ||
+      room.combatState.phase !== "victory" ||
+      room.combatState.encounterId !== request.completedEncounterId ||
+      !nextEncounterId ||
+      room.upgradeSelections[playerId] !== null ||
+      !choiceExists
+    ) {
+      respond(false);
+      return;
+    }
+
+    room.upgradeSelections[playerId] = request.choiceId;
+    respond(true);
+    io.to(room.code).emit(
+      "upgradeReadinessUpdated",
+      createUpgradeReadinessState(room),
+    );
+
+    if (PLAYER_ORDER.some((id) => room.upgradeSelections[id] === null)) {
+      return;
+    }
+
+    room.combatState = startEncounter(room.combatState, nextEncounterId);
+    room.roundSelections = createEmptyRoundSelections();
+    room.upgradeSelections = {
+      player1: null,
+      player2: null,
+    };
+    io.to(room.code).emit("encounterStarted", room.combatState);
   });
 
   socket.on("disconnect", () => {

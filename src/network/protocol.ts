@@ -2,10 +2,12 @@ import type {
   AbilityId,
   CharacterDraft,
   CharacterInstanceId,
+  CombatantId,
   CombatState,
-  EnemyInstanceId,
+  EncounterId,
   PlayerId,
   RoundResult,
+  UpgradeChoiceId,
 } from "../game/types";
 
 export type LobbyStatus = "waitingForPlayer" | "ready";
@@ -35,11 +37,21 @@ export type CharacterReadinessState = {
 export type MultiplayerActionRequest = {
   round: number;
   abilityId: AbilityId;
-  targetId: EnemyInstanceId;
+  targetId: CombatantId | null;
 };
 
 export type PlayerReadinessState = {
   round: number;
+  readyPlayerIds: PlayerId[];
+};
+
+export type UpgradeSelectionRequest = {
+  completedEncounterId: EncounterId;
+  choiceId: UpgradeChoiceId;
+};
+
+export type UpgradeReadinessState = {
+  completedEncounterId: EncounterId;
   readyPlayerIds: PlayerId[];
 };
 
@@ -59,6 +71,8 @@ export interface ServerToClientEvents {
   gameStarted: (state: CombatState) => void;
   playerReadinessUpdated: (state: PlayerReadinessState) => void;
   roundResolved: (result: RoundResult) => void;
+  upgradeReadinessUpdated: (state: UpgradeReadinessState) => void;
+  encounterStarted: (state: CombatState) => void;
   sessionEnded: () => void;
 }
 
@@ -74,6 +88,10 @@ export interface ClientToServerEvents {
   ) => void;
   selectAction: (
     request: MultiplayerActionRequest,
+    respond: (accepted: boolean) => void,
+  ) => void;
+  selectUpgrade: (
+    request: UpgradeSelectionRequest,
     respond: (accepted: boolean) => void,
   ) => void;
 }

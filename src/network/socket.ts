@@ -7,6 +7,8 @@ import type {
   PlayerReadinessState,
   RoomConnection,
   ServerToClientEvents,
+  UpgradeReadinessState,
+  UpgradeSelectionRequest,
 } from "./protocol";
 import type {
   CharacterDraft,
@@ -111,6 +113,16 @@ export async function submitMultiplayerAction(
   });
 }
 
+export async function submitMultiplayerUpgrade(
+  request: UpgradeSelectionRequest,
+) {
+  await connect();
+
+  return new Promise<boolean>((resolve) => {
+    socket.emit("selectUpgrade", request, resolve);
+  });
+}
+
 export function subscribeToLobby(
   handleLobbyUpdated: (lobby: LobbyState) => void,
 ) {
@@ -166,5 +178,25 @@ export function subscribeToRoundResolved(
 
   return () => {
     socket.off("roundResolved", handleRoundResolved);
+  };
+}
+
+export function subscribeToUpgradeReadiness(
+  handleReadinessUpdated: (state: UpgradeReadinessState) => void,
+) {
+  socket.on("upgradeReadinessUpdated", handleReadinessUpdated);
+
+  return () => {
+    socket.off("upgradeReadinessUpdated", handleReadinessUpdated);
+  };
+}
+
+export function subscribeToEncounterStarted(
+  handleEncounterStarted: (state: CombatState) => void,
+) {
+  socket.on("encounterStarted", handleEncounterStarted);
+
+  return () => {
+    socket.off("encounterStarted", handleEncounterStarted);
   };
 }

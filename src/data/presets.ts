@@ -1,12 +1,12 @@
 import type {
-  AbilityId,
   CharacterPresetId,
   CombatStats,
+  KnownAbilities,
 } from "../game/types";
 
 export type CharacterPreset = {
   stats: CombatStats;
-  startingAbilities: AbilityId[];
+  startingAbilityRanks: KnownAbilities;
 };
 
 function createStartingStats(): CombatStats {
@@ -15,6 +15,7 @@ function createStartingStats(): CombatStats {
     maxPp: 50,
     attack: 10,
     defense: 10,
+    resistance: 10,
     agility: 10,
     elementalPower: {
       fire: 10,
@@ -28,10 +29,22 @@ function createStartingStats(): CombatStats {
 export const CHARACTER_PRESETS = {
   char1: {
     stats: createStartingStats(),
-    startingAbilities: ["autoAttack"],
+    startingAbilityRanks: {
+      autoAttack: 1,
+      defend: 1,
+      fireball: 1,
+      whirlwind: 1,
+      windSlash: 1,
+    },
   },
   char2: {
     stats: createStartingStats(),
-    startingAbilities: ["autoAttack"],
+    startingAbilityRanks: {
+      autoAttack: 1,
+      defend: 1,
+      fireball: 1,
+      whirlwind: 1,
+      windSlash: 1,
+    },
   },
 } satisfies Record<CharacterPresetId, CharacterPreset>;

@@ -8,9 +8,10 @@ import { isCharacterInstanceId } from "../playerControl";
 import type {
   AbilityId,
   ClientBattleState,
-  CombatEvent,
   CombatState,
-  EnemyInstanceId,
+  CombatantId,
+  DamageEvent,
+  StatusChange,
   PlayerId,
   RoundResult,
 } from "../types";
@@ -20,7 +21,7 @@ export type GameAction =
       type: "submitPlayerAction";
       playerId: PlayerId;
       abilityId: AbilityId;
-      targetId: EnemyInstanceId;
+      targetId: CombatantId | null;
     }
   | {
       type: "applyCurrentCombatEvent";
@@ -31,6 +32,10 @@ export type GameAction =
   | {
       type: "receiveRoundResult";
       result: RoundResult;
+    }
+  | {
+      type: "startEncounter";
+      combatState: CombatState;
     };
 
 export function gameReducer(
@@ -47,6 +52,16 @@ export function gameReducer(
 
   if (action.type === "receiveRoundResult") {
     return beginRoundAnimation(state, action.result);
+  }
+
+  if (action.type === "startEncounter") {
+    return {
+      combat: action.combatState,
+      phase: action.combatState.phase,
+      roundSelections: createEmptyRoundSelections(),
+      lastRoundEvents: [],
+      pendingRound: null,
+    };
   }
 
   if (state.phase !== "selectingActions") {
@@ -110,8 +125,30 @@ function beginRoundAnimation(
 
 function applyDamageEvent(
   state: CombatState,
-  event: CombatEvent,
+  event: Pick<
+    DamageEvent,
+    "targetId" | "remainingHp" | "statusChanges"
+  >,
 ): CombatState {
+  const applyStatusChanges = (
+    statuses: CombatState["enemies"][number]["statuses"],
+    changes: StatusChange[],
+  ) =>
+    changes.reduce((nextStatuses, change) => {
+      if (change.type === "removed") {
+        return nextStatuses.filter(
+          (status) => status.id !== change.statusId,
+        );
+      }
+
+      return [
+        ...nextStatuses.filter(
+          (status) => status.id !== change.status.id,
+        ),
+        change.status,
+      ];
+    }, statuses);
+
   if (isCharacterInstanceId(event.targetId)) {
     return {
       ...state,
@@ -120,6 +157,10 @@ function applyDamageEvent(
         [event.targetId]: {
           ...state.characters[event.targetId],
           hp: event.remainingHp,
+          statuses: applyStatusChanges(
+            state.characters[event.targetId].statuses,
+            event.statusChanges,
+          ),
         },
       },
     };
@@ -129,7 +170,14 @@ function applyDamageEvent(
     ...state,
     enemies: state.enemies.map((enemy) =>
       enemy.instanceId === event.targetId
-        ? { ...enemy, hp: event.remainingHp }
+        ? {
+            ...enemy,
+            hp: event.remainingHp,
+            statuses: applyStatusChanges(
+              enemy.statuses,
+              event.statusChanges,
+            ),
+          }
         : enemy,
     ),
   };
@@ -154,7 +202,15 @@ function applyCurrentCombatEvent(
     return finishRound(state);
   }
 
-  const combatAfterEvent = applyDamageEvent(state.combat, event);
+  const combatAfterEvent =
+    event.type === "damage"
+      ? applyDamageEvent(state.combat, event)
+      : event.type === "multiTargetDamage"
+        ? event.impacts.reduce(
+            (combat, impact) => applyDamageEvent(combat, impact),
+            state.combat,
+          )
+      : state.combat;
 
   return {
     ...state,

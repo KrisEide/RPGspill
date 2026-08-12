@@ -1,15 +1,11 @@
 import { CHARACTER_PRESETS } from "../../data/presets";
-import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
-import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { createEmptyRoundSelections } from "../combat/playerActions";
+import { createEncounterEnemies } from "./encounterState";
 import type {
   CharacterState,
   ClientBattleState,
   CombatState,
   CombatStats,
-  EnemyId,
-  EnemyInstanceId,
-  EnemyState,
   GameSetup,
   PlayerSetup,
 } from "../types";
@@ -33,36 +29,15 @@ function createCharacterState(player: PlayerSetup): CharacterState {
     hp: stats.maxHp,
     pp: stats.maxPp,
     stats,
-    abilityIds: [...preset.startingAbilities],
-  };
-}
-
-function createEnemyState(
-  enemyId: EnemyId,
-  instanceId: EnemyInstanceId,
-): EnemyState {
-  const definition = ENEMY_DEFINITIONS[enemyId];
-  const stats = copyCombatStats(definition.stats);
-
-  return {
-    instanceId,
-    enemyId: definition.id,
-    name: definition.name,
-    level: definition.level,
-    isBoss: definition.isBoss,
-    hp: stats.maxHp,
-    pp: stats.maxPp,
-    stats,
-    abilityIds: [...definition.abilityIds],
+    abilityRanks: { ...preset.startingAbilityRanks },
+    statuses: [],
   };
 }
 
 export function createInitialCombatState(setup: GameSetup): CombatState {
-  const encounter = ENCOUNTER_DEFINITIONS.forestAmbush;
-
   return {
     mode: setup.mode,
-    encounterId: encounter.id,
+    encounterId: "forestAmbush",
     randomSeed: setup.randomSeed,
     round: 1,
     phase: "selectingActions",
@@ -80,9 +55,7 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
       "character-1": createCharacterState(setup.players.player1),
       "character-2": createCharacterState(setup.players.player2),
     },
-    enemies: encounter.enemies.map(({ enemyId, instanceId }) =>
-      createEnemyState(enemyId, instanceId),
-    ),
+    enemies: createEncounterEnemies("forestAmbush"),
   };
 }
 
