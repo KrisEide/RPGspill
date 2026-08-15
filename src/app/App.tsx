@@ -5,6 +5,7 @@ import BattleScreen from "../features/battle/BattleScreen";
 import MultiplayerLobbyScreen from "../features/multiplayer/MultiplayerLobbyScreen";
 import MultiplayerCharacterReadyScreen from "../features/multiplayer/MultiplayerCharacterReadyScreen";
 import { DEFAULT_PLAYER_CHARACTER_CONTROL } from "../game/playerControl";
+import { createDevelopmentSetup } from "../game/development/createDevelopmentSetup";
 import {
   createMultiplayerRoom,
   joinMultiplayerRoom,
@@ -23,6 +24,7 @@ import type {
   CombatState,
   GameMode,
   GameSetup,
+  EncounterId,
   PlayerId,
   PlayerSetup,
 } from "../game/types";
@@ -107,6 +109,16 @@ export default function App() {
     setScreen("character");
   };
 
+  const startDevelopmentEncounter = (encounterId: EncounterId) => {
+    setGameMode("singlePlayer");
+    setPlayerOne(null);
+    setSelectingPlayerId("player1");
+    setGameSetup(
+      createDevelopmentSetup(encounterId, createRandomSeed()),
+    );
+    setScreen("battle");
+  };
+
   const confirmCharacter = async (character: CharacterDraft) => {
     if (gameMode === "twoPlayer" && roomConnection) {
       await submitMultiplayerCharacter(character);
@@ -187,6 +199,7 @@ export default function App() {
   const startScreen = (
     <StartScreen
       onSinglePlayer={() => startCharacterSelect("singlePlayer")}
+      onDevelopmentStart={startDevelopmentEncounter}
       onCreateGame={createGame}
       onJoinGame={joinGame}
     />

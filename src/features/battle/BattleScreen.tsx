@@ -6,10 +6,9 @@ import {
   useState,
 } from "react";
 import type { CSSProperties } from "react";
-import background from "../../assets/backgrounds/bakgrunn1.png";
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
-import { PLACEHOLDER_UPGRADE_CHOICES } from "../../data/upgrades";
+import { SPIRIT_DEFINITIONS } from "../../data/spirits";
 import CommandBar from "./components/CommandBar";
 import DamageNumber from "./components/DamageNumber";
 import PartyStatusPanel from "./components/PartyStatusPanel";
@@ -17,6 +16,7 @@ import UpgradeSelection from "./components/UpgradeSelection";
 import { CHARACTER_VISUALS } from "./data/characterVisuals";
 import { ABILITY_VISUALS } from "./data/abilityVisuals";
 import { ENEMY_VISUALS } from "./data/enemyVisuals";
+import { ENCOUNTER_VISUALS } from "./data/encounterVisuals";
 import { getEnemyFormationPositions } from "./layout/enemyFormation";
 import {
   createClientBattleState,
@@ -24,7 +24,9 @@ import {
 } from "../../game/state/initialState";
 import { gameReducer } from "../../game/state/gameReducer";
 import { startEncounter } from "../../game/state/encounterState";
+import { applyRewardChoices } from "../../game/rewards/rewardSystem";
 import {
+  getAbilityScalingDescription,
   getKnownAbilityIds,
   getKnownAbilityRank,
   hasKnownAbilityInCategory,
@@ -86,7 +88,7 @@ type EncounterIntroPhase =
 type ProjectilePath = {
   key: string;
   spriteSrc: string;
-  variant: "fire" | "dark";
+  variant: "fire" | "dark" | "wind";
   width: number;
   durationMs: number;
   startX: number;
@@ -110,6 +112,14 @@ function getDamageImpactForTarget(
     return event.targetId === targetId ? event : null;
   }
 
+  if (event?.type === "statusDamage") {
+    return event.targetId === targetId ? event : null;
+  }
+
+  if (event?.type === "spiritDamage") {
+    return event.targetId === targetId ? event : null;
+  }
+
   if (event?.type === "multiTargetDamage") {
     return (
       event.impacts.find((impact) => impact.targetId === targetId) ?? null
@@ -117,6 +127,15 @@ function getDamageImpactForTarget(
   }
 
   return null;
+}
+
+function getSupportImpactForTarget(
+  event: CombatEvent | null,
+  targetId: CharacterInstanceId,
+) {
+  return event?.type === "support" && event.targetId === targetId
+    ? event
+    : null;
 }
 
 function getProjectileOrigin(
@@ -162,7 +181,9 @@ export default function BattleScreen(props: Props) {
     });
   const [actionSubmitting, setActionSubmitting] = useState(false);
   const [upgradeSubmitting, setUpgradeSubmitting] = useState(false);
-  const [backgroundReady, setBackgroundReady] = useState(false);
+  const [loadedBackgroundSrc, setLoadedBackgroundSrc] = useState<
+    string | null
+  >(null);
   const [encounterIntroPhase, setEncounterIntroPhase] =
     useState<EncounterIntroPhase>("background");
   const [projectilePath, setProjectilePath] =
@@ -175,6 +196,9 @@ export default function BattleScreen(props: Props) {
   const localPlayerId = isMultiplayer ? props.localPlayerId : null;
   const combatState = gameState.combat;
   const encounter = ENCOUNTER_DEFINITIONS[combatState.encounterId];
+  const battleBackground =
+    ENCOUNTER_VISUALS[combatState.encounterId].backgroundImageSrc;
+  const backgroundReady = loadedBackgroundSrc === battleBackground;
   const nextEncounterId = encounter.nextEncounterId;
   const localCharacterId = localPlayerId
     ? combatState.players[localPlayerId].controlledCharacterId
@@ -199,6 +223,9 @@ export default function BattleScreen(props: Props) {
   const upgradeCharacter = upgradeCharacterId
     ? combatState.characters[upgradeCharacterId]
     : null;
+  const upgradeChoices = upgradeCharacterId
+    ? (combatState.rewardOffers?.[upgradeCharacterId] ?? [])
+    : [];
   const upgradeSelectedChoiceId = isMultiplayer
     ? localUpgradeChoiceId
     : upgradeCharacterId
@@ -265,7 +292,10 @@ export default function BattleScreen(props: Props) {
                 {
                   id: ability.id,
                   name: ability.name,
+                  shortDescription: ability.shortDescription,
                   description: ability.description,
+                  scalingDescription:
+                    getAbilityScalingDescription(ability),
                   ppCost: ability.ppCost,
                   rank: ability.rank,
                   icon: visuals?.icon ?? "✦",
@@ -277,8 +307,34 @@ export default function BattleScreen(props: Props) {
       )
     : [];
   const spiritAvailable = commandCharacter
-    ? hasKnownAbilityInCategory(commandCharacter.abilityRanks, "spirit")
+    ? Object.values(commandCharacter.spirits).some(Boolean)
     : false;
+  const knownSpirits = commandCharacter
+    ? Object.values(commandCharacter.spirits).flatMap((spirit) => {
+        if (!spirit) {
+          return [];
+        }
+
+        const definition = SPIRIT_DEFINITIONS[spirit.id];
+        const active = resolveAbility(definition.activeAbilityId, 1);
+
+        return active
+          ? [
+              {
+                id: definition.id,
+                name: definition.name,
+                passiveName: definition.passive.name,
+                passiveDescription: definition.passive.description,
+                activeAbilityId: definition.activeAbilityId,
+                activeName: active.name,
+                activeShortDescription: active.shortDescription,
+                activeDescription: active.description,
+                usesRemaining: spirit.activeUsesRemaining,
+              },
+            ]
+          : [];
+      })
+    : [];
   const currentCombatEvent = gameState.pendingRound
     ? gameState.pendingRound.result.events[
         gameState.pendingRound.nextEventIndex
@@ -286,7 +342,8 @@ export default function BattleScreen(props: Props) {
     : null;
   const currentAbilityVisuals =
     currentCombatEvent?.type === "damage" ||
-    currentCombatEvent?.type === "multiTargetDamage"
+    currentCombatEvent?.type === "multiTargetDamage" ||
+    currentCombatEvent?.type === "support"
       ? ABILITY_VISUALS[currentCombatEvent.abilityId]
       : null;
   const projectileOrigin = getProjectileOrigin(
@@ -306,9 +363,40 @@ export default function BattleScreen(props: Props) {
       .filter((event) => event.type === "defend")
       .map((event) => event.targetId) ?? [],
   );
-  const enemyFormationPositions = getEnemyFormationPositions(
-    combatState.enemies,
-  );
+  const enemyFormationPositions =
+    ENCOUNTER_VISUALS[combatState.encounterId].enemyFormation ??
+    getEnemyFormationPositions(combatState.enemies);
+  const currentBattlefieldEffect =
+    currentCombatEvent?.type === "multiTargetDamage"
+      ? currentAbilityVisuals?.battlefieldEffect
+      : null;
+  const battlefieldEffectPositions =
+    currentCombatEvent?.type === "multiTargetDamage"
+      ? currentCombatEvent.impacts.flatMap((impact) => {
+          const targetIndex = combatState.enemies.findIndex(
+            (enemy) => enemy.instanceId === impact.targetId,
+          );
+
+          return targetIndex >= 0
+            ? [enemyFormationPositions[targetIndex]]
+            : [];
+        })
+      : [];
+  const battlefieldEffectCenter =
+    battlefieldEffectPositions.length > 0
+      ? {
+          xPercent:
+            battlefieldEffectPositions.reduce(
+              (sum, position) => sum + position.xPercent,
+              0,
+            ) / battlefieldEffectPositions.length,
+          yPercent:
+            battlefieldEffectPositions.reduce(
+              (sum, position) => sum + position.yPercent,
+              0,
+            ) / battlefieldEffectPositions.length,
+        }
+      : null;
   const encounterEnemyTraits = Array.from(
     new Map(
       combatState.enemies.flatMap((enemy) => {
@@ -328,6 +416,33 @@ export default function BattleScreen(props: Props) {
       : "";
   const interfaceIsVisible =
     encounterIntroPhase === "entering" || encounterIntroComplete;
+
+  useEffect(() => {
+    const spriteSources = new Set(
+      [
+        ...Object.values(CHARACTER_VISUALS).flatMap((visuals) => [
+          visuals.autoAttackSpriteSrc,
+          ...Object.values(visuals.abilitySpriteSrcs),
+        ]),
+        ...Object.values(ABILITY_VISUALS).flatMap((visuals) =>
+          [
+            ...(visuals?.projectile ? [visuals.projectile.spriteSrc] : []),
+            ...(visuals?.targetEffect
+              ? [visuals.targetEffect.spriteSrc]
+              : []),
+            ...(visuals?.battlefieldEffect
+              ? [visuals.battlefieldEffect.spriteSrc]
+              : []),
+          ],
+        ),
+      ],
+    );
+
+    for (const spriteSource of spriteSources) {
+      const sprite = new Image();
+      sprite.src = spriteSource;
+    }
+  }, []);
 
   useLayoutEffect(() => {
     const measurementFrame = window.requestAnimationFrame(() => {
@@ -401,12 +516,12 @@ export default function BattleScreen(props: Props) {
   useEffect(() => {
     const backgroundImage = new Image();
     const finishLoading = () => {
-      setBackgroundReady(true);
+      setLoadedBackgroundSrc(battleBackground);
     };
 
     backgroundImage.addEventListener("load", finishLoading);
     backgroundImage.addEventListener("error", finishLoading);
-    backgroundImage.src = background;
+    backgroundImage.src = battleBackground;
 
     if (backgroundImage.complete) {
       finishLoading();
@@ -416,7 +531,7 @@ export default function BattleScreen(props: Props) {
       backgroundImage.removeEventListener("load", finishLoading);
       backgroundImage.removeEventListener("error", finishLoading);
     };
-  }, []);
+  }, [battleBackground]);
 
   useEffect(() => {
     if (!backgroundReady) {
@@ -454,14 +569,21 @@ export default function BattleScreen(props: Props) {
     }
 
     const isDefendEvent = currentCombatEvent.type === "defend";
+    const isStatusDamageEvent =
+      currentCombatEvent.type === "statusDamage" ||
+      currentCombatEvent.type === "spiritDamage";
     const impactDelay = isDefendEvent
       ? DEFEND_EFFECT_DELAY_MS
-      : (currentAbilityVisuals?.timing?.impactDelayMs ??
-        COMBAT_IMPACT_DELAY_MS);
+      : isStatusDamageEvent
+        ? 300
+        : (currentAbilityVisuals?.timing?.impactDelayMs ??
+          COMBAT_IMPACT_DELAY_MS);
     const eventDuration = isDefendEvent
       ? DEFEND_EVENT_DURATION_MS
-      : (currentAbilityVisuals?.timing?.eventDurationMs ??
-        COMBAT_EVENT_DURATION_MS);
+      : isStatusDamageEvent
+        ? 1400
+        : (currentAbilityVisuals?.timing?.eventDurationMs ??
+          COMBAT_EVENT_DURATION_MS);
     const impactTimer = window.setTimeout(
       () => {
         dispatch({ type: "applyCurrentCombatEvent" });
@@ -597,6 +719,26 @@ export default function BattleScreen(props: Props) {
     await submitPlayerAction(selectedAbilityId, targetId);
   };
 
+  const selectAllyTarget = async (targetId: CharacterInstanceId) => {
+    if (!selectedAbilityId || !commandCharacter) {
+      return;
+    }
+
+    const selectedRank = getKnownAbilityRank(
+      commandCharacter.abilityRanks,
+      selectedAbilityId,
+    );
+    const ability = selectedRank
+      ? resolveAbility(selectedAbilityId, selectedRank)
+      : null;
+
+    if (ability?.target !== "singleAlly") {
+      return;
+    }
+
+    await submitPlayerAction(selectedAbilityId, targetId);
+  };
+
   const selectUpgrade = async (choiceId: UpgradeChoiceId) => {
     if (
       !upgradeSelectionIsActive ||
@@ -638,16 +780,24 @@ export default function BattleScreen(props: Props) {
       ...singlePlayerUpgradeSelections,
       [upgradeCharacterId]: choiceId,
     };
-    const bothCharactersSelected = Object.values(nextSelections).every(
-      (selection) => selection !== null,
-    );
+    const firstChoice = nextSelections["character-1"];
+    const secondChoice = nextSelections["character-2"];
 
-    if (!bothCharactersSelected) {
+    if (!firstChoice || !secondChoice) {
       setSinglePlayerUpgradeSelections(nextSelections);
       return;
     }
 
     if (!nextEncounterId) {
+      return;
+    }
+
+    const upgradedCombatState = applyRewardChoices(combatState, {
+      "character-1": firstChoice,
+      "character-2": secondChoice,
+    });
+
+    if (!upgradedCombatState) {
       return;
     }
 
@@ -658,7 +808,7 @@ export default function BattleScreen(props: Props) {
     });
     dispatch({
       type: "startEncounter",
-      combatState: startEncounter(combatState, nextEncounterId),
+      combatState: startEncounter(upgradedCombatState, nextEncounterId),
     });
   };
 
@@ -690,22 +840,30 @@ export default function BattleScreen(props: Props) {
         : gameState.phase === "animating"
           ? currentCombatEvent?.type === "defend"
             ? `${getCombatantName(currentCombatEvent.actorId)} defends...`
+            : currentCombatEvent?.type === "statusDamage"
+              ? `${getCombatantName(currentCombatEvent.targetId)} takes damage from Burn...`
+            : currentCombatEvent?.type === "spiritDamage"
+              ? `Embertail strikes ${getCombatantName(currentCombatEvent.targetId)}...`
+            : currentCombatEvent?.type === "support"
+              ? `${getCombatantName(currentCombatEvent.actorId)} uses ${resolveAbility(currentCombatEvent.abilityId, currentCombatEvent.abilityRank)?.name ?? "an ability"} on ${getCombatantName(currentCombatEvent.targetId)}...`
             : currentCombatEvent
               ? `${getCombatantName(currentCombatEvent.actorId)} uses ${resolveAbility(currentCombatEvent.abilityId, currentCombatEvent.abilityRank)?.name ?? "an ability"}...`
               : "Combat..."
         : isMultiplayer && localPlayerReady
-          ? `${commandCharacter?.name}: Waiting for the other player...`
+          ? `${commandCharacter?.name} · Waiting for the other player...`
           : selectedAbility?.target === "singleEnemy"
-            ? `${commandCharacter?.name}: Select an enemy for ${selectedAbility.name}`
+            ? `${commandCharacter?.name} · Select an enemy for ${selectedAbility.name}`
+          : selectedAbility?.target === "singleAlly"
+            ? `${commandCharacter?.name} · Select an ally for ${selectedAbility.name}`
             : otherPlayerReady
-              ? `Other player is ready. ${commandCharacter?.name}: Select an action`
-              : `${commandCharacter?.name}: Select an action`;
+              ? `Other player is ready · ${commandCharacter?.name} · Select an action`
+              : `${commandCharacter?.name} · Select an action`;
 
   return (
     <div
       ref={battleSceneRef}
       className={`battleScene ${interfaceIsVisible ? "battleScene--interface-visible" : ""}`}
-      style={{ backgroundImage: `url(${background})` }}
+      style={{ backgroundImage: `url(${battleBackground})` }}
     >
       <div className="battleScene__overlay" />
 
@@ -750,20 +908,54 @@ export default function BattleScreen(props: Props) {
       {gameState.lastRoundEvents.length > 0 && (
         <div className="combatLog" aria-live="polite">
           {gameState.lastRoundEvents.map((event, index) => (
-            <div key={`${event.actorId}-${event.abilityId}-${index}`}>
+            <div
+              key={
+                event.type === "statusDamage"
+                  ? `${event.targetId}-${event.statusId}-${index}`
+                  : event.type === "spiritDamage"
+                    ? `${event.sourceId}-${event.spiritId}-${event.targetId}-${index}`
+                  : `${event.actorId}-${event.abilityId}-${index}`
+              }
+            >
               {event.type === "defend" ? (
                 <>{getCombatantName(event.actorId)} is defending.</>
+              ) : event.type === "statusDamage" ? (
+                <>
+                  Burn dealt {event.amount} damage to{" "}
+                  {getCombatantName(event.targetId)}.
+                </>
+              ) : event.type === "spiritDamage" ? (
+                <>
+                  Embertail dealt {event.amount} Spirit Fire damage to{" "}
+                  {getCombatantName(event.targetId)}
+                  {event.absorbedByBarrier > 0
+                    ? `; Barrier absorbed ${event.absorbedByBarrier}`
+                    : ""}.
+                </>
               ) : event.type === "multiTargetDamage" ? (
                 <>
                   {getCombatantName(event.actorId)} used{" "}
                   {resolveAbility(event.abilityId, event.abilityRank)?.name} and
                   hit {event.impacts.length} enemies.
                 </>
+              ) : event.type === "support" ? (
+                <>
+                  {getCombatantName(event.actorId)} used {resolveAbility(event.abilityId, event.abilityRank)?.name} on {getCombatantName(event.targetId)}
+                  {event.healingAmount > 0
+                    ? ` and restored ${event.healingAmount} HP`
+                    : ""}
+                  {event.barrierAmount > 0
+                    ? ` and granted ${event.barrierAmount} Barrier`
+                    : ""}.
+                </>
               ) : (
                 <>
                   {event.isCritical ? "Critical hit! " : ""}
                   {getCombatantName(event.actorId)} dealt {event.amount} damage
-                  to {getCombatantName(event.targetId)}.
+                  to {getCombatantName(event.targetId)}
+                  {event.absorbedByBarrier > 0
+                    ? `; Barrier absorbed ${event.absorbedByBarrier}`
+                    : ""}.
                 </>
               )}
             </div>
@@ -779,20 +971,31 @@ export default function BattleScreen(props: Props) {
         const visuals = CHARACTER_VISUALS[character.presetId];
         const isAttacking =
           (currentCombatEvent?.type === "damage" ||
-            currentCombatEvent?.type === "multiTargetDamage") &&
+            currentCombatEvent?.type === "multiTargetDamage" ||
+            currentCombatEvent?.type === "support") &&
           currentCombatEvent.actorId === characterId;
         const activeAbilityVisuals = isAttacking
           ? ABILITY_VISUALS[currentCombatEvent.abilityId]
           : null;
         const isCasting = activeAbilityVisuals?.animation === "cast";
+        const castVariant = isCasting
+          ? activeAbilityVisuals?.castVariant
+          : null;
         const isReleasingProjectile = Boolean(
           isCasting && activeAbilityVisuals?.projectile,
         );
         const isUsingWhirlwind =
           activeAbilityVisuals?.animation === "whirlwind";
+        const usesIdleActionSprite =
+          currentCombatEvent?.type !== "defend" &&
+          currentCombatEvent?.type !== "statusDamage" &&
+          currentCombatEvent?.type !== "spiritDamage" &&
+          currentCombatEvent?.abilityId === "cinderburst";
         const actionSpriteSrc = isAttacking
-          ? (visuals.abilitySpriteSrcs[currentCombatEvent.abilityId] ??
-            visuals.autoAttackSpriteSrc)
+          ? usesIdleActionSprite
+            ? visuals.idleSpriteSrc
+            : (visuals.abilitySpriteSrcs[currentCombatEvent.abilityId] ??
+              visuals.autoAttackSpriteSrc)
           : visuals.autoAttackSpriteSrc;
         const actionSpriteAdjustment = isAttacking
           ? visuals.abilitySpriteAdjustments[currentCombatEvent.abilityId]
@@ -805,10 +1008,34 @@ export default function BattleScreen(props: Props) {
         const receivedImpactVisuals =
           receivedDamage &&
           appliedCombatEvent &&
-          appliedCombatEvent.type !== "defend"
+          (appliedCombatEvent.type === "damage" ||
+            appliedCombatEvent.type === "multiTargetDamage")
             ? ABILITY_VISUALS[appliedCombatEvent.abilityId]
             : null;
         const isDarkImpact = receivedImpactVisuals?.impact === "dark";
+        const isBurnImpact =
+          (appliedCombatEvent?.type === "statusDamage" &&
+            appliedCombatEvent.statusId === "burn" &&
+            appliedCombatEvent.targetId === characterId) ||
+          (appliedCombatEvent?.type === "spiritDamage" &&
+            appliedCombatEvent.targetId === characterId);
+        const supportImpact = getSupportImpactForTarget(
+          appliedCombatEvent,
+          characterId,
+        );
+        const currentTargetEffect =
+          currentCombatEvent &&
+          getDamageImpactForTarget(currentCombatEvent, characterId) &&
+          (currentCombatEvent.type === "damage" ||
+            currentCombatEvent.type === "multiTargetDamage")
+            ? ABILITY_VISUALS[currentCombatEvent.abilityId]?.targetEffect
+            : null;
+        const canTargetAlly =
+          gameState.phase === "selectingActions" &&
+          Boolean(activePlayerId) &&
+          selectedAbility?.target === "singleAlly" &&
+          !actionSubmitting &&
+          character.hp > 0;
 
         return (
           <div
@@ -820,7 +1047,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(characterId);
               }
             }}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} ${unitEntranceClass} ${isAttacking ? "battleScene__playerUnit--acting" : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} ${unitEntranceClass} ${isAttacking ? "battleScene__playerUnit--acting battleScene__playerUnit--ability-${currentCombatEvent.abilityId}" : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""}`}
             style={
               activeAbilityVisuals?.timing
                 ? ({
@@ -835,6 +1062,11 @@ export default function BattleScreen(props: Props) {
               alt=""
             />
             <img
+              key={
+                isAttacking
+                  ? `${characterId}-${currentCombatEvent.abilityId}`
+                  : `${characterId}-inactive-action`
+              }
               className="battleScene__playerSprite battleScene__playerSprite--attack"
               src={actionSpriteSrc}
               alt=""
@@ -858,12 +1090,48 @@ export default function BattleScreen(props: Props) {
                   : undefined
               }
             />
+            {currentTargetEffect && (
+              <img
+                key={`${combatState.round}-${gameState.pendingRound?.nextEventIndex ?? 0}-${characterId}`}
+                className={`battleScene__targetEffect battleScene__targetEffect--${currentTargetEffect.variant}`}
+                src={currentTargetEffect.spriteSrc}
+                alt=""
+                style={
+                  {
+                    width: `${currentTargetEffect.width}px`,
+                    "--target-effect-duration": `${currentAbilityVisuals?.timing?.animationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
+                  } as CSSProperties
+                }
+              />
+            )}
             {receivedDamage && (
               <DamageNumber
                 amount={receivedDamage.amount}
                 isCritical={receivedDamage.isCritical}
+                absorbedByBarrier={
+                  "absorbedByBarrier" in receivedDamage
+                    ? receivedDamage.absorbedByBarrier
+                    : 0
+                }
               />
             )}
+            {supportImpact && (
+              <div className="supportNumber" aria-hidden="true">
+                {supportImpact.healingAmount > 0 && (
+                  <span>+{supportImpact.healingAmount} HP</span>
+                )}
+                {supportImpact.barrierAmount > 0 && (
+                  <span>🛡 +{supportImpact.barrierAmount}</span>
+                )}
+              </div>
+            )}
+            <button
+              type="button"
+              className="battleScene__allyHitbox"
+              disabled={!canTargetAlly}
+              onClick={() => void selectAllyTarget(characterId)}
+              aria-label={`Target ${character.name}`}
+            />
           </div>
         );
       })}
@@ -884,6 +1152,9 @@ export default function BattleScreen(props: Props) {
           currentCombatEvent.actorId === enemy.instanceId;
         const visuals = ENEMY_VISUALS[enemy.enemyId];
         const enemyDefinition = ENEMY_DEFINITIONS[enemy.enemyId];
+        const burnStatus = enemy.statuses.find(
+          (status) => status.id === "burn",
+        );
         const passiveTooltipId = enemyDefinition.passive
           ? `enemy-passive-${enemy.instanceId}`
           : undefined;
@@ -894,12 +1165,34 @@ export default function BattleScreen(props: Props) {
         const impactVisuals =
           receivedDamage &&
           appliedCombatEvent &&
-          appliedCombatEvent.type !== "defend"
+          (appliedCombatEvent.type === "damage" ||
+            appliedCombatEvent.type === "multiTargetDamage")
             ? ABILITY_VISUALS[appliedCombatEvent.abilityId]
             : null;
         const isFireImpact = impactVisuals?.impact === "fire";
+        const isWindImpact = impactVisuals?.impact === "wind";
+        const isWaterImpact = impactVisuals?.impact === "water";
+        const isBurnImpact =
+          (appliedCombatEvent?.type === "statusDamage" &&
+            appliedCombatEvent.statusId === "burn" &&
+            appliedCombatEvent.targetId === enemy.instanceId) ||
+          (appliedCombatEvent?.type === "spiritDamage" &&
+            appliedCombatEvent.targetId === enemy.instanceId);
+        const currentTargetEffect =
+          currentCombatEvent &&
+          getDamageImpactForTarget(
+            currentCombatEvent,
+            enemy.instanceId,
+          ) &&
+          (currentCombatEvent.type === "damage" ||
+            currentCombatEvent.type === "multiTargetDamage")
+            ? ABILITY_VISUALS[currentCombatEvent.abilityId]?.targetEffect
+            : null;
         const activeAbilityVisuals = isAttacking
           ? ABILITY_VISUALS[currentCombatEvent.abilityId]
+          : null;
+        const activeEnemySpriteSequence = isAttacking
+          ? visuals.abilitySpriteSequences?.[currentCombatEvent.abilityId]
           : null;
         const isProjectileCasting = Boolean(
           activeAbilityVisuals?.animation === "cast" &&
@@ -920,7 +1213,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(enemy.instanceId);
               }
             }}
-            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""} ${isProjectileCasting ? "battleScene__enemyUnit--projectile-casting" : ""} ${projectileVariant ? `battleScene__enemyUnit--projectile-${projectileVariant}` : ""} ${isFireImpact ? "battleScene__enemyUnit--fireImpact" : ""}`}
+            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""} ${visuals.attackAnimationVariant ? `battleScene__enemyUnit--attack-${visuals.attackAnimationVariant}` : ""} ${activeEnemySpriteSequence ? `battleScene__enemyUnit--sequence-${activeEnemySpriteSequence.variant}` : ""} ${isProjectileCasting ? "battleScene__enemyUnit--projectile-casting" : ""} ${projectileVariant ? `battleScene__enemyUnit--projectile-${projectileVariant}` : ""} ${isFireImpact ? "battleScene__enemyUnit--fireImpact" : ""} ${isWindImpact ? "battleScene__enemyUnit--windImpact" : ""} ${isWaterImpact ? "battleScene__enemyUnit--waterImpact" : ""} ${isBurnImpact ? "battleScene__enemyUnit--burnImpact" : ""}`}
             style={
               {
                 left: `${formationPosition.xPercent}%`,
@@ -928,14 +1221,26 @@ export default function BattleScreen(props: Props) {
                 "--enemy-scale": formationPosition.scale,
                 "--enemy-sprite-scale": visuals.spriteScale ?? 1,
                 "--enemy-status-top": visuals.statusTop,
-                "--action-animation-duration": `${activeAbilityVisuals?.timing?.animationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
+                "--action-animation-duration": `${activeAbilityVisuals?.timing?.animationDurationMs ?? visuals.attackAnimationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
                 zIndex: formationPosition.zIndex,
               } as CSSProperties
             }
           >
             <div className="enemyStatus">
               <div className="enemyStatus__heading">
-                Lv. {enemy.level} {enemy.name}
+                <span>
+                  {enemy.name}
+                </span>
+                {burnStatus && (
+                  <span
+                    className="enemyStatus__effect enemyStatus__effect--burn"
+                    role="img"
+                    aria-label={`Burn, ${burnStatus.remainingRounds ?? 1} rounds remaining`}
+                    title={`Burn · ${burnStatus.remainingRounds ?? 1} rounds remaining`}
+                  >
+                    🔥
+                  </span>
+                )}
               </div>
               <div
                 className="enemyStatus__bar"
@@ -961,13 +1266,35 @@ export default function BattleScreen(props: Props) {
                 alt=""
                 style={visuals.idleSpriteAdjustment}
               />
-              <img
-                className="battleScene__enemySprite battleScene__enemySprite--attack"
-                src={visuals.autoAttackSpriteSrc}
-                alt=""
-                style={visuals.attackSpriteAdjustment}
-              />
+              {(activeEnemySpriteSequence?.frames ?? [
+                {
+                  spriteSrc: visuals.autoAttackSpriteSrc,
+                  adjustment: visuals.attackSpriteAdjustment,
+                },
+              ]).map((frame, frameIndex) => (
+                <img
+                  key={`enemy-action-frame-${frameIndex}`}
+                  className={`battleScene__enemySprite battleScene__enemySprite--attack battleScene__enemySprite--attackFrame-${frameIndex + 1}`}
+                  src={frame.spriteSrc}
+                  alt=""
+                  style={frame.adjustment}
+                />
+              ))}
             </div>
+            {currentTargetEffect && (
+              <img
+                key={`${combatState.round}-${gameState.pendingRound?.nextEventIndex ?? 0}-${enemy.instanceId}`}
+                className={`battleScene__targetEffect battleScene__targetEffect--${currentTargetEffect.variant}`}
+                src={currentTargetEffect.spriteSrc}
+                alt=""
+                style={
+                  {
+                    width: `${currentTargetEffect.width}px`,
+                    "--target-effect-duration": `${currentAbilityVisuals?.timing?.animationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
+                  } as CSSProperties
+                }
+              />
+            )}
             <button
               type="button"
               className="battleScene__enemyHitbox"
@@ -994,6 +1321,23 @@ export default function BattleScreen(props: Props) {
         );
       })}
 
+      {currentBattlefieldEffect && battlefieldEffectCenter && (
+        <img
+          key={`${combatState.round}-${gameState.pendingRound?.nextEventIndex ?? 0}-battlefield-effect`}
+          className={`battleScene__battlefieldEffect battleScene__battlefieldEffect--${currentBattlefieldEffect.variant}`}
+          src={currentBattlefieldEffect.spriteSrc}
+          alt=""
+          style={
+            {
+              left: `${battlefieldEffectCenter.xPercent}%`,
+              top: `${battlefieldEffectCenter.yPercent}%`,
+              width: `min(${currentBattlefieldEffect.width}px, 74vw)`,
+              "--battlefield-effect-duration": `${currentAbilityVisuals?.timing?.animationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
+            } as CSSProperties
+          }
+        />
+      )}
+
       {combatState.enemies.map((enemy, index) => {
         const receivedDamage = getDamageImpactForTarget(
           appliedCombatEvent,
@@ -1018,6 +1362,11 @@ export default function BattleScreen(props: Props) {
             <DamageNumber
               amount={receivedDamage.amount}
               isCritical={receivedDamage.isCritical}
+              absorbedByBarrier={
+                "absorbedByBarrier" in receivedDamage
+                  ? receivedDamage.absorbedByBarrier
+                  : 0
+              }
             />
           </div>
         );
@@ -1046,7 +1395,7 @@ export default function BattleScreen(props: Props) {
       {upgradeSelectionIsActive && upgradeCharacter && (
         <UpgradeSelection
           characterName={upgradeCharacter.name}
-          choices={PLACEHOLDER_UPGRADE_CHOICES}
+          choices={upgradeChoices}
           selectedChoiceId={upgradeSelectedChoiceId}
           submitting={upgradeSubmitting}
           waitingMessage={
@@ -1074,6 +1423,7 @@ export default function BattleScreen(props: Props) {
         abilitiesAvailable={abilitiesAvailable}
         spiritAvailable={spiritAvailable}
         abilities={knownAbilities}
+        spirits={knownSpirits}
         onAttackSelect={() => {
           if (activePlayerId) {
             setSelectedAbilityId("autoAttack");
@@ -1096,6 +1446,11 @@ export default function BattleScreen(props: Props) {
           }
 
           setSelectedAbilityId(abilityId);
+        }}
+        onSpiritSelect={(abilityId) => {
+          if (activePlayerId) {
+            void submitPlayerAction(abilityId, null);
+          }
         }}
         onDefendSelect={() => {
           if (activePlayerId && activeCharacterId) {

@@ -1,9 +1,11 @@
-import type { UpgradeChoiceDefinition } from "../../../data/upgrades";
-import type { UpgradeChoiceId } from "../../../game/types";
+import type {
+  RewardOffer,
+  UpgradeChoiceId,
+} from "../../../game/types";
 
 type Props = {
   characterName: string;
-  choices: UpgradeChoiceDefinition[];
+  choices: RewardOffer[];
   selectedChoiceId: UpgradeChoiceId | null;
   waitingMessage: string | null;
   submitting: boolean;
@@ -42,7 +44,18 @@ export default function UpgradeSelection({
                 onClick={() => onSelect(choice.id)}
                 aria-label={`Choose upgrade option ${index + 1}`}
               >
-                <span className="upgradeSelection__cardEmpty" aria-hidden="true" />
+                <span className="upgradeSelection__cardIcon" aria-hidden="true">
+                  {choice.icon}
+                </span>
+                <span className="upgradeSelection__cardType">
+                  Stat upgrade
+                </span>
+                <strong className="upgradeSelection__cardTitle">
+                  {choice.title}
+                </strong>
+                <span className="upgradeSelection__cardDescription">
+                  {choice.description}
+                </span>
                 <span className="upgradeSelection__cardAction">
                   {isSelected ? "Selected" : "Choose"}
                 </span>

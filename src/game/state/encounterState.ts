@@ -1,5 +1,6 @@
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
+import { refreshSpiritActiveUses } from "../../data/spirits";
 import type {
   CombatState,
   CombatStats,
@@ -31,6 +32,7 @@ function createEnemyState(
     isBoss: definition.isBoss,
     hp: stats.maxHp,
     pp: stats.maxPp,
+    barrier: 0,
     stats,
     abilityRanks: { ...definition.abilityRanks },
     statuses: [],
@@ -55,13 +57,24 @@ export function startEncounter(
     characters: {
       "character-1": {
         ...currentState.characters["character-1"],
+        level: currentState.characters["character-1"].level + 1,
+        spirits: refreshSpiritActiveUses(
+          currentState.characters["character-1"].spirits,
+        ),
         statuses: [],
+        barrier: 0,
       },
       "character-2": {
         ...currentState.characters["character-2"],
+        level: currentState.characters["character-2"].level + 1,
+        spirits: refreshSpiritActiveUses(
+          currentState.characters["character-2"].spirits,
+        ),
         statuses: [],
+        barrier: 0,
       },
     },
     enemies: createEncounterEnemies(encounterId),
+    rewardOffers: null,
   };
 }

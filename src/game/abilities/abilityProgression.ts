@@ -70,10 +70,47 @@ export function resolveAbility(
     element: definition.element,
     aiTargeting: definition.aiTargeting,
     rank,
+    shortDescription: rankDefinition.shortDescription,
     description: rankDefinition.description,
     ppCost: rankDefinition.ppCost,
     effects: rankDefinition.effects,
   };
+}
+
+function formatScalingPercent(multiplier: number) {
+  return `${Math.round(multiplier * 100)}%`;
+}
+
+function formatElementName(element: NonNullable<ResolvedAbilityDefinition["element"]>) {
+  return `${element[0].toUpperCase()}${element.slice(1)} Power`;
+}
+
+export function getAbilityScalingDescription(
+  ability: ResolvedAbilityDefinition,
+) {
+  const scalingFormulas = ability.effects.flatMap((effect) => {
+    if (effect.type !== "damage" && effect.type !== "healing") {
+      return [];
+    }
+
+    const scalingParts: string[] = [];
+
+    if (effect.type === "damage" && effect.attackScaling > 0) {
+      scalingParts.push(
+        `${formatScalingPercent(effect.attackScaling)} Attack`,
+      );
+    }
+
+    if (effect.elementalPowerScaling > 0 && ability.element) {
+      scalingParts.push(
+        `${formatScalingPercent(effect.elementalPowerScaling)} ${formatElementName(ability.element)}`,
+      );
+    }
+
+    return scalingParts.length > 0 ? [scalingParts.join(" + ")] : [];
+  });
+
+  return Array.from(new Set(scalingFormulas)).join(" / ");
 }
 
 export function learnAbility(

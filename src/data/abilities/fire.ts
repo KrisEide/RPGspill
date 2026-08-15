@@ -10,6 +10,7 @@ export const FIRE_ABILITY_DEFINITIONS = {
     element: "fire",
     ranks: {
       1: {
+        shortDescription: "Heavy Fire damage to one enemy.",
         description: "Deal heavy Fire damage to one enemy.",
         ppCost: 7,
         effects: [

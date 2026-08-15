@@ -10,6 +10,7 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
+        shortDescription: "Physical damage to all enemies.",
         description: "Deal physical damage to all enemies.",
         ppCost: 6,
         effects: [

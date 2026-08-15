@@ -6,7 +6,11 @@ import magicIcon from "../../../assets/icons/magicicon.png";
 import itemsIcon from "../../../assets/icons/inventoryicon.png";
 import spiritIcon from "../../../assets/icons/spirit.png";
 import portrait from "../../../assets/portraits/character1_1.png";
-import type { AbilityId, AbilityRank } from "../../../game/types";
+import type {
+  AbilityId,
+  AbilityRank,
+  SpiritId,
+} from "../../../game/types";
 
 type CommandId = "attack" | "abilities" | "defend" | "spirit" | "items";
 type CommandPanelId = "abilities" | "spirit" | "items";
@@ -45,14 +49,28 @@ type Props = {
   abilities: {
     id: AbilityId;
     name: string;
+    shortDescription: string;
     description: string;
+    scalingDescription: string;
     ppCost: number;
     rank: AbilityRank;
     icon: string;
     available: boolean;
   }[];
+  spirits: {
+    id: SpiritId;
+    name: string;
+    passiveName: string;
+    passiveDescription: string;
+    activeAbilityId: AbilityId;
+    activeName: string;
+    activeShortDescription: string;
+    activeDescription: string;
+    usesRemaining: number;
+  }[];
   onAttackSelect: () => void;
   onAbilitySelect: (abilityId: AbilityId) => void;
+  onSpiritSelect: (abilityId: AbilityId) => void;
   onDefendSelect: () => void;
 };
 
@@ -62,8 +80,10 @@ export default function CommandBar({
   abilitiesAvailable = false,
   spiritAvailable = false,
   abilities,
+  spirits,
   onAttackSelect,
   onAbilitySelect,
+  onSpiritSelect,
   onDefendSelect,
 }: Props) {
   const [selected, setSelected] = useState<CommandId>("attack");
@@ -132,49 +152,144 @@ export default function CommandBar({
             className="cmdbar__panel"
             aria-label={panelContent.title}
           >
-            <button
-              type="button"
-              className="cmdbar__backButton"
-              onClick={() => {
-                setOpenPanel(null);
-                setHovered(null);
-              }}
-            >
-              <span aria-hidden="true">←</span> Back
-            </button>
-            <div className="cmdbar__panelContent">
+            <div className="cmdbar__panelNavigation">
               <div className="cmdbar__panelTitle">{panelContent.title}</div>
+              <button
+                type="button"
+                className="cmdbar__backButton"
+                onClick={() => {
+                  setOpenPanel(null);
+                  setHovered(null);
+                }}
+              >
+                <span aria-hidden="true">←</span> Back
+              </button>
+            </div>
+            <div className="cmdbar__panelContent">
               {openPanel === "abilities" && abilities.length > 0 ? (
+                <div className="cmdbar__abilityList cmdbar__abilityList--compact">
+                  {abilities.map((ability) => {
+                    const tooltipId = `ability-tooltip-${ability.id}`;
+
+                    return (
+                      <div
+                        key={ability.id}
+                        className="cmdbar__abilityEntry cmdbar__abilityEntry--compact"
+                      >
+                        <button
+                          type="button"
+                          className="cmdbar__abilityButton cmdbar__abilityButton--compact"
+                          disabled={!ability.available || actionsDisabled}
+                          aria-describedby={tooltipId}
+                          onClick={() => {
+                            onAbilitySelect(ability.id);
+                            setOpenPanel(null);
+                            setSelected("abilities");
+                            setHovered(null);
+                          }}
+                        >
+                          <span className="cmdbar__abilityIcon" aria-hidden="true">
+                            {ability.icon}
+                          </span>
+                          <span className="cmdbar__abilityDetails">
+                            <span className="cmdbar__abilityName">
+                              {ability.name}
+                            </span>
+                            <span className="cmdbar__abilityRank">
+                              Rank {ability.rank}
+                            </span>
+                          </span>
+                          <span className="cmdbar__abilityCost">
+                            {ability.ppCost} PP
+                          </span>
+                        </button>
+                        <div
+                          id={tooltipId}
+                          className="cmdbar__abilityTooltip"
+                          role="tooltip"
+                        >
+                          <div className="cmdbar__abilityTooltipTitle">
+                            {ability.name} · Rank {ability.rank}
+                          </div>
+                          <div>{ability.description}</div>
+                          {ability.scalingDescription && (
+                            <div className="cmdbar__abilityTooltipScaling">
+                              Scaling: {ability.scalingDescription}
+                            </div>
+                          )}
+                          <div className="cmdbar__abilityTooltipMeta">
+                            Cost: {ability.ppCost} PP
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : openPanel === "spirit" && spirits.length > 0 ? (
                 <div className="cmdbar__abilityList">
-                  {abilities.map((ability) => (
-                    <button
-                      key={ability.id}
-                      type="button"
-                      className="cmdbar__abilityButton"
-                      disabled={!ability.available || actionsDisabled}
-                      onClick={() => {
-                        onAbilitySelect(ability.id);
-                        setOpenPanel(null);
-                        setSelected("abilities");
-                        setHovered(null);
-                      }}
-                    >
-                      <span className="cmdbar__abilityIcon" aria-hidden="true">
-                        {ability.icon}
-                      </span>
-                      <span className="cmdbar__abilityDetails">
-                        <span className="cmdbar__abilityName">
-                          {ability.name} · Rank {ability.rank}
-                        </span>
-                        <span className="cmdbar__abilityDescription">
-                          {ability.description}
-                        </span>
-                      </span>
-                      <span className="cmdbar__abilityCost">
-                        {ability.ppCost} PP
-                      </span>
-                    </button>
-                  ))}
+                  {spirits.map((spirit) => {
+                    const tooltipId = `spirit-tooltip-${spirit.id}`;
+
+                    return (
+                      <div
+                        key={spirit.id}
+                        className="cmdbar__abilityEntry"
+                      >
+                        <button
+                          type="button"
+                          className="cmdbar__abilityButton"
+                          disabled={
+                            spirit.usesRemaining <= 0 || actionsDisabled
+                          }
+                          aria-describedby={tooltipId}
+                          onClick={() => {
+                            onSpiritSelect(spirit.activeAbilityId);
+                            setOpenPanel(null);
+                            setSelected("spirit");
+                            setHovered(null);
+                          }}
+                        >
+                          <span className="cmdbar__abilityIcon" aria-hidden="true">
+                            🔥
+                          </span>
+                          <span className="cmdbar__abilityDetails">
+                            <span className="cmdbar__abilityName">
+                              {spirit.name} · {spirit.activeName}
+                            </span>
+                            <span className="cmdbar__abilityDescription">
+                              {spirit.activeShortDescription}
+                            </span>
+                          </span>
+                          <span className="cmdbar__abilityCost">
+                            {spirit.usesRemaining > 0
+                              ? `${spirit.usesRemaining} use`
+                              : "Used"}
+                          </span>
+                        </button>
+                        <div
+                          id={tooltipId}
+                          className="cmdbar__abilityTooltip"
+                          role="tooltip"
+                        >
+                          <div className="cmdbar__abilityTooltipTitle">
+                            {spirit.name} · {spirit.activeName}
+                          </div>
+                          <div>
+                            <strong>Active:</strong> {spirit.activeDescription}
+                          </div>
+                          <div>
+                            <strong>Passive — {spirit.passiveName}:</strong>{" "}
+                            {spirit.passiveDescription}
+                          </div>
+                          <div className="cmdbar__abilityTooltipMeta">
+                            {spirit.usesRemaining > 0
+                              ? "Available once this encounter."
+                              : "Already used this encounter."}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="cmdbar__emptyMessage">

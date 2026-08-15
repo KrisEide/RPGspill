@@ -14,6 +14,7 @@ import type {
   PlayerId,
   RoundSelections,
 } from "../types";
+import { getSpiritForActiveAbility } from "../../data/spirits";
 
 type PlayerActionRequest = {
   playerId: PlayerId;
@@ -78,14 +79,22 @@ export function selectPlayerAction(
     actor.abilityRanks,
     request.abilityId,
   );
+  const activeSpirit = getSpiritForActiveAbility(
+    actor.spirits,
+    request.abilityId,
+  );
   const ability = abilityRank
     ? resolveAbility(request.abilityId, abilityRank)
-    : null;
+    : activeSpirit
+      ? resolveAbility(request.abilityId, 1)
+      : null;
 
   if (
     actor.hp <= 0 ||
     selections[characterId] !== null ||
     !ability ||
+    (ability.category === "spirit" &&
+      (!activeSpirit || activeSpirit.activeUsesRemaining <= 0)) ||
     actor.pp < ability.ppCost ||
     !isValidTarget(
       state,

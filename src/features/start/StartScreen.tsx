@@ -1,8 +1,11 @@
 import { useState } from "react";
 import startBackground from "../../assets/backgrounds/menu/startscreen.png";
+import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
+import type { EncounterId } from "../../game/types";
 
 type Props = {
   onSinglePlayer: () => void;
+  onDevelopmentStart: (encounterId: EncounterId) => void;
   onCreateGame: () => Promise<void>;
   onJoinGame: (roomCode: string) => Promise<void>;
 };
@@ -10,6 +13,9 @@ type Props = {
 type Menu = "gameMode" | "twoPlayer";
 
 const ROOM_CODE_LENGTH = 4;
+const DEVELOPMENT_ENCOUNTERS = Object.values(ENCOUNTER_DEFINITIONS).sort(
+  (first, second) => first.number - second.number,
+);
 
 function normalizeRoomCode(value: string) {
   return value
@@ -20,6 +26,7 @@ function normalizeRoomCode(value: string) {
 
 export default function StartScreen({
   onSinglePlayer,
+  onDevelopmentStart,
   onCreateGame,
   onJoinGame,
 }: Props) {
@@ -27,6 +34,7 @@ export default function StartScreen({
   const [roomCode, setRoomCode] = useState("");
   const [requestInProgress, setRequestInProgress] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [developmentMenuOpen, setDevelopmentMenuOpen] = useState(false);
   const canJoin = roomCode.length === ROOM_CODE_LENGTH;
 
   const runMultiplayerRequest = async (request: () => Promise<void>) => {
@@ -52,6 +60,17 @@ export default function StartScreen({
     }
   };
 
+  const activateFlowerShortcut = (
+    event: React.MouseEvent<SVGCircleElement>,
+  ) => {
+    if (event.shiftKey) {
+      setDevelopmentMenuOpen(true);
+      return;
+    }
+
+    onDevelopmentStart("forestAmbush");
+  };
+
   return (
     <div
       className="relative h-screen w-full text-white"
@@ -63,6 +82,23 @@ export default function StartScreen({
     >
       {/* mørk overlay så tekst blir lesbar */}
       <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+        preserveAspectRatio="xMidYMid slice"
+        viewBox="0 0 1536 1024"
+      >
+        <circle
+          cx="98"
+          cy="778"
+          r="29"
+          fill="transparent"
+          onClick={activateFlowerShortcut}
+          pointerEvents="all"
+          style={{ cursor: "pointer" }}
+        />
+      </svg>
 
       <div className="relative z-10 grid h-full place-items-center">
         <div className="text-center">
@@ -167,6 +203,49 @@ export default function StartScreen({
           )}
         </div>
       </div>
+
+      {developmentMenuOpen && (
+        <div
+          className="absolute inset-0 z-30 grid place-items-center bg-black/55 px-5"
+          onClick={() => setDevelopmentMenuOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-amber-300/45 bg-[#07150d]/95 p-6 text-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-300/70">
+              Development shortcut
+            </p>
+            <h2 className="mt-2 text-2xl font-extrabold">
+              Select Encounter
+            </h2>
+            <div className="mt-5 grid gap-2">
+              {DEVELOPMENT_ENCOUNTERS.map((encounter) => {
+                return (
+                  <button
+                    key={encounter.id}
+                    type="button"
+                    className="flex items-center justify-between rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left hover:border-amber-300/55 hover:bg-white/10 active:scale-[0.99]"
+                    onClick={() => onDevelopmentStart(encounter.id)}
+                  >
+                    <span className="font-bold">{encounter.title}</span>
+                    <span className="text-sm text-white/60">
+                      Encounter {encounter.number}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="mt-5 w-full px-4 py-2 text-sm text-white/65 hover:text-white"
+              onClick={() => setDevelopmentMenuOpen(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

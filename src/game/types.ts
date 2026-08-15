@@ -18,22 +18,64 @@ export type PortraitId =
   | "c2p2"
   | "c2p3";
 
-export type EnemyId = "level1Orc" | "orcRaider" | "orcMage";
+export type EnemyId =
+  | "level1Orc"
+  | "orcRaider"
+  | "orcMage"
+  | "orcWizard";
 
 export type EncounterId =
   | "forestAmbush"
   | "orcReinforcements"
   | "raiderWarband"
-  | "darkMage";
+  | "darkMage"
+  | "dreadflameRitual";
 
 export type UpgradeChoiceId =
-  | "placeholder-upgrade-1"
-  | "placeholder-upgrade-2"
-  | "placeholder-upgrade-3";
+  | "vitality"
+  | "power"
+  | "quickness"
+  | "fortitude"
+  | "warding"
+  | "focus"
+  | "precision"
+  | "flame-affinity"
+  | "tidal-affinity"
+  | "stone-affinity"
+  | "gale-affinity";
+
+export type StatUpgradeTarget =
+  | "maxHp"
+  | "maxPp"
+  | "attack"
+  | "agility"
+  | "defense"
+  | "resistance"
+  | "criticalChance"
+  | "firePower"
+  | "waterPower"
+  | "earthPower"
+  | "windPower";
+
+export type RewardOffer = {
+  id: UpgradeChoiceId;
+  type: "stat";
+  icon: string;
+  title: string;
+  description: string;
+  effect: {
+    target: StatUpgradeTarget;
+    amount: number;
+    restoreHp?: number;
+    restorePp?: number;
+  };
+};
+
+export type RewardOffers = Record<CharacterInstanceId, RewardOffer[]>;
 
 export type Element = "fire" | "water" | "earth" | "wind";
 
-export type DamageType = "physical" | "elemental";
+export type DamageType = "physical" | "elemental" | "magical";
 
 export type ElementalPower = Record<Element, number>;
 
@@ -41,10 +83,17 @@ export type AbilityId =
   | "autoAttack"
   | "defend"
   | "fireball"
+  | "crashingWave"
+  | "healingTide"
+  | "stonebloom"
   | "whirlwind"
   | "windSlash"
   | "gangStrike"
-  | "darkBolt";
+  | "darkBolt"
+  | "dreadflame"
+  | "cinderburst";
+
+export type SpiritId = "embertail";
 
 export type AbilityTarget =
   | "singleEnemy"
@@ -58,7 +107,20 @@ export type AbilityRank = 1 | 2;
 
 export type KnownAbilities = Partial<Record<AbilityId, AbilityRank>>;
 
-export type StatusId = "burn" | "cracked" | "wet" | "exposed";
+export type SpiritState = {
+  id: SpiritId;
+  activeUsesRemaining: number;
+  passiveTriggeredRound: number | null;
+};
+
+export type KnownSpirits = Partial<Record<SpiritId, SpiritState>>;
+
+export type StatusId =
+  | "burn"
+  | "cracked"
+  | "wet"
+  | "exposed"
+  | "weakened";
 
 export type StatusStackingRule = "refresh";
 
@@ -67,10 +129,19 @@ export type StatusDefinition = {
   name: string;
   stackingRule: StatusStackingRule;
   maxStacks: 1;
+  durationRounds?: number;
+  endOfRoundDamage?: {
+    basePower: number;
+    damageType: DamageType;
+    element: Element;
+  };
   incomingDamageModifier?: {
     multiplier: number;
     triggeringAttacker: "sourcePartner";
     consumeOnTrigger: true;
+  };
+  outgoingDamageModifier?: {
+    consumeOnNextDamageAction: true;
   };
 };
 
@@ -78,15 +149,19 @@ export type ActiveStatus = {
   id: StatusId;
   sourceId: CombatantId;
   appliedRound: number;
+  magnitude?: number;
+  remainingRounds?: number;
 };
 
 export type StatusChange =
   | {
       type: "applied";
+      combatantId: CombatantId;
       status: ActiveStatus;
     }
   | {
       type: "removed";
+      combatantId: CombatantId;
       statusId: StatusId;
     };
 
@@ -96,12 +171,17 @@ export type DamageEffect = {
   basePower: number;
   attackScaling: number;
   elementalPowerScaling: number;
+  usesDamageVariance?: boolean;
   damagePerOtherLivingSameEnemy?: number;
   criticalHit?: {
     chance: number;
     damageMultiplier: number;
   };
   statusOnCriticalHit?: StatusId;
+  statusOnHit?: {
+    statusId: StatusId;
+    magnitude?: number;
+  };
 };
 
 export type DefendEffect = {
@@ -110,9 +190,31 @@ export type DefendEffect = {
   duration: "round";
 };
 
-export type AbilityEffect = DamageEffect | DefendEffect;
+export type HealingEffect = {
+  type: "healing";
+  basePower: number;
+  elementalPowerScaling: number;
+};
+
+export type BarrierEffect = {
+  type: "barrier";
+  amount: number;
+};
+
+export type CleanseEffect = {
+  type: "cleanse";
+  statusId: StatusId;
+};
+
+export type AbilityEffect =
+  | DamageEffect
+  | DefendEffect
+  | HealingEffect
+  | BarrierEffect
+  | CleanseEffect;
 
 export type AbilityRankDefinition = {
+  shortDescription: string;
   description: string;
   ppCost: number;
   effects: AbilityEffect[];
@@ -136,6 +238,23 @@ export type AbilityDefinition = {
   };
 };
 
+export type SpiritDefinition = {
+  id: SpiritId;
+  name: string;
+  element: Element;
+  passive: {
+    name: string;
+    description: string;
+    firstDamageActionEachRound: {
+      basePower: number;
+      damageType: DamageType;
+      element: Element;
+    };
+  };
+  activeAbilityId: AbilityId;
+  activeUsesPerEncounter: number;
+};
+
 export type ResolvedAbilityDefinition = Omit<
   AbilityDefinition,
   "ranks"
@@ -147,6 +266,7 @@ export type ResolvedAbilityDefinition = Omit<
 export type CombatStats = {
   maxHp: number;
   maxPp: number;
+  criticalChance: number;
   attack: number;
   defense: number;
   resistance: number;
@@ -175,6 +295,7 @@ export type EnemyState = {
   isBoss: boolean;
   hp: number;
   pp: number;
+  barrier: number;
   stats: CombatStats;
   abilityRanks: KnownAbilities;
   statuses: ActiveStatus[];
@@ -195,6 +316,7 @@ export type PlayerSetup = {
 export type GameSetup = {
   mode: GameMode;
   randomSeed: number;
+  startingEncounterId?: EncounterId;
   players: Record<PlayerId, PlayerSetup>;
 };
 
@@ -204,8 +326,10 @@ export type CharacterState = CharacterDraft & {
   level: number;
   hp: number;
   pp: number;
+  barrier: number;
   stats: CombatStats;
   abilityRanks: KnownAbilities;
+  spirits: KnownSpirits;
   statuses: ActiveStatus[];
 };
 
@@ -230,6 +354,8 @@ export type DamageEvent = {
   abilityRank: AbilityRank;
   amount: number;
   remainingHp: number;
+  absorbedByBarrier: number;
+  remainingBarrier: number;
   isCritical: boolean;
   statusChanges: StatusChange[];
 };
@@ -246,6 +372,8 @@ export type MultiTargetDamageImpact = {
   targetId: CombatantId;
   amount: number;
   remainingHp: number;
+  absorbedByBarrier: number;
+  remainingBarrier: number;
   isCritical: boolean;
   statusChanges: StatusChange[];
 };
@@ -258,9 +386,51 @@ export type MultiTargetDamageEvent = {
   impacts: MultiTargetDamageImpact[];
 };
 
+export type StatusDamageEvent = {
+  type: "statusDamage";
+  sourceId: CombatantId;
+  targetId: CombatantId;
+  statusId: StatusId;
+  element: Element;
+  amount: number;
+  remainingHp: number;
+  isCritical: false;
+  statusChanges: StatusChange[];
+};
+
+export type SpiritDamageEvent = {
+  type: "spiritDamage";
+  sourceId: CharacterInstanceId;
+  targetId: CombatantId;
+  spiritId: SpiritId;
+  element: Element;
+  amount: number;
+  remainingHp: number;
+  absorbedByBarrier: number;
+  remainingBarrier: number;
+  isCritical: false;
+  statusChanges: StatusChange[];
+};
+
+export type SupportEvent = {
+  type: "support";
+  actorId: CharacterInstanceId;
+  targetId: CharacterInstanceId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  healingAmount: number;
+  remainingHp: number;
+  barrierAmount: number;
+  remainingBarrier: number;
+  statusChanges: StatusChange[];
+};
+
 export type CombatEvent =
   | DamageEvent
   | MultiTargetDamageEvent
+  | StatusDamageEvent
+  | SpiritDamageEvent
+  | SupportEvent
   | DefendEvent;
 
 export type RoundOutcomePhase = "selectingActions" | "victory" | "defeat";
@@ -276,6 +446,7 @@ export type CombatState = {
   players: Record<PlayerId, PlayerState>;
   characters: Record<CharacterInstanceId, CharacterState>;
   enemies: EnemyState[];
+  rewardOffers: RewardOffers | null;
 };
 
 export type RoundResult = {

@@ -10,6 +10,7 @@ export const WIND_ABILITY_DEFINITIONS = {
     element: "wind",
     ranks: {
       1: {
+        shortDescription: "Wind damage that can critically hit.",
         description:
           "Slash one enemy with wind. This ability can critically hit.",
         ppCost: 4,
@@ -28,6 +29,7 @@ export const WIND_ABILITY_DEFINITIONS = {
         ],
       },
       2: {
+        shortDescription: "Critical hits also Expose the enemy.",
         description:
           "Slash one enemy with wind. Critical hits Expose the target for your partner.",
         newEffectDescription:

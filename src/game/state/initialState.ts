@@ -1,6 +1,8 @@
 import { CHARACTER_PRESETS } from "../../data/presets";
+import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { createEmptyRoundSelections } from "../combat/playerActions";
 import { createEncounterEnemies } from "./encounterState";
+import { createKnownSpirits } from "../../data/spirits";
 import type {
   CharacterState,
   ClientBattleState,
@@ -17,7 +19,10 @@ function copyCombatStats(stats: CombatStats): CombatStats {
   };
 }
 
-function createCharacterState(player: PlayerSetup): CharacterState {
+function createCharacterState(
+  player: PlayerSetup,
+  startingLevel: number,
+): CharacterState {
   const preset = CHARACTER_PRESETS[player.character.presetId];
   const stats = copyCombatStats(preset.stats);
 
@@ -25,19 +30,24 @@ function createCharacterState(player: PlayerSetup): CharacterState {
     ...player.character,
     instanceId: player.controlledCharacterId,
     ownerId: player.id,
-    level: 1,
+    level: startingLevel,
     hp: stats.maxHp,
     pp: stats.maxPp,
+    barrier: 0,
     stats,
     abilityRanks: { ...preset.startingAbilityRanks },
+    spirits: createKnownSpirits(preset.startingSpiritIds),
     statuses: [],
   };
 }
 
 export function createInitialCombatState(setup: GameSetup): CombatState {
+  const encounterId = setup.startingEncounterId ?? "forestAmbush";
+  const startingLevel = ENCOUNTER_DEFINITIONS[encounterId].number;
+
   return {
     mode: setup.mode,
-    encounterId: "forestAmbush",
+    encounterId,
     randomSeed: setup.randomSeed,
     round: 1,
     phase: "selectingActions",
@@ -52,10 +62,17 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
       },
     },
     characters: {
-      "character-1": createCharacterState(setup.players.player1),
-      "character-2": createCharacterState(setup.players.player2),
+      "character-1": createCharacterState(
+        setup.players.player1,
+        startingLevel,
+      ),
+      "character-2": createCharacterState(
+        setup.players.player2,
+        startingLevel,
+      ),
     },
-    enemies: createEncounterEnemies("forestAmbush"),
+    enemies: createEncounterEnemies(encounterId),
+    rewardOffers: null,
   };
 }
 

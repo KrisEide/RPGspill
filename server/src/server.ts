@@ -15,7 +15,10 @@ import {
 import { resolveRound } from "../../src/game/combat/resolveRound";
 import { createInitialCombatState } from "../../src/game/state/initialState";
 import { startEncounter } from "../../src/game/state/encounterState";
-import { PLACEHOLDER_UPGRADE_CHOICES } from "../../src/data/upgrades";
+import {
+  applyRewardChoices,
+  isRewardOfferedToCharacter,
+} from "../../src/game/rewards/rewardSystem";
 import { ENCOUNTER_DEFINITIONS } from "../../src/data/encounters";
 import type {
   CharacterDraft,
@@ -362,9 +365,6 @@ io.on("connection", (socket) => {
     const roomCode = socket.data.roomCode;
     const playerId = socket.data.playerId;
     const room = roomCode ? rooms.get(roomCode) : undefined;
-    const choiceExists = PLACEHOLDER_UPGRADE_CHOICES.some(
-      (choice) => choice.id === request.choiceId,
-    );
     const nextEncounterId = room?.combatState
       ? ENCOUNTER_DEFINITIONS[room.combatState.encounterId]
           .nextEncounterId
@@ -378,7 +378,11 @@ io.on("connection", (socket) => {
       room.combatState.encounterId !== request.completedEncounterId ||
       !nextEncounterId ||
       room.upgradeSelections[playerId] !== null ||
-      !choiceExists
+      !isRewardOfferedToCharacter(
+        room.combatState,
+        room.combatState.players[playerId].controlledCharacterId,
+        request.choiceId,
+      )
     ) {
       respond(false);
       return;
@@ -395,7 +399,32 @@ io.on("connection", (socket) => {
       return;
     }
 
-    room.combatState = startEncounter(room.combatState, nextEncounterId);
+    const firstCharacterChoice =
+      room.upgradeSelections[
+        room.combatState.characters["character-1"].ownerId
+      ];
+    const secondCharacterChoice =
+      room.upgradeSelections[
+        room.combatState.characters["character-2"].ownerId
+      ];
+
+    if (!firstCharacterChoice || !secondCharacterChoice) {
+      return;
+    }
+
+    const upgradedCombatState = applyRewardChoices(room.combatState, {
+      "character-1": firstCharacterChoice,
+      "character-2": secondCharacterChoice,
+    });
+
+    if (!upgradedCombatState) {
+      return;
+    }
+
+    room.combatState = startEncounter(
+      upgradedCombatState,
+      nextEncounterId,
+    );
     room.roundSelections = createEmptyRoundSelections();
     room.upgradeSelections = {
       player1: null,

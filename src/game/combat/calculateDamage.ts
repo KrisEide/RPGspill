@@ -16,6 +16,24 @@ type CalculateDamageParams = {
   additionalDamageReductions?: number[];
 };
 
+type CalculateFixedDamageParams = {
+  basePower: number;
+  damageType: DamageEffect["damageType"];
+  defender: CombatStats;
+};
+
+export function calculateFixedDamage({
+  basePower,
+  damageType,
+  defender,
+}: CalculateFixedDamageParams) {
+  const defensiveStat =
+    damageType === "physical" ? defender.defense : defender.resistance;
+  const damageReduction = calculateStatDamageReduction(defensiveStat);
+
+  return Math.max(1, Math.round(basePower * (1 - damageReduction)));
+}
+
 export function calculateDamage({
   attacker,
   defender,

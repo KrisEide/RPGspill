@@ -10,6 +10,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
+        shortDescription: "Physical damage to one enemy.",
         description: "Attack one enemy with the equipped weapon.",
         ppCost: 0,
         effects: [
@@ -37,6 +38,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
+        shortDescription: "Take 50% less direct damage this round.",
         description: "Take 50% less direct damage this round.",
         ppCost: 0,
         effects: [
@@ -59,6 +61,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
+        shortDescription: "Physical damage that grows with the raider pack.",
         description:
           "Strike one random hero. Deals +1 damage for each other living Orc Raider.",
         ppCost: 0,
@@ -85,6 +88,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
+        shortDescription: "Elemental damage to one random hero.",
         description: "Launch a bolt of dark energy at one random hero.",
         ppCost: 0,
         effects: [
@@ -99,7 +103,37 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  dreadflame: {
+    id: "dreadflame",
+    name: "Dreadflame",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Heavy magical damage to one random hero.",
+        description:
+          "Engulf one random hero in black flame. Damage is reduced by Resistance.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "magical",
+            basePower: 24,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
 } satisfies Record<
-  "autoAttack" | "defend" | "gangStrike" | "darkBolt",
+  | "autoAttack"
+  | "defend"
+  | "gangStrike"
+  | "darkBolt"
+  | "dreadflame",
   AbilityDefinition
 >;

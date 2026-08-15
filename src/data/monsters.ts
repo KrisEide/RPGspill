@@ -3,12 +3,13 @@ import type { EnemyDefinition, EnemyId } from "../game/types";
 export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
   level1Orc: {
     id: "level1Orc",
-    name: "Orc",
+    name: "Orc Grunt",
     level: 1,
     isBoss: false,
     stats: {
       maxHp: 60,
       maxPp: 0,
+      criticalChance: 0,
       attack: 8,
       defense: 10,
       resistance: 10,
@@ -32,6 +33,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     stats: {
       maxHp: 28,
       maxPp: 0,
+      criticalChance: 0,
       attack: 7,
       defense: 4,
       resistance: 2,
@@ -60,6 +62,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     stats: {
       maxHp: 80,
       maxPp: 30,
+      criticalChance: 0,
       attack: 8,
       defense: 5,
       resistance: 12,
@@ -73,6 +76,30 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     },
     abilityRanks: {
       darkBolt: 1,
+    },
+  },
+  orcWizard: {
+    id: "orcWizard",
+    name: "Orc Wizard",
+    level: 1,
+    isBoss: false,
+    stats: {
+      maxHp: 100,
+      maxPp: 40,
+      criticalChance: 0,
+      attack: 8,
+      defense: 6,
+      resistance: 14,
+      agility: 9,
+      elementalPower: {
+        fire: 0,
+        water: 0,
+        earth: 0,
+        wind: 0,
+      },
+    },
+    abilityRanks: {
+      dreadflame: 1,
     },
   },
 };

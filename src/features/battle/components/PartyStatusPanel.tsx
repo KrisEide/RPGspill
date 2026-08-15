@@ -56,6 +56,15 @@ function CharacterStatusCard({
             <span>
               HP {character.hp} / {character.stats.maxHp}
             </span>
+            {character.barrier > 0 && (
+              <span
+                className="statusCard__barrier"
+                aria-label={`${character.barrier} Barrier`}
+                title="Barrier absorbs direct damage before HP."
+              >
+                🛡 {character.barrier}
+              </span>
+            )}
           </div>
           <div
             className="statusCard__bar"

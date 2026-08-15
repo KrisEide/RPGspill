@@ -11,9 +11,10 @@ import type {
   CombatState,
   CombatantId,
   DamageEvent,
-  StatusChange,
   PlayerId,
   RoundResult,
+  StatusChange,
+  SupportEvent,
 } from "../types";
 
 export type GameAction =
@@ -128,59 +129,118 @@ function applyDamageEvent(
   event: Pick<
     DamageEvent,
     "targetId" | "remainingHp" | "statusChanges"
-  >,
+  > & { remainingBarrier?: number },
 ): CombatState {
-  const applyStatusChanges = (
-    statuses: CombatState["enemies"][number]["statuses"],
-    changes: StatusChange[],
-  ) =>
-    changes.reduce((nextStatuses, change) => {
-      if (change.type === "removed") {
-        return nextStatuses.filter(
-          (status) => status.id !== change.statusId,
-        );
-      }
-
-      return [
-        ...nextStatuses.filter(
-          (status) => status.id !== change.status.id,
-        ),
-        change.status,
-      ];
-    }, statuses);
-
-  if (isCharacterInstanceId(event.targetId)) {
-    return {
+  const combatAfterDamage = isCharacterInstanceId(event.targetId)
+    ? {
       ...state,
       characters: {
         ...state.characters,
         [event.targetId]: {
           ...state.characters[event.targetId],
           hp: event.remainingHp,
-          statuses: applyStatusChanges(
-            state.characters[event.targetId].statuses,
-            event.statusChanges,
-          ),
+          barrier:
+            event.remainingBarrier ??
+            state.characters[event.targetId].barrier,
         },
       },
-    };
-  }
+    }
+    : {
+        ...state,
+        enemies: state.enemies.map((enemy) =>
+          enemy.instanceId === event.targetId
+            ? {
+                ...enemy,
+                hp: event.remainingHp,
+                barrier: event.remainingBarrier ?? enemy.barrier,
+              }
+            : enemy,
+        ),
+      };
 
-  return {
-    ...state,
-    enemies: state.enemies.map((enemy) =>
-      enemy.instanceId === event.targetId
-        ? {
-            ...enemy,
-            hp: event.remainingHp,
-            statuses: applyStatusChanges(
-              enemy.statuses,
-              event.statusChanges,
+  return event.statusChanges.reduce((combat, change) => {
+    const combatant = isCharacterInstanceId(change.combatantId)
+      ? combat.characters[change.combatantId]
+      : combat.enemies.find(
+          (enemy) => enemy.instanceId === change.combatantId,
+        );
+
+    if (!combatant) {
+      return combat;
+    }
+
+    const statuses =
+      change.type === "removed"
+        ? combatant.statuses.filter(
+            (status) => status.id !== change.statusId,
+          )
+        : [
+            ...combatant.statuses.filter(
+              (status) => status.id !== change.status.id,
             ),
-          }
-        : enemy,
-    ),
+            change.status,
+          ];
+
+    if (isCharacterInstanceId(change.combatantId)) {
+      return {
+        ...combat,
+        characters: {
+          ...combat.characters,
+          [change.combatantId]: {
+            ...combat.characters[change.combatantId],
+            statuses,
+          },
+        },
+      };
+    }
+
+    return {
+      ...combat,
+      enemies: combat.enemies.map((enemy) =>
+        enemy.instanceId === change.combatantId
+          ? { ...enemy, statuses }
+          : enemy,
+      ),
+    };
+  }, combatAfterDamage);
+}
+
+function applyStatusChanges(
+  state: CombatState,
+  statusChanges: StatusChange[],
+) {
+  return statusChanges.reduce(
+    (combat, change) =>
+      applyDamageEvent(combat, {
+        targetId: change.combatantId,
+        remainingHp: isCharacterInstanceId(change.combatantId)
+          ? combat.characters[change.combatantId].hp
+          : (combat.enemies.find(
+              (enemy) => enemy.instanceId === change.combatantId,
+            )?.hp ?? 0),
+        statusChanges: [change],
+      }),
+    state,
+  );
+}
+
+function applySupportEvent(
+  state: CombatState,
+  event: SupportEvent,
+): CombatState {
+  const combatAfterSupport = {
+    ...state,
+    characters: {
+      ...state.characters,
+      [event.targetId]: {
+        ...state.characters[event.targetId],
+        hp: event.remainingHp,
+        barrier: event.remainingBarrier,
+      },
+    },
   };
+
+  return applyStatusChanges(combatAfterSupport, event.statusChanges);
 }
 
 function applyCurrentCombatEvent(
@@ -203,8 +263,12 @@ function applyCurrentCombatEvent(
   }
 
   const combatAfterEvent =
-    event.type === "damage"
+    event.type === "damage" ||
+    event.type === "statusDamage" ||
+    event.type === "spiritDamage"
       ? applyDamageEvent(state.combat, event)
+      : event.type === "support"
+        ? applySupportEvent(state.combat, event)
       : event.type === "multiTargetDamage"
         ? event.impacts.reduce(
             (combat, impact) => applyDamageEvent(combat, impact),
