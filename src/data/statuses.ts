@@ -13,6 +13,18 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
       element: "fire",
     },
   },
+  bleed: {
+    id: "bleed",
+    name: "Bleed",
+    stackingRule: "refresh",
+    maxStacks: 1,
+    durationRounds: 3,
+    endOfRoundDamage: {
+      basePower: 2,
+      damageType: "physical",
+      element: null,
+    },
+  },
   cracked: {
     id: "cracked",
     name: "Cracked",

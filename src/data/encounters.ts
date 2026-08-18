@@ -68,10 +68,20 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     id: "dreadflameRitual",
     number: 5,
     title: "A Dark Presence",
-    nextEncounterId: null,
+    nextEncounterId: "mightAndMending",
     enemies: [
       { enemyId: "orcWizard", instanceId: "enemy-1" },
       { enemyId: "level1Orc", instanceId: "enemy-2" },
+    ],
+  },
+  mightAndMending: {
+    id: "mightAndMending",
+    number: 6,
+    title: "Might and Mending",
+    nextEncounterId: null,
+    enemies: [
+      { enemyId: "orcHealer", instanceId: "enemy-1" },
+      { enemyId: "orcMauler", instanceId: "enemy-2" },
     ],
   },
 };

@@ -1,8 +1,8 @@
-import type { RewardOffer, UpgradeChoiceId } from "../game/types";
+import type { StatRewardOffer, StatUpgradeId } from "../game/types";
 
 export const STAT_UPGRADE_DEFINITIONS: Record<
-  UpgradeChoiceId,
-  RewardOffer
+  StatUpgradeId,
+  StatRewardOffer
 > = {
   vitality: {
     id: "vitality",
@@ -129,7 +129,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
   },
 };
 
-export const STAT_UPGRADE_POOL: RewardOffer[] = [
+export const STAT_UPGRADE_POOL: StatRewardOffer[] = [
   STAT_UPGRADE_DEFINITIONS.vitality,
   STAT_UPGRADE_DEFINITIONS.power,
   STAT_UPGRADE_DEFINITIONS.quickness,

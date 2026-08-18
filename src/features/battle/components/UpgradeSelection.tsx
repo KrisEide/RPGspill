@@ -1,19 +1,27 @@
 import type {
+  RewardChoiceId,
   RewardOffer,
-  UpgradeChoiceId,
 } from "../../../game/types";
 
 type Props = {
   characterName: string;
+  itemRewards: {
+    name: string;
+    icon: string;
+    rarity: "common" | "uncommon" | "rare";
+    description: string;
+    useTiming: "action" | "quickAction";
+  }[];
   choices: RewardOffer[];
-  selectedChoiceId: UpgradeChoiceId | null;
+  selectedChoiceId: RewardChoiceId | null;
   waitingMessage: string | null;
   submitting: boolean;
-  onSelect: (choiceId: UpgradeChoiceId) => void;
+  onSelect: (choiceId: RewardChoiceId) => void;
 };
 
 export default function UpgradeSelection({
   characterName,
+  itemRewards,
   choices,
   selectedChoiceId,
   waitingMessage,
@@ -30,6 +38,36 @@ export default function UpgradeSelection({
         <p className="upgradeSelection__character">
           Choose one reward for {characterName}
         </p>
+        {itemRewards.map((itemReward, index) => (
+          <div
+            key={`${itemReward.name}-${index}`}
+            className="upgradeSelection__itemRewardWrap"
+            tabIndex={0}
+            aria-describedby={`item-reward-tooltip-${index}`}
+          >
+            <div
+              className={`upgradeSelection__itemReward upgradeSelection__itemReward--${itemReward.rarity}`}
+            >
+              <span aria-hidden="true">{itemReward.icon}</span>
+              Item found: <strong>{itemReward.name}</strong>
+            </div>
+            <div
+              id={`item-reward-tooltip-${index}`}
+              className="cmdbar__abilityTooltip upgradeSelection__itemTooltip"
+              role="tooltip"
+            >
+              <div className="cmdbar__abilityTooltipTitle">
+                {itemReward.name}
+              </div>
+              <div>{itemReward.description}</div>
+              {itemReward.useTiming === "quickAction" && (
+                <div className="cmdbar__abilityTooltipMeta">
+                  Quick Action
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
 
         <div className="upgradeSelection__choices">
           {choices.map((choice, index) => {
@@ -48,11 +86,20 @@ export default function UpgradeSelection({
                   {choice.icon}
                 </span>
                 <span className="upgradeSelection__cardType">
-                  Stat upgrade
+                  {choice.type === "newAbility"
+                    ? "New Ability"
+                    : choice.type === "passive"
+                      ? "Passive"
+                    : "Stat Upgrade"}
                 </span>
                 <strong className="upgradeSelection__cardTitle">
                   {choice.title}
                 </strong>
+                {choice.type === "newAbility" && (
+                  <span className="upgradeSelection__cardMeta">
+                    Rank {choice.rank} · {choice.ppCost} PP
+                  </span>
+                )}
                 <span className="upgradeSelection__cardDescription">
                   {choice.description}
                 </span>

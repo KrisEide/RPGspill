@@ -1,14 +1,24 @@
-import type { EncounterId, GameSetup } from "../types";
+import type {
+  CharacterInstanceId,
+  EncounterId,
+  GameSetup,
+  PassiveId,
+} from "../types";
 import { DEFAULT_PLAYER_CHARACTER_CONTROL } from "../playerControl";
 
 export function createDevelopmentSetup(
   startingEncounterId: EncounterId,
   randomSeed: number,
+  developmentPassives: Partial<
+    Record<CharacterInstanceId, PassiveId[]>
+  > = {},
 ): GameSetup {
   return {
     mode: "singlePlayer",
+    initialLoadout: "development",
     randomSeed,
     startingEncounterId,
+    developmentPassives,
     players: {
       player1: {
         id: "player1",

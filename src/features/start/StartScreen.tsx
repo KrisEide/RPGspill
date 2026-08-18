@@ -1,11 +1,20 @@
 import { useState } from "react";
 import startBackground from "../../assets/backgrounds/menu/startscreen.png";
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
-import type { EncounterId } from "../../game/types";
+import { PASSIVE_REWARD_POOL } from "../../data/passives";
+import type {
+  CharacterInstanceId,
+  EncounterId,
+  PassiveCategory,
+  PassiveId,
+} from "../../game/types";
 
 type Props = {
   onSinglePlayer: () => void;
-  onDevelopmentStart: (encounterId: EncounterId) => void;
+  onDevelopmentStart: (
+    encounterId: EncounterId,
+    passives?: Partial<Record<CharacterInstanceId, PassiveId[]>>,
+  ) => void;
   onCreateGame: () => Promise<void>;
   onJoinGame: (roomCode: string) => Promise<void>;
 };
@@ -16,6 +25,26 @@ const ROOM_CODE_LENGTH = 4;
 const DEVELOPMENT_ENCOUNTERS = Object.values(ENCOUNTER_DEFINITIONS).sort(
   (first, second) => first.number - second.number,
 );
+const PASSIVE_CATEGORY_ORDER: PassiveCategory[] = [
+  "bleed",
+  "burn",
+  "barrier",
+  "healing",
+  "coop",
+  "items",
+];
+const PASSIVE_CATEGORY_LABELS: Record<PassiveCategory, string> = {
+  bleed: "Bleed",
+  burn: "Burn",
+  barrier: "Barrier",
+  healing: "Healing",
+  coop: "Co-op",
+  items: "Items",
+};
+const DEVELOPMENT_CHARACTERS = [
+  { id: "character-1", name: "Rowan" },
+  { id: "character-2", name: "Lyra" },
+] as const;
 
 function normalizeRoomCode(value: string) {
   return value
@@ -35,6 +64,12 @@ export default function StartScreen({
   const [requestInProgress, setRequestInProgress] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [developmentMenuOpen, setDevelopmentMenuOpen] = useState(false);
+  const [developmentPassives, setDevelopmentPassives] = useState<
+    Record<CharacterInstanceId, PassiveId[]>
+  >({
+    "character-1": [],
+    "character-2": [],
+  });
   const canJoin = roomCode.length === ROOM_CODE_LENGTH;
 
   const runMultiplayerRequest = async (request: () => Promise<void>) => {
@@ -69,6 +104,27 @@ export default function StartScreen({
     }
 
     onDevelopmentStart("forestAmbush");
+  };
+
+  const toggleDevelopmentPassive = (
+    characterId: CharacterInstanceId,
+    passiveId: PassiveId,
+  ) => {
+    setDevelopmentPassives((current) => {
+      const selected = current[characterId];
+      const nextSelected = selected.includes(passiveId)
+        ? selected.filter((candidate) => candidate !== passiveId)
+        : [...selected, passiveId];
+
+      return { ...current, [characterId]: nextSelected };
+    });
+  };
+
+  const clearDevelopmentPassives = () => {
+    setDevelopmentPassives({
+      "character-1": [],
+      "character-2": [],
+    });
   };
 
   return (
@@ -210,35 +266,120 @@ export default function StartScreen({
           onClick={() => setDevelopmentMenuOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-amber-300/45 bg-[#07150d]/95 p-6 text-white shadow-2xl"
+            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-amber-300/45 bg-[#07150d]/95 p-6 text-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-300/70">
               Development shortcut
             </p>
-            <h2 className="mt-2 text-2xl font-extrabold">
-              Select Encounter
-            </h2>
-            <div className="mt-5 grid gap-2">
-              {DEVELOPMENT_ENCOUNTERS.map((encounter) => {
-                return (
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="mt-2 text-2xl font-extrabold">
+                  Combat Test Setup
+                </h2>
+                <p className="mt-1 text-sm text-white/60">
+                  Passives are disabled unless selected below.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="mt-2 shrink-0 rounded-md border border-white/15 px-3 py-2 text-xs font-bold text-white/65 hover:border-white/35 hover:text-white"
+                onClick={clearDevelopmentPassives}
+              >
+                Clear passives
+              </button>
+            </div>
+
+            <div className="mt-5 min-h-0 overflow-y-auto pr-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_72px_72px] items-center border-b border-white/15 px-3 pb-2 text-center text-xs font-extrabold uppercase tracking-wider text-white/65">
+                <span className="text-left">Passive</span>
+                {DEVELOPMENT_CHARACTERS.map((character) => (
+                  <span key={character.id}>{character.name}</span>
+                ))}
+              </div>
+
+              {PASSIVE_CATEGORY_ORDER.map((category) => (
+                <section key={category} className="mt-3">
+                  <h3 className="px-3 text-xs font-extrabold uppercase tracking-[0.2em] text-amber-300/75">
+                    {PASSIVE_CATEGORY_LABELS[category]}
+                  </h3>
+                  <div className="mt-1 overflow-hidden rounded-lg border border-white/10">
+                    {PASSIVE_REWARD_POOL.filter(
+                      (passive) => passive.category === category,
+                    ).map((passive) => (
+                      <div
+                        key={passive.id}
+                        className="grid grid-cols-[minmax(0,1fr)_72px_72px] items-center border-b border-white/10 bg-white/[0.035] px-3 py-2 last:border-b-0 hover:bg-white/[0.07]"
+                        title={passive.description}
+                      >
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-center gap-2 font-bold">
+                            <span aria-hidden="true">{passive.icon}</span>
+                            <span>{passive.name}</span>
+                          </div>
+                          <p className="mt-0.5 truncate text-xs text-white/50">
+                            {passive.description}
+                          </p>
+                        </div>
+                        {DEVELOPMENT_CHARACTERS.map((character) => (
+                          <label
+                            key={character.id}
+                            className="grid cursor-pointer place-items-center"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-5 w-5 cursor-pointer accent-amber-400"
+                              checked={developmentPassives[
+                                character.id
+                              ].includes(passive.id)}
+                              onChange={() =>
+                                toggleDevelopmentPassive(
+                                  character.id,
+                                  passive.id,
+                                )
+                              }
+                              aria-label={`${passive.name} for ${character.name}`}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))}
+
+              <h3 className="mt-6 text-sm font-extrabold uppercase tracking-[0.2em] text-amber-300/75">
+                Start at encounter
+              </h3>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {DEVELOPMENT_ENCOUNTERS.map((encounter) => (
                   <button
                     key={encounter.id}
                     type="button"
                     className="flex items-center justify-between rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left hover:border-amber-300/55 hover:bg-white/10 active:scale-[0.99]"
-                    onClick={() => onDevelopmentStart(encounter.id)}
+                    onClick={() =>
+                      onDevelopmentStart(encounter.id, {
+                        "character-1": [
+                          ...developmentPassives["character-1"],
+                        ],
+                        "character-2": [
+                          ...developmentPassives["character-2"],
+                        ],
+                      })
+                    }
                   >
                     <span className="font-bold">{encounter.title}</span>
-                    <span className="text-sm text-white/60">
-                      Encounter {encounter.number}
+                    <span className="ml-3 text-sm text-white/60">
+                      {encounter.number}
                     </span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
+
             <button
               type="button"
-              className="mt-5 w-full px-4 py-2 text-sm text-white/65 hover:text-white"
+              className="mt-4 w-full shrink-0 px-4 py-2 text-sm text-white/65 hover:text-white"
               onClick={() => setDevelopmentMenuOpen(false)}
             >
               Close

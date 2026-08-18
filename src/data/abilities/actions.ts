@@ -103,19 +103,40 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  gatherDreadflame: {
+    id: "gatherDreadflame",
+    name: "Gather Dreadflame",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Charge Dreadflame for the next round.",
+        description:
+          "Gather black flame. Dreadflame is unleashed on both heroes next round.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "charge",
+            readiesAbilityId: "dreadflame",
+          },
+        ],
+      },
+    },
+  },
   dreadflame: {
     id: "dreadflame",
     name: "Dreadflame",
     category: "action",
     resolutionPriority: 0,
-    target: "singleEnemy",
+    target: "allEnemies",
     element: null,
-    aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Heavy magical damage to one random hero.",
+        shortDescription: "Heavy magical damage to both heroes.",
         description:
-          "Engulf one random hero in black flame. Damage is reduced by Resistance.",
+          "Engulf all living heroes in black flame. Damage is reduced by Resistance.",
         ppCost: 0,
         effects: [
           {
@@ -129,11 +150,37 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  mendWounds: {
+    id: "mendWounds",
+    name: "Mend Wounds",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleAlly",
+    element: null,
+    aiTargeting: "lowestHpPercentageLivingAlly",
+    ranks: {
+      1: {
+        shortDescription: "Restore HP to the most wounded living ally.",
+        description:
+          "Restore 18 HP to the living allied orc with the lowest percentage of HP.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "healing",
+            basePower: 18,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
 } satisfies Record<
   | "autoAttack"
   | "defend"
   | "gangStrike"
   | "darkBolt"
-  | "dreadflame",
+  | "gatherDreadflame"
+  | "dreadflame"
+  | "mendWounds",
   AbilityDefinition
 >;

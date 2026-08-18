@@ -8,9 +8,10 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
   embertail: {
     id: "embertail",
     name: "Embertail",
+    icon: "🔥",
     element: "fire",
     passive: {
-      name: "Embertail's Flame",
+      name: "Embertail",
       description:
         "The first time you attack each round, deal 3 additional Spirit Fire damage to one enemy hit.",
       firstDamageActionEachRound: {
@@ -22,6 +23,54 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     activeAbilityId: "cinderburst",
     activeUsesPerEncounter: 1,
   },
+  stoneback: {
+    id: "stoneback",
+    name: "Stoneback",
+    icon: "🪨",
+    element: "earth",
+    passive: {
+      name: "Stoneback",
+      description:
+        "The first time you gain Barrier each encounter, gain 5 additional Barrier.",
+      firstBarrierGainEachEncounter: {
+        additionalBarrier: 5,
+      },
+    },
+    activeAbilityId: "stoneback",
+    activeUsesPerEncounter: 1,
+  },
+  swiftWing: {
+    id: "swiftWing",
+    name: "Swift Wing",
+    icon: "🪽",
+    element: "wind",
+    passive: {
+      name: "Swift Wing",
+      description:
+        "At the start of each round, gain a 20% chance to act first regardless of Agility.",
+      roundStartTurnPriority: {
+        chance: 0.2,
+        resolutionPriority: 200,
+      },
+    },
+    activeAbilityId: "swiftWing",
+    activeUsesPerEncounter: 1,
+  },
+  riverheart: {
+    id: "riverheart",
+    name: "Riverheart",
+    icon: "💧",
+    element: "water",
+    passive: {
+      name: "Riverheart",
+      description: "All healing received by both heroes is increased by 2.",
+      allHealingReceived: {
+        flatIncrease: 2,
+      },
+    },
+    activeAbilityId: "riverheart",
+    activeUsesPerEncounter: 1,
+  },
 };
 
 export function createSpiritState(spiritId: SpiritId) {
@@ -31,6 +80,8 @@ export function createSpiritState(spiritId: SpiritId) {
     id: spiritId,
     activeUsesRemaining: definition.activeUsesPerEncounter,
     passiveTriggeredRound: null,
+    passiveTriggeredThisEncounter: false,
+    roundPriorityActive: false,
   };
 }
 

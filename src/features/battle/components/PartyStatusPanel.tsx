@@ -29,6 +29,9 @@ function CharacterStatusCard({
 }: CharacterStatusCardProps) {
   const hpPercent = getResourcePercent(character.hp, character.stats.maxHp);
   const ppPercent = getResourcePercent(character.pp, character.stats.maxPp);
+  const swiftWingIsActive = Boolean(
+    character.spirits.swiftWing?.roundPriorityActive,
+  );
 
   return (
     <article
@@ -45,7 +48,18 @@ function CharacterStatusCard({
       <div className="statusCard__content">
         <div className="statusCard__heading">
           <h2 className="statusCard__name">{character.name}</h2>
-          <span className="statusCard__level">Lv. {character.level}</span>
+          <div className="statusCard__headingMeta">
+            {swiftWingIsActive && (
+              <span
+                className="statusCard__turnPriority"
+                aria-label="Swift Wing is active: acts first this round"
+                title="Swift Wing: Acts first this round."
+              >
+                🪽
+              </span>
+            )}
+            <span className="statusCard__level">Lv. {character.level}</span>
+          </div>
         </div>
 
         <div className="statusCard__resource">

@@ -1,3 +1,5 @@
+import { ITEM_DEFINITIONS } from "../../data/items";
+import { getSpiritForActiveAbility } from "../../data/spirits";
 import {
   getKnownAbilityRank,
   resolveAbility,
@@ -8,13 +10,14 @@ import {
 } from "../playerControl";
 import type {
   AbilityId,
-  AbilityTarget,
   CombatantId,
   CombatState,
+  ItemId,
+  ItemTarget,
   PlayerId,
   RoundSelections,
 } from "../types";
-import { getSpiritForActiveAbility } from "../../data/spirits";
+import { getEffectiveAbilityPpCost } from "../passives/passiveSystem";
 
 type PlayerActionRequest = {
   playerId: PlayerId;
@@ -22,15 +25,35 @@ type PlayerActionRequest = {
   targetId: CombatantId | null;
 };
 
-function isValidTarget(
+type PlayerItemRequest = {
+  playerId: PlayerId;
+  itemId: ItemId;
+  targetId: CombatantId | null;
+};
+
+export function isValidPlayerTarget(
   state: CombatState,
   actorId: CombatantId,
   targetId: CombatantId | null,
-  targetType: AbilityTarget,
+  targetType: ItemTarget,
 ) {
-  if (targetType === "allEnemies") {
+  if (targetType === "singleFallenAlly") {
     return (
-      targetId === null && state.enemies.some((enemy) => enemy.hp > 0)
+      targetId !== null &&
+      isCharacterInstanceId(targetId) &&
+      state.characters[targetId].hp <= 0
+    );
+  }
+
+  if (targetType === "allEnemies") {
+    return targetId === null && state.enemies.some((enemy) => enemy.hp > 0);
+  }
+
+  if (targetType === "allAllies") {
+    return (
+      targetId === null &&
+      isCharacterInstanceId(actorId) &&
+      Object.values(state.characters).some((character) => character.hp > 0)
     );
   }
 
@@ -59,8 +82,8 @@ function isValidTarget(
 
 export function createEmptyRoundSelections(): RoundSelections {
   return {
-    "character-1": null,
-    "character-2": null,
+    "character-1": { action: null, quickActions: [] },
+    "character-2": { action: null, quickActions: [] },
   };
 }
 
@@ -75,6 +98,7 @@ export function selectPlayerAction(
 
   const characterId = state.players[request.playerId].controlledCharacterId;
   const actor = state.characters[characterId];
+  const selection = selections[characterId];
   const abilityRank = getKnownAbilityRank(
     actor.abilityRanks,
     request.abilityId,
@@ -88,15 +112,18 @@ export function selectPlayerAction(
     : activeSpirit
       ? resolveAbility(request.abilityId, 1)
       : null;
+  const ppCost = ability
+    ? getEffectiveAbilityPpCost(actor, ability.category, ability.ppCost)
+    : 0;
 
   if (
     actor.hp <= 0 ||
-    selections[characterId] !== null ||
+    selection.action !== null ||
     !ability ||
     (ability.category === "spirit" &&
       (!activeSpirit || activeSpirit.activeUsesRemaining <= 0)) ||
-    actor.pp < ability.ppCost ||
-    !isValidTarget(
+    actor.pp < ppCost ||
+    !isValidPlayerTarget(
       state,
       characterId,
       request.targetId,
@@ -109,9 +136,79 @@ export function selectPlayerAction(
   return {
     ...selections,
     [characterId]: {
-      actorId: characterId,
-      abilityId: request.abilityId,
-      targetId: request.targetId,
+      ...selection,
+      action: {
+        kind: "ability",
+        actorId: characterId,
+        abilityId: request.abilityId,
+        targetId: request.targetId,
+      },
+    },
+  };
+}
+
+export function selectPlayerItem(
+  state: CombatState,
+  selections: RoundSelections,
+  request: PlayerItemRequest,
+): RoundSelections | null {
+  if (state.phase !== "selectingActions") {
+    return null;
+  }
+
+  const characterId = state.players[request.playerId].controlledCharacterId;
+  const actor = state.characters[characterId];
+  const definition = ITEM_DEFINITIONS[request.itemId];
+  const selection = selections[characterId];
+
+  if (
+    actor.hp <= 0 ||
+    !definition ||
+    definition.resolutionTiming === "preRound" ||
+    !isValidPlayerTarget(
+      state,
+      characterId,
+      request.targetId,
+      definition.target,
+    )
+  ) {
+    return null;
+  }
+
+  const queuedQuantity = [selection.action, ...selection.quickActions].filter(
+    (action) => action?.kind === "item" && action.itemId === request.itemId,
+  ).length;
+
+  if ((actor.inventory[request.itemId] ?? 0) <= queuedQuantity) {
+    return null;
+  }
+
+  const itemAction = {
+    kind: "item" as const,
+    actorId: characterId,
+    itemId: request.itemId,
+    targetId: request.targetId,
+  };
+
+  if (definition.useTiming === "quickAction") {
+    return {
+      ...selections,
+      [characterId]: {
+        ...selection,
+        quickActions: [...selection.quickActions, itemAction],
+      },
+    };
+  }
+
+  if (selection.action !== null) {
+    return null;
+  }
+
+  return {
+    ...selections,
+    [characterId]: {
+      ...selection,
+      action: itemAction,
     },
   };
 }
@@ -125,7 +222,7 @@ export function areAllLivingPlayersReady(
 
     return (
       state.characters[characterId].hp <= 0 ||
-      selections[characterId] !== null
+      selections[characterId].action !== null
     );
   });
 }

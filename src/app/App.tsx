@@ -25,6 +25,8 @@ import type {
   GameMode,
   GameSetup,
   EncounterId,
+  CharacterInstanceId,
+  PassiveId,
   PlayerId,
   PlayerSetup,
 } from "../game/types";
@@ -109,12 +111,15 @@ export default function App() {
     setScreen("character");
   };
 
-  const startDevelopmentEncounter = (encounterId: EncounterId) => {
+  const startDevelopmentEncounter = (
+    encounterId: EncounterId,
+    passives: Partial<Record<CharacterInstanceId, PassiveId[]>> = {},
+  ) => {
     setGameMode("singlePlayer");
     setPlayerOne(null);
     setSelectingPlayerId("player1");
     setGameSetup(
-      createDevelopmentSetup(encounterId, createRandomSeed()),
+      createDevelopmentSetup(encounterId, createRandomSeed(), passives),
     );
     setScreen("battle");
   };
@@ -155,6 +160,7 @@ export default function App() {
 
     setGameSetup({
       mode: gameMode,
+      initialLoadout: "run",
       randomSeed: createRandomSeed(),
       players: {
         player1: playerOne,

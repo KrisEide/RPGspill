@@ -5,9 +5,11 @@ import type {
   CombatantId,
   CombatState,
   EncounterId,
+  ItemId,
+  ItemUseEvent,
   PlayerId,
+  RewardChoiceId,
   RoundResult,
-  UpgradeChoiceId,
 } from "../game/types";
 
 export type LobbyStatus = "waitingForPlayer" | "ready";
@@ -40,6 +42,22 @@ export type MultiplayerActionRequest = {
   targetId: CombatantId | null;
 };
 
+export type MultiplayerItemRequest = {
+  round: number;
+  itemId: ItemId;
+  targetId: CombatantId | null;
+};
+
+export type MultiplayerItemResult = {
+  accepted: boolean;
+  resolvedImmediately: boolean;
+};
+
+export type ImmediateItemResult = {
+  state: CombatState;
+  event: ItemUseEvent;
+};
+
 export type PlayerReadinessState = {
   round: number;
   readyPlayerIds: PlayerId[];
@@ -47,7 +65,7 @@ export type PlayerReadinessState = {
 
 export type UpgradeSelectionRequest = {
   completedEncounterId: EncounterId;
-  choiceId: UpgradeChoiceId;
+  choiceId: RewardChoiceId;
 };
 
 export type UpgradeReadinessState = {
@@ -71,6 +89,7 @@ export interface ServerToClientEvents {
   gameStarted: (state: CombatState) => void;
   playerReadinessUpdated: (state: PlayerReadinessState) => void;
   roundResolved: (result: RoundResult) => void;
+  immediateItemResolved: (result: ImmediateItemResult) => void;
   upgradeReadinessUpdated: (state: UpgradeReadinessState) => void;
   encounterStarted: (state: CombatState) => void;
   sessionEnded: () => void;
@@ -89,6 +108,10 @@ export interface ClientToServerEvents {
   selectAction: (
     request: MultiplayerActionRequest,
     respond: (accepted: boolean) => void,
+  ) => void;
+  selectItem: (
+    request: MultiplayerItemRequest,
+    respond: (result: MultiplayerItemResult) => void,
   ) => void;
   selectUpgrade: (
     request: UpgradeSelectionRequest,

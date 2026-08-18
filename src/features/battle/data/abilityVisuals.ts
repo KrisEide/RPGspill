@@ -3,6 +3,7 @@ import darkBoltProjectile from "../../../assets/sprites/monsters/dark-bolt-effec
 import windSlashEffect from "../../../assets/Effect/windslash.png";
 import crashingWaveEffect from "../../../assets/Effect/crashingwave.png";
 import cinderburstEffect from "../../../assets/Effect/embertail_cinderburst.png";
+import stonebackEffect from "../../../assets/Effect/stoneback.png";
 import dreadflameEffect from "../../../assets/sprites/monsters/orcwizard_effekt.png";
 import type { AbilityId } from "../../../game/types";
 
@@ -30,7 +31,11 @@ export type AbilityVisualDefinition = {
   battlefieldEffect?: {
     spriteSrc: string;
     width: number;
-    variant: "cinderburst";
+    variant: "cinderburst" | "stoneback";
+    position?: {
+      left: string;
+      top: string;
+    };
   };
 };
 
@@ -131,6 +136,15 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "dark",
   },
+  gatherDreadflame: {
+    icon: "♠",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 3600,
+      impactDelayMs: 1300,
+      eventDurationMs: 4200,
+    },
+  },
   dreadflame: {
     icon: "♠",
     animation: "cast",
@@ -145,6 +159,16 @@ export const ABILITY_VISUALS: Partial<
       variant: "dreadflame",
     },
     impact: "dark",
+  },
+  mendWounds: {
+    icon: "✚",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 3600,
+      impactDelayMs: 1700,
+      eventDurationMs: 4300,
+    },
+    impact: "earth",
   },
   cinderburst: {
     icon: "🔥",
@@ -161,5 +185,51 @@ export const ABILITY_VISUALS: Partial<
       variant: "cinderburst",
     },
     impact: "fire",
+  },
+  stoneback: {
+    icon: "🪨",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 4800,
+      impactDelayMs: 1600,
+      eventDurationMs: 5600,
+    },
+    battlefieldEffect: {
+      spriteSrc: stonebackEffect,
+      width: 720,
+      variant: "stoneback",
+      position: {
+        left: "500px",
+        top: "calc(100% - var(--hud-height) - 185px)",
+      },
+    },
+    impact: "earth",
+  },
+  swiftWing: {
+    icon: "🪽",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 1800,
+      impactDelayMs: 950,
+      eventDurationMs: 2400,
+    },
+    projectile: {
+      spriteSrc: windSlashEffect,
+      width: 230,
+      variant: "wind",
+    },
+    impact: "wind",
+  },
+  riverheart: {
+    icon: "💧",
+    animation: "cast",
+    castVariant: "water",
+    timing: {
+      animationDurationMs: 2600,
+      impactDelayMs: 1150,
+      eventDurationMs: 3200,
+    },
+    impact: "water",
   },
 };

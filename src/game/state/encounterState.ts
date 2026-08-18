@@ -1,6 +1,7 @@
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { refreshSpiritActiveUses } from "../../data/spirits";
+import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
 import type {
   CombatState,
   CombatStats,
@@ -49,7 +50,7 @@ export function startEncounter(
   currentState: CombatState,
   encounterId: EncounterId,
 ): CombatState {
-  return {
+  return prepareRoundTurnPriorities({
     ...currentState,
     encounterId,
     round: 1,
@@ -61,6 +62,9 @@ export function startEncounter(
         spirits: refreshSpiritActiveUses(
           currentState.characters["character-1"].spirits,
         ),
+        itemDamageBonus: null,
+        abilityDamageBonus: null,
+        passiveCombatState: { firstHealUsed: false },
         statuses: [],
         barrier: 0,
       },
@@ -70,11 +74,15 @@ export function startEncounter(
         spirits: refreshSpiritActiveUses(
           currentState.characters["character-2"].spirits,
         ),
+        itemDamageBonus: null,
+        abilityDamageBonus: null,
+        passiveCombatState: { firstHealUsed: false },
         statuses: [],
         barrier: 0,
       },
     },
     enemies: createEncounterEnemies(encounterId),
     rewardOffers: null,
-  };
+    itemRewards: null,
+  });
 }

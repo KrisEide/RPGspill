@@ -60,6 +60,7 @@ type Props = {
   spirits: {
     id: SpiritId;
     name: string;
+    icon: string;
     passiveName: string;
     passiveDescription: string;
     activeAbilityId: AbilityId;
@@ -68,9 +69,19 @@ type Props = {
     activeDescription: string;
     usesRemaining: number;
   }[];
+  items: {
+    id: string;
+    name: string;
+    menuName: string;
+    icon: string;
+    description: string;
+    quantity: number;
+    useTiming: "action" | "quickAction";
+  }[];
   onAttackSelect: () => void;
   onAbilitySelect: (abilityId: AbilityId) => void;
   onSpiritSelect: (abilityId: AbilityId) => void;
+  onItemSelect: (itemId: string) => void;
   onDefendSelect: () => void;
 };
 
@@ -81,14 +92,17 @@ export default function CommandBar({
   spiritAvailable = false,
   abilities,
   spirits,
+  items,
   onAttackSelect,
   onAbilitySelect,
   onSpiritSelect,
+  onItemSelect,
   onDefendSelect,
 }: Props) {
   const [selected, setSelected] = useState<CommandId>("attack");
   const [hovered, setHovered] = useState<CommandId | null>(null);
   const [openPanel, setOpenPanel] = useState<CommandPanelId | null>(null);
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   const commands = useMemo<CommandDefinition[]>(
     () => [
@@ -136,9 +150,12 @@ export default function CommandBar({
 
   const portraitToUse = portraitSrc ?? portrait;
   const panelContent = openPanel ? PANEL_CONTENT[openPanel] : null;
+  const hoveredItem = items.find((item) => item.id === hoveredItemId) ?? null;
 
   return (
-    <div className="cmdbar">
+    <div
+      className={`cmdbar${openPanel === "items" ? " cmdbar--inventoryOpen" : ""}`}
+    >
       <div className="cmdbar__inner">
         <div className="cmdbar__portrait">
           <img
@@ -160,6 +177,7 @@ export default function CommandBar({
                 onClick={() => {
                   setOpenPanel(null);
                   setHovered(null);
+                  setHoveredItemId(null);
                 }}
               >
                 <span aria-hidden="true">←</span> Back
@@ -250,11 +268,11 @@ export default function CommandBar({
                           }}
                         >
                           <span className="cmdbar__abilityIcon" aria-hidden="true">
-                            🔥
+                            {spirit.icon}
                           </span>
                           <span className="cmdbar__abilityDetails">
                             <span className="cmdbar__abilityName">
-                              {spirit.name} · {spirit.activeName}
+                              {spirit.name}
                             </span>
                             <span className="cmdbar__abilityDescription">
                               {spirit.activeShortDescription}
@@ -272,7 +290,7 @@ export default function CommandBar({
                           role="tooltip"
                         >
                           <div className="cmdbar__abilityTooltipTitle">
-                            {spirit.name} · {spirit.activeName}
+                            {spirit.name}
                           </div>
                           <div>
                             <strong>Active:</strong> {spirit.activeDescription}
@@ -291,6 +309,64 @@ export default function CommandBar({
                     );
                   })}
                 </div>
+              ) : openPanel === "items" && items.length > 0 ? (
+                <>
+                  <div className="cmdbar__abilityList cmdbar__abilityList--compact cmdbar__itemList">
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="cmdbar__abilityEntry cmdbar__abilityEntry--compact cmdbar__itemSlot"
+                      >
+                        <button
+                          type="button"
+                          className="cmdbar__abilityButton cmdbar__abilityButton--compact cmdbar__itemEntry"
+                          aria-describedby="item-tooltip"
+                          disabled={actionsDisabled || item.quantity <= 0}
+                          onMouseEnter={() => setHoveredItemId(item.id)}
+                          onMouseLeave={() => setHoveredItemId(null)}
+                          onFocus={() => setHoveredItemId(item.id)}
+                          onBlur={() => setHoveredItemId(null)}
+                          onClick={() => {
+                            onItemSelect(item.id);
+                            setOpenPanel(null);
+                            setSelected("items");
+                            setHovered(null);
+                            setHoveredItemId(null);
+                          }}
+                        >
+                          <span className="cmdbar__abilityIcon" aria-hidden="true">
+                            {item.icon}
+                          </span>
+                          <span className="cmdbar__abilityDetails">
+                            <span className="cmdbar__abilityName">
+                              {item.menuName}
+                            </span>
+                          </span>
+                          <span className="cmdbar__abilityCost cmdbar__itemQuantity">
+                            ×{item.quantity}
+                          </span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  {hoveredItem && (
+                    <div
+                      id="item-tooltip"
+                      className="cmdbar__abilityTooltip cmdbar__itemTooltip"
+                      role="tooltip"
+                    >
+                      <div className="cmdbar__abilityTooltipTitle">
+                        {hoveredItem.name}
+                      </div>
+                      <div>{hoveredItem.description}</div>
+                      {hoveredItem.useTiming === "quickAction" && (
+                        <div className="cmdbar__abilityTooltipMeta">
+                          Quick Action
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="cmdbar__emptyMessage">
                   {panelContent.emptyMessage}

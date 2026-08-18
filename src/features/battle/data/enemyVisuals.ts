@@ -5,6 +5,11 @@ import orcMageSprite from "../../../assets/sprites/monsters/orcmage.png";
 import orcMageDarkBoltSprite from "../../../assets/sprites/monsters/orcmage_darkbolt.png";
 import orcWizardIdleSprite from "../../../assets/sprites/monsters/orcwizard_idle.png";
 import orcWizardAttackOneSprite from "../../../assets/sprites/monsters/orcwizard_attack1.png";
+import orcHealerSprite from "../../../assets/sprites/monsters/orchealer.png";
+import orcHealerAttackSprite from "../../../assets/sprites/monsters/orchealer_attack.png";
+import orcHealerHealingSprite from "../../../assets/sprites/monsters/orchealer_healing.png";
+import orcMaulerSprite from "../../../assets/sprites/monsters/orcmauler.png";
+import orcMaulerAttackSprite from "../../../assets/sprites/monsters/orcmauler_attack.png";
 import level1OrcAutoAttackSprite from "../../../assets/sprites/monsters/level1orcattack.png";
 import type { AbilityId, EnemyId } from "../../../game/types";
 
@@ -34,10 +39,18 @@ const createAnchoredEnemySpriteAdjustment = ({
   top: `${targetAnchor.y - sourceAnchor.y * displayScale}px`,
 });
 
+const orcWizardCastingSpriteAdjustment =
+  createAnchoredEnemySpriteAdjustment({
+    sourceSize: { width: 1254, height: 1254 },
+    sourceAnchor: { x: 720, y: 1215 },
+    targetAnchor: { x: 260, y: 330 },
+    displayScale: 0.352,
+  });
+
 type EnemyVisualDefinition = {
   idleSpriteSrc: string;
   autoAttackSpriteSrc: string;
-  attackAnimationVariant?: "snappy" | "raiderStab";
+  attackAnimationVariant?: "snappy" | "raiderStab" | "stationaryStrike";
   attackAnimationDurationMs?: number;
   spriteScale?: number;
   statusTop?: string;
@@ -47,7 +60,7 @@ type EnemyVisualDefinition = {
     Record<
       AbilityId,
       {
-        variant: "dreadflame";
+        variant: "dreadflame" | "healing";
         frames: Array<{
           spriteSrc: string;
           adjustment?: EnemySpriteAdjustment;
@@ -114,23 +127,81 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
       sourceSize: { width: 1254, height: 1254 },
       sourceAnchor: { x: 770, y: 1215 },
       targetAnchor: { x: 275, y: 330 },
-      displayScale: 0.26,
+      displayScale: 0.273,
     }),
     abilitySpriteSequences: {
+      gatherDreadflame: {
+        variant: "dreadflame",
+        frames: [
+          {
+            spriteSrc: orcWizardAttackOneSprite,
+            adjustment: orcWizardCastingSpriteAdjustment,
+          },
+        ],
+      },
       dreadflame: {
         variant: "dreadflame",
         frames: [
           {
             spriteSrc: orcWizardAttackOneSprite,
+            adjustment: orcWizardCastingSpriteAdjustment,
+          },
+        ],
+      },
+    },
+  },
+  orcHealer: {
+    idleSpriteSrc: orcHealerSprite,
+    autoAttackSpriteSrc: orcHealerAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2100,
+    statusTop: "-35px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1312, height: 1199 },
+      sourceAnchor: { x: 780, y: 1160 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.285,
+    }),
+    attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 890, y: 1010 },
+      targetAnchor: { x: 120, y: 385 },
+      displayScale: 0.37,
+    }),
+    abilitySpriteSequences: {
+      mendWounds: {
+        variant: "healing",
+        frames: [
+          {
+            spriteSrc: orcHealerHealingSprite,
             adjustment: createAnchoredEnemySpriteAdjustment({
-              sourceSize: { width: 1254, height: 1254 },
-              sourceAnchor: { x: 720, y: 1215 },
-              targetAnchor: { x: 260, y: 330 },
-              displayScale: 0.32,
+              sourceSize: { width: 1122, height: 1402 },
+              sourceAnchor: { x: 700, y: 1340 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.29,
             }),
           },
         ],
       },
     },
+  },
+  orcMauler: {
+    idleSpriteSrc: orcMaulerSprite,
+    autoAttackSpriteSrc: orcMaulerAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2100,
+    statusTop: "-34px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1206, height: 1305 },
+      sourceAnchor: { x: 680, y: 1270 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.28,
+    }),
+    attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1448, height: 1086 },
+      sourceAnchor: { x: 975, y: 1040 },
+      targetAnchor: { x: 90, y: 395 },
+      displayScale: 0.33,
+    }),
   },
 };

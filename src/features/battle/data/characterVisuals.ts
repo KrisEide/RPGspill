@@ -64,6 +64,14 @@ const LYRA_EARTH_HEALING_SPRITE_ADJUSTMENT =
     displayScale: 0.29,
   });
 
+const LYRA_WATER_HEALING_SPRITE_ADJUSTMENT =
+  createAnchoredSpriteAdjustment({
+    sourceSize: { width: 1024, height: 1536 },
+    sourceAnchor: { x: 512, y: 1370 },
+    targetAnchor: { x: 260, y: 330 },
+    displayScale: 0.29,
+  });
+
 type CharacterVisualDefinition = {
   idleSpriteSrc: string;
   autoAttackSpriteSrc: string;
@@ -108,9 +116,13 @@ export const CHARACTER_VISUALS: Record<
     projectileOrigins: {
       fireball: {
         xRatio: 0.83,
-        yRatio: 0.07,
+        yRatio: 0.14,
       },
       windSlash: {
+        xRatio: 0.76,
+        yRatio: 0.5,
+      },
+      swiftWing: {
         xRatio: 0.76,
         yRatio: 0.5,
       },
@@ -132,7 +144,7 @@ export const CHARACTER_VISUALS: Record<
         offsetY: "-1%",
         scale: 1.08,
       },
-      healingTide: HEALING_SPRITE_ADJUSTMENT,
+      healingTide: LYRA_WATER_HEALING_SPRITE_ADJUSTMENT,
       stonebloom: LYRA_EARTH_HEALING_SPRITE_ADJUSTMENT,
       whirlwind: createAnchoredSpriteAdjustment({
         sourceSize: { width: 1680, height: 936 },
@@ -147,6 +159,10 @@ export const CHARACTER_VISUALS: Record<
         yRatio: 0.07,
       },
       windSlash: {
+        xRatio: 0.76,
+        yRatio: 0.5,
+      },
+      swiftWing: {
         xRatio: 0.76,
         yRatio: 0.5,
       },

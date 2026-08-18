@@ -7,8 +7,8 @@ import type {
 
 export type CharacterPreset = {
   stats: CombatStats;
-  startingAbilityRanks: KnownAbilities;
-  startingSpiritIds: SpiritId[];
+  developmentAbilityRanks: KnownAbilities;
+  developmentSpiritIds: SpiritId[];
 };
 
 function createStartingStats(): CombatStats {
@@ -32,7 +32,7 @@ function createStartingStats(): CombatStats {
 export const CHARACTER_PRESETS = {
   char1: {
     stats: createStartingStats(),
-    startingAbilityRanks: {
+    developmentAbilityRanks: {
       autoAttack: 1,
       defend: 1,
       fireball: 1,
@@ -42,11 +42,16 @@ export const CHARACTER_PRESETS = {
       whirlwind: 1,
       windSlash: 1,
     },
-    startingSpiritIds: ["embertail"],
+    developmentSpiritIds: [
+      "embertail",
+      "stoneback",
+      "swiftWing",
+      "riverheart",
+    ],
   },
   char2: {
     stats: createStartingStats(),
-    startingAbilityRanks: {
+    developmentAbilityRanks: {
       autoAttack: 1,
       defend: 1,
       fireball: 1,
@@ -56,6 +61,11 @@ export const CHARACTER_PRESETS = {
       whirlwind: 1,
       windSlash: 1,
     },
-    startingSpiritIds: ["embertail"],
+    developmentSpiritIds: [
+      "embertail",
+      "stoneback",
+      "swiftWing",
+      "riverheart",
+    ],
   },
 } satisfies Record<CharacterPresetId, CharacterPreset>;

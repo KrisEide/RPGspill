@@ -4,6 +4,9 @@ import type {
   ClientToServerEvents,
   LobbyState,
   MultiplayerActionRequest,
+  MultiplayerItemRequest,
+  MultiplayerItemResult,
+  ImmediateItemResult,
   PlayerReadinessState,
   RoomConnection,
   ServerToClientEvents,
@@ -113,6 +116,16 @@ export async function submitMultiplayerAction(
   });
 }
 
+export async function submitMultiplayerItem(
+  request: MultiplayerItemRequest,
+) {
+  await connect();
+
+  return new Promise<MultiplayerItemResult>((resolve) => {
+    socket.emit("selectItem", request, resolve);
+  });
+}
+
 export async function submitMultiplayerUpgrade(
   request: UpgradeSelectionRequest,
 ) {
@@ -178,6 +191,16 @@ export function subscribeToRoundResolved(
 
   return () => {
     socket.off("roundResolved", handleRoundResolved);
+  };
+}
+
+export function subscribeToImmediateItemResolved(
+  handleItemResolved: (result: ImmediateItemResult) => void,
+) {
+  socket.on("immediateItemResolved", handleItemResolved);
+
+  return () => {
+    socket.off("immediateItemResolved", handleItemResolved);
   };
 }
 

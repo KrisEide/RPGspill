@@ -2,6 +2,7 @@ import { resolveRound } from "../combat/resolveRound";
 import {
   areAllLivingPlayersReady,
   createEmptyRoundSelections,
+  selectPlayerItem,
   selectPlayerAction,
 } from "../combat/playerActions";
 import { isCharacterInstanceId } from "../playerControl";
@@ -11,8 +12,12 @@ import type {
   CombatState,
   CombatantId,
   DamageEvent,
+  ItemId,
+  ItemUseImpact,
+  MultiTargetSupportImpact,
   PlayerId,
   RoundResult,
+  ReflectedDamage,
   StatusChange,
   SupportEvent,
 } from "../types";
@@ -22,6 +27,12 @@ export type GameAction =
       type: "submitPlayerAction";
       playerId: PlayerId;
       abilityId: AbilityId;
+      targetId: CombatantId | null;
+    }
+  | {
+      type: "submitPlayerItem";
+      playerId: PlayerId;
+      itemId: ItemId;
       targetId: CombatantId | null;
     }
   | {
@@ -36,6 +47,10 @@ export type GameAction =
     }
   | {
       type: "startEncounter";
+      combatState: CombatState;
+    }
+  | {
+      type: "syncCombatState";
       combatState: CombatState;
     };
 
@@ -65,15 +80,22 @@ export function gameReducer(
     };
   }
 
+  if (action.type === "syncCombatState") {
+    return {
+      ...state,
+      combat: action.combatState,
+      phase: action.combatState.phase,
+    };
+  }
+
   if (state.phase !== "selectingActions") {
     return state;
   }
 
-  const roundSelections = selectPlayerAction(
-    state.combat,
-    state.roundSelections,
-    action,
-  );
+  const roundSelections =
+    action.type === "submitPlayerItem"
+      ? selectPlayerItem(state.combat, state.roundSelections, action)
+      : selectPlayerAction(state.combat, state.roundSelections, action);
 
   if (!roundSelections) {
     return state;
@@ -129,7 +151,10 @@ function applyDamageEvent(
   event: Pick<
     DamageEvent,
     "targetId" | "remainingHp" | "statusChanges"
-  > & { remainingBarrier?: number },
+  > & {
+    remainingBarrier?: number;
+    reflectedDamage?: ReflectedDamage;
+  },
 ): CombatState {
   const combatAfterDamage = isCharacterInstanceId(event.targetId)
     ? {
@@ -158,7 +183,7 @@ function applyDamageEvent(
         ),
       };
 
-  return event.statusChanges.reduce((combat, change) => {
+  const combatAfterStatuses = event.statusChanges.reduce((combat, change) => {
     const combatant = isCharacterInstanceId(change.combatantId)
       ? combat.characters[change.combatantId]
       : combat.enemies.find(
@@ -203,6 +228,15 @@ function applyDamageEvent(
       ),
     };
   }, combatAfterDamage);
+
+  return event.reflectedDamage
+    ? applyDamageEvent(combatAfterStatuses, {
+        targetId: event.reflectedDamage.targetId,
+        remainingHp: event.reflectedDamage.remainingHp,
+        remainingBarrier: event.reflectedDamage.remainingBarrier,
+        statusChanges: event.reflectedDamage.statusChanges,
+      })
+    : combatAfterStatuses;
 }
 
 function applyStatusChanges(
@@ -224,23 +258,71 @@ function applyStatusChanges(
   );
 }
 
-function applySupportEvent(
+function applySupportImpact(
   state: CombatState,
-  event: SupportEvent,
+  event: SupportEvent | MultiTargetSupportImpact,
 ): CombatState {
-  const combatAfterSupport = {
-    ...state,
-    characters: {
-      ...state.characters,
-      [event.targetId]: {
-        ...state.characters[event.targetId],
-        hp: event.remainingHp,
-        barrier: event.remainingBarrier,
-      },
-    },
-  };
+  const combatAfterSupport = isCharacterInstanceId(event.targetId)
+    ? {
+        ...state,
+        characters: {
+          ...state.characters,
+          [event.targetId]: {
+            ...state.characters[event.targetId],
+            hp: event.remainingHp,
+            barrier: event.remainingBarrier,
+            pp: event.remainingPp ?? state.characters[event.targetId].pp,
+          },
+        },
+      }
+    : {
+        ...state,
+        enemies: state.enemies.map((enemy) =>
+          enemy.instanceId === event.targetId
+            ? {
+                ...enemy,
+                hp: event.remainingHp,
+                barrier: event.remainingBarrier,
+              }
+            : enemy,
+        ),
+      };
 
   return applyStatusChanges(combatAfterSupport, event.statusChanges);
+}
+
+function applyItemImpact(
+  state: CombatState,
+  impact: ItemUseImpact,
+): CombatState {
+  const combatAfterValues = isCharacterInstanceId(impact.targetId)
+    ? {
+        ...state,
+        characters: {
+          ...state.characters,
+          [impact.targetId]: {
+            ...state.characters[impact.targetId],
+            hp: impact.remainingHp,
+            pp: impact.remainingPp,
+            barrier: impact.remainingBarrier,
+          },
+        },
+      }
+    : {
+        ...state,
+        enemies: state.enemies.map((enemy) =>
+          enemy.instanceId === impact.targetId
+            ? {
+                ...enemy,
+                hp: impact.remainingHp,
+                pp: impact.remainingPp,
+                barrier: impact.remainingBarrier,
+              }
+            : enemy,
+        ),
+      };
+
+  return applyStatusChanges(combatAfterValues, impact.statusChanges);
 }
 
 function applyCurrentCombatEvent(
@@ -262,19 +344,56 @@ function applyCurrentCombatEvent(
     return finishRound(state);
   }
 
-  const combatAfterEvent =
+  let combatAfterEvent =
     event.type === "damage" ||
     event.type === "statusDamage" ||
     event.type === "spiritDamage"
       ? applyDamageEvent(state.combat, event)
       : event.type === "support"
-        ? applySupportEvent(state.combat, event)
-      : event.type === "multiTargetDamage"
-        ? event.impacts.reduce(
-            (combat, impact) => applyDamageEvent(combat, impact),
-            state.combat,
-          )
-      : state.combat;
+        ? applySupportImpact(state.combat, event)
+        : event.type === "multiTargetSupport"
+          ? event.impacts.reduce(
+              (combat, impact) => applySupportImpact(combat, impact),
+              state.combat,
+            )
+            : event.type === "multiTargetDamage"
+            ? event.impacts.reduce(
+                (combat, impact) => applyDamageEvent(combat, impact),
+                state.combat,
+              )
+              : event.type === "itemUse"
+                ? event.impacts.reduce(
+                    (combat, impact) => applyItemImpact(combat, impact),
+                    state.combat,
+                  )
+                : state.combat;
+
+  if (
+    (event.type === "support" || event.type === "multiTargetSupport") &&
+    event.secondaryImpacts
+  ) {
+    combatAfterEvent = event.secondaryImpacts.reduce(
+      (combat, impact) => applySupportImpact(combat, impact),
+      combatAfterEvent,
+    );
+  }
+
+  if (event.type === "itemUse") {
+    combatAfterEvent = {
+      ...combatAfterEvent,
+      characters: {
+        ...combatAfterEvent.characters,
+        [event.actorId]: {
+          ...combatAfterEvent.characters[event.actorId],
+          inventory: {
+            ...combatAfterEvent.characters[event.actorId].inventory,
+            [event.itemId]: event.remainingQuantity,
+          },
+          itemDamageBonus: event.damageBonus,
+        },
+      },
+    };
+  }
 
   return {
     ...state,

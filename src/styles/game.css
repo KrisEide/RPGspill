@@ -98,6 +98,19 @@ body {
   white-space: nowrap;
 }
 
+.statusCard__headingMeta {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.statusCard__turnPriority {
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 0 4px rgb(147 225 255 / 75%));
+}
+
 .statusCard__level {
   flex: 0 0 auto;
   color: #ffd34f;
@@ -236,6 +249,10 @@ body {
 
   z-index: 61;
   box-sizing: border-box;
+}
+
+.cmdbar--inventoryOpen .cmdbar__panel {
+  gap: 12px;
 }
 
 .cmdbar__inner {
@@ -467,6 +484,22 @@ body {
   gap: 7px;
 }
 
+.cmdbar__itemList {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 2px 5px;
+  overflow-x: auto;
+  scrollbar-color: rgba(255, 211, 79, 0.55) rgba(0, 0, 0, 0.2);
+  scrollbar-width: thin;
+}
+
+.cmdbar__itemSlot {
+  flex: 0 0 104px;
+  width: 104px;
+}
+
 .cmdbar__abilityEntry {
   position: relative;
   flex: 1 1 220px;
@@ -510,6 +543,22 @@ body {
 .cmdbar__abilityButton:disabled {
   cursor: not-allowed;
   filter: grayscale(0.7) brightness(0.65);
+}
+
+.cmdbar__abilityButton--compact.cmdbar__itemEntry {
+  position: relative;
+  display: flex;
+  min-height: 58px;
+  padding: 6px 8px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.cmdbar__itemEntry:focus-visible {
+  outline: 2px solid rgba(255, 218, 105, 0.95);
+  outline-offset: 2px;
 }
 
 .cmdbar__abilityButton--compact {
@@ -660,6 +709,49 @@ body {
   border-top: 1px solid rgba(169, 231, 143, 0.2);
 }
 
+/* Item cards override the two-row ability-card layout. */
+.cmdbar__itemEntry .cmdbar__abilityIcon {
+  grid-row: auto;
+  font-size: 24px;
+}
+
+.cmdbar__abilityButton--compact.cmdbar__itemEntry .cmdbar__abilityDetails {
+  display: block;
+  width: 100%;
+  grid-column: auto;
+  grid-row: auto;
+  text-align: center;
+}
+
+.cmdbar__abilityButton--compact.cmdbar__itemEntry .cmdbar__abilityName {
+  display: block;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.cmdbar__abilityButton--compact.cmdbar__itemEntry .cmdbar__abilityCost {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  padding: 1px 4px;
+  grid-column: auto;
+  grid-row: auto;
+  color: rgba(220, 240, 255, 0.78);
+  font-size: 9px;
+  line-height: 1.2;
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 999px;
+}
+
+.cmdbar__abilityTooltip.cmdbar__itemTooltip {
+  bottom: calc(100% + 13px);
+  left: 50%;
+  z-index: 82;
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+}
+
 @keyframes commandPanelReveal {
   from {
     opacity: 0;
@@ -704,6 +796,7 @@ body {
   .cmdbar__panel {
     left: 106px;
   }
+
 }
 
 @media (max-width: 700px) {
@@ -979,6 +1072,53 @@ body {
   font-weight: 700;
 }
 
+.upgradeSelection__itemRewardWrap {
+  position: relative;
+  display: inline-block;
+  margin: -10px 0 18px;
+  margin-right: 7px;
+  outline: none;
+}
+
+.upgradeSelection__itemReward {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  color: #edf4e9;
+  font-size: 14px;
+  background: rgba(3, 15, 8, 0.68);
+  border: 1px solid rgba(213, 167, 47, 0.62);
+  border-radius: 999px;
+}
+
+.upgradeSelection__itemRewardWrap:focus-visible
+  .upgradeSelection__itemReward {
+  border-color: #ffe07b;
+  box-shadow: 0 0 0 2px rgba(255, 224, 123, 0.2);
+}
+
+.upgradeSelection__itemTooltip {
+  bottom: calc(100% + 11px);
+}
+
+.upgradeSelection__itemRewardWrap:hover
+  .upgradeSelection__itemTooltip,
+.upgradeSelection__itemRewardWrap:focus
+  .upgradeSelection__itemTooltip {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.upgradeSelection__itemReward--uncommon strong {
+  color: #8be58d;
+}
+
+.upgradeSelection__itemReward--rare strong {
+  color: #d4a1ff;
+}
+
 .upgradeSelection__choices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1069,6 +1209,13 @@ body {
   color: #ffe08a;
   font-size: 22px;
   line-height: 1.1;
+}
+
+.upgradeSelection__cardMeta {
+  margin-top: 7px;
+  color: #75c8ff;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .upgradeSelection__cardDescription {
@@ -1952,6 +2099,14 @@ battlescene bilde. */
     ease-out both;
 }
 
+.battleScene__battlefieldEffect--stoneback {
+  z-index: 9;
+  filter: brightness(1.08) saturate(1.08)
+    drop-shadow(0 0 18px rgba(255, 185, 69, 0.68));
+  animation: stonebackBattlefieldEffect var(--battlefield-effect-duration)
+    ease-out both;
+}
+
 @keyframes cinderburstBattlefieldEffect {
   0%,
   34% {
@@ -1973,6 +2128,27 @@ battlescene bilde. */
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) rotate(135deg) scale(1.14);
+  }
+}
+
+@keyframes stonebackBattlefieldEffect {
+  0%,
+  28% {
+    opacity: 0;
+    transform: translate(-50%, -45%) scale(0.76);
+  }
+  42% {
+    opacity: 0.92;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  54%,
+  90% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -53%) scale(1.04);
   }
 }
 
@@ -2480,6 +2656,22 @@ battlescene bilde. */
   animation-name: raiderStabSwap;
 }
 
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-stationaryStrike
+  .battleScene__enemySpriteStage {
+  animation-name: enemyStationaryStrike;
+  animation-timing-function: cubic-bezier(0.2, 0.72, 0.3, 1);
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-stationaryStrike
+  .battleScene__enemySprite--idle {
+  animation-name: idleStationaryStrikeSwap;
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-stationaryStrike
+  .battleScene__enemySprite--attack {
+  animation-name: stationaryStrikeSwap;
+}
+
 .battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-dreadflame
   .battleScene__enemySpriteStage {
   animation-name: enemyDreadflameCast;
@@ -2493,6 +2685,21 @@ battlescene bilde. */
 .battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-dreadflame
   .battleScene__enemySprite--attackFrame-1 {
   animation-name: dreadflameFrameOne;
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-healing
+  .battleScene__enemySpriteStage {
+  animation-name: enemyHealingCast;
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-healing
+  .battleScene__enemySprite--idle {
+  animation-name: idleHealingSequence;
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-healing
+  .battleScene__enemySprite--attackFrame-1 {
+  animation-name: healingFrameOne;
 }
 
 .battleScene__enemyUnit--projectile-casting .battleScene__enemySpriteStage {
@@ -2663,6 +2870,52 @@ battlescene bilde. */
   }
 }
 
+@keyframes enemyStationaryStrike {
+  0%,
+  10%,
+  72%,
+  100% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(var(--enemy-sprite-scale, 1));
+  }
+  20%,
+  48% {
+    filter: brightness(1.18);
+    transform: translate(0, 0)
+      scale(calc(var(--enemy-sprite-scale, 1) * 1.006));
+  }
+}
+
+@keyframes idleStationaryStrikeSwap {
+  0%,
+  8% {
+    opacity: 1;
+  }
+  13%,
+  72% {
+    opacity: 0;
+  }
+  82%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes stationaryStrikeSwap {
+  0%,
+  8% {
+    opacity: 0;
+  }
+  13%,
+  72% {
+    opacity: 1;
+  }
+  82%,
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes enemyDreadflameCast {
   0%,
   12%,
@@ -2702,6 +2955,52 @@ battlescene bilde. */
 @keyframes dreadflameFrameOne {
   0%,
   14% {
+    opacity: 0;
+  }
+  18%,
+  84% {
+    opacity: 1;
+  }
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes enemyHealingCast {
+  0%,
+  12%,
+  90%,
+  100% {
+    filter: brightness(1) saturate(1) drop-shadow(0 0 0 transparent);
+    transform: scale(var(--enemy-sprite-scale, 1));
+  }
+  35%,
+  72% {
+    filter: brightness(1.12) saturate(1.08)
+      drop-shadow(0 0 18px rgba(121, 255, 91, 0.82));
+    transform: scale(var(--enemy-sprite-scale, 1));
+  }
+}
+
+@keyframes idleHealingSequence {
+  0%,
+  12% {
+    opacity: 1;
+  }
+  17%,
+  84% {
+    opacity: 0;
+  }
+  90%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes healingFrameOne {
+  0%,
+  13% {
     opacity: 0;
   }
   18%,
@@ -2808,7 +3107,7 @@ battlescene bilde. */
   width: max-content;
   padding: 5px 10px;
   color: #d9f8ff;
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 900;
   background: rgba(10, 72, 105, 0.9);
   border: 2px solid #75ddff;
@@ -2830,13 +3129,17 @@ battlescene bilde. */
   gap: 3px;
   width: max-content;
   color: #d7ffe1;
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 900;
   text-shadow:
     0 2px 2px #073b18,
     0 0 10px rgba(91, 255, 146, 0.85);
   pointer-events: none;
   animation: supportNumberPop 1000ms ease-out both;
+}
+
+.supportNumber--stoneback {
+  animation-duration: 2800ms;
 }
 
 @keyframes supportNumberPop {
@@ -2866,6 +3169,13 @@ battlescene bilde. */
     .battleScene__playerUnit--acting
   )
   .battleScene__playerSprite--idle {
+  animation: barrierImpact 1100ms ease-out both;
+}
+
+.battleScene__enemyUnit--supportImpact-earth:not(
+    .battleScene__enemyUnit--attacking
+  )
+  .battleScene__enemySpriteStage {
   animation: barrierImpact 1100ms ease-out both;
 }
 

@@ -10,9 +10,15 @@ import {
 import {
   areAllLivingPlayersReady,
   createEmptyRoundSelections,
+  isValidPlayerTarget,
+  selectPlayerItem,
   selectPlayerAction,
 } from "../../src/game/combat/playerActions";
-import { resolveRound } from "../../src/game/combat/resolveRound";
+import {
+  resolveImmediateItemUse,
+  resolveRound,
+} from "../../src/game/combat/resolveRound";
+import { ITEM_DEFINITIONS } from "../../src/data/items";
 import { createInitialCombatState } from "../../src/game/state/initialState";
 import { startEncounter } from "../../src/game/state/encounterState";
 import {
@@ -25,8 +31,8 @@ import type {
   CombatState,
   GameSetup,
   PlayerId,
+  RewardChoiceId,
   RoundSelections,
-  UpgradeChoiceId,
 } from "../../src/game/types";
 import type {
   CharacterReadinessState,
@@ -53,7 +59,7 @@ type GameRoom = {
   player2: ConnectedPlayer | null;
   combatState: CombatState | null;
   roundSelections: RoundSelections;
-  upgradeSelections: Record<PlayerId, UpgradeChoiceId | null>;
+  upgradeSelections: Record<PlayerId, RewardChoiceId | null>;
 };
 
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -162,7 +168,7 @@ function createPlayerReadinessState(room: GameRoom): PlayerReadinessState {
 
     return (
       combatState.characters[characterId].hp <= 0 ||
-      room.roundSelections[characterId] !== null
+      room.roundSelections[characterId].action !== null
     );
   });
 
@@ -200,6 +206,7 @@ function startBattleIfReady(room: GameRoom) {
 
   const setup: GameSetup = {
     mode: "twoPlayer",
+    initialLoadout: "run",
     randomSeed: randomInt(0, 0x1_0000_0000),
     players: {
       player1: {
@@ -346,6 +353,88 @@ io.on("connection", (socket) => {
 
     room.roundSelections = roundSelections;
     respond(true);
+    io.to(room.code).emit(
+      "playerReadinessUpdated",
+      createPlayerReadinessState(room),
+    );
+
+    if (!areAllLivingPlayersReady(room.combatState, roundSelections)) {
+      return;
+    }
+
+    const result = resolveRound(room.combatState, roundSelections);
+    room.combatState = result.nextState;
+    room.roundSelections = createEmptyRoundSelections();
+    io.to(room.code).emit("roundResolved", result);
+  });
+
+  socket.on("selectItem", (request, respond) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+
+    if (
+      !room ||
+      !room.combatState ||
+      !playerId ||
+      request.round !== room.combatState.round
+    ) {
+      respond({ accepted: false, resolvedImmediately: false });
+      return;
+    }
+
+    const characterId =
+      room.combatState.players[playerId].controlledCharacterId;
+    const definition = ITEM_DEFINITIONS[request.itemId];
+
+    if (
+      definition?.resolutionTiming === "preRound" &&
+      room.roundSelections[characterId].action === null &&
+      isValidPlayerTarget(
+        room.combatState,
+        characterId,
+        request.targetId,
+        definition.target,
+      )
+    ) {
+      const result = resolveImmediateItemUse(room.combatState, {
+        kind: "item",
+        actorId: characterId,
+        itemId: request.itemId,
+        targetId: request.targetId,
+      });
+
+      if (!result) {
+        respond({ accepted: false, resolvedImmediately: false });
+        return;
+      }
+
+      room.combatState = result.nextState;
+      respond({ accepted: true, resolvedImmediately: true });
+      io.to(room.code).emit("immediateItemResolved", {
+        state: room.combatState,
+        event: result.event,
+      });
+      return;
+    }
+
+    const roundSelections = selectPlayerItem(
+      room.combatState,
+      room.roundSelections,
+      {
+        playerId,
+        itemId: request.itemId,
+        targetId: request.targetId,
+      },
+    );
+
+    if (!roundSelections) {
+      respond({ accepted: false, resolvedImmediately: false });
+      return;
+    }
+
+    room.roundSelections = roundSelections;
+    respond({ accepted: true, resolvedImmediately: false });
     io.to(room.code).emit(
       "playerReadinessUpdated",
       createPlayerReadinessState(room),
