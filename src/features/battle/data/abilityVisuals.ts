@@ -16,6 +16,7 @@ export type AbilityVisualDefinition = {
     animationDurationMs: number;
     impactDelayMs: number;
     eventDurationMs: number;
+    damageNumberDurationMs?: number;
   };
   projectile?: {
     spriteSrc: string;
@@ -42,6 +43,37 @@ export type AbilityVisualDefinition = {
 export const ABILITY_VISUALS: Partial<
   Record<AbilityId, AbilityVisualDefinition>
 > = {
+  ghostStrike: {
+    icon: "👻",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 1800,
+      impactDelayMs: 900,
+      eventDurationMs: 2400,
+    },
+    impact: "dark",
+  },
+  ghostBolt: {
+    icon: "🔮",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 2200,
+      impactDelayMs: 1300,
+      eventDurationMs: 2900,
+    },
+    impact: "dark",
+  },
+  ghostHeal: {
+    icon: "💠",
+    animation: "cast",
+    castVariant: "water",
+    timing: {
+      animationDurationMs: 2200,
+      impactDelayMs: 1100,
+      eventDurationMs: 2800,
+    },
+    impact: "water",
+  },
   fireball: {
     icon: "🔥",
     animation: "cast",
@@ -169,6 +201,80 @@ export const ABILITY_VISUALS: Partial<
       eventDurationMs: 4300,
     },
     impact: "earth",
+  },
+  guardRally: {
+    icon: "📣",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 3000,
+      impactDelayMs: 1500,
+      eventDurationMs: 3700,
+    },
+    impact: "earth",
+  },
+  guardShieldCharge: {
+    icon: "🛡️",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2500,
+      impactDelayMs: 1300,
+      eventDurationMs: 3200,
+    },
+  },
+  gorakAutoAttack: {
+    icon: "⚔️",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2500,
+      impactDelayMs: 1250,
+      eventDurationMs: 3100,
+    },
+  },
+  shieldCharge: {
+    icon: "🛡️",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2600,
+      impactDelayMs: 1200,
+      eventDurationMs: 3300,
+    },
+  },
+  wakeUp: {
+    icon: "📣",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 3000,
+      impactDelayMs: 1800,
+      eventDurationMs: 3600,
+    },
+  },
+  bloodCleave: {
+    icon: "🩸",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 3700,
+      impactDelayMs: 1900,
+      eventDurationMs: 4400,
+      damageNumberDurationMs: 1500,
+    },
+  },
+  smash: {
+    icon: "💥",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2900,
+      impactDelayMs: 1550,
+      eventDurationMs: 3500,
+    },
+  },
+  catchBreath: {
+    icon: "💨",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 4000,
+      impactDelayMs: 900,
+      eventDurationMs: 4600,
+    },
   },
   cinderburst: {
     icon: "🔥",

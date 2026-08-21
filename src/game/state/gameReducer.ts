@@ -20,6 +20,7 @@ import type {
   ReflectedDamage,
   StatusChange,
   SupportEvent,
+  CharacterEventState,
 } from "../types";
 
 export type GameAction =
@@ -154,6 +155,7 @@ function applyDamageEvent(
   > & {
     remainingBarrier?: number;
     reflectedDamage?: ReflectedDamage;
+    characterState?: CharacterEventState;
   },
 ): CombatState {
   const combatAfterDamage = isCharacterInstanceId(event.targetId)
@@ -167,6 +169,7 @@ function applyDamageEvent(
           barrier:
             event.remainingBarrier ??
             state.characters[event.targetId].barrier,
+          ...(event.characterState ?? {}),
         },
       },
     }
@@ -229,14 +232,28 @@ function applyDamageEvent(
     };
   }, combatAfterDamage);
 
+  const combatAfterCharacterSnapshot =
+    isCharacterInstanceId(event.targetId) && event.characterState
+      ? {
+          ...combatAfterStatuses,
+          characters: {
+            ...combatAfterStatuses.characters,
+            [event.targetId]: {
+              ...combatAfterStatuses.characters[event.targetId],
+              ...event.characterState,
+            },
+          },
+        }
+      : combatAfterStatuses;
+
   return event.reflectedDamage
-    ? applyDamageEvent(combatAfterStatuses, {
+    ? applyDamageEvent(combatAfterCharacterSnapshot, {
         targetId: event.reflectedDamage.targetId,
         remainingHp: event.reflectedDamage.remainingHp,
         remainingBarrier: event.reflectedDamage.remainingBarrier,
         statusChanges: event.reflectedDamage.statusChanges,
       })
-    : combatAfterStatuses;
+    : combatAfterCharacterSnapshot;
 }
 
 function applyStatusChanges(
@@ -272,6 +289,7 @@ function applySupportImpact(
             hp: event.remainingHp,
             barrier: event.remainingBarrier,
             pp: event.remainingPp ?? state.characters[event.targetId].pp,
+            ...(event.characterState ?? {}),
           },
         },
       }
@@ -305,6 +323,7 @@ function applyItemImpact(
             hp: impact.remainingHp,
             pp: impact.remainingPp,
             barrier: impact.remainingBarrier,
+            ...(impact.characterState ?? {}),
           },
         },
       }
@@ -366,6 +385,8 @@ function applyCurrentCombatEvent(
                     (combat, impact) => applyItemImpact(combat, impact),
                     state.combat,
                   )
+                : event.type === "wake" || event.type === "skipTurn"
+                  ? applyStatusChanges(state.combat, event.statusChanges)
                 : state.combat;
 
   if (

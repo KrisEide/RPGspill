@@ -4,7 +4,10 @@ import { createEmptyRoundSelections } from "../combat/playerActions";
 import { createEncounterEnemies } from "./encounterState";
 import { createKnownSpirits } from "../../data/spirits";
 import { createKnownPassives } from "../../data/passives";
+import { createForestRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
+import { prepareEnemyIntents } from "../combat/enemyIntents";
+import { applyCharacterHp } from "../ghost/ghostSystem";
 import {
   createEmptyInventory,
   createItemRewardPool,
@@ -38,18 +41,21 @@ function createCharacterState(
   startingLevel: number,
   initialLoadout: InitialLoadout,
   developmentPassiveIds: Parameters<typeof createKnownPassives>[0],
+  startInGhostForm: boolean,
 ): CharacterState {
   const preset = CHARACTER_PRESETS[player.character.presetId];
   const stats = copyCombatStats(preset.stats);
   const usesDevelopmentLoadout = initialLoadout === "development";
 
-  return {
+  const character: CharacterState = {
     ...player.character,
     instanceId: player.controlledCharacterId,
     ownerId: player.id,
     level: startingLevel,
+    form: "living",
     hp: stats.maxHp,
     pp: stats.maxPp,
+    savedLivingPp: null,
     barrier: 0,
     stats,
     abilityRanks: usesDevelopmentLoadout
@@ -70,18 +76,29 @@ function createCharacterState(
     abilityDamageBonus: null,
     statuses: [],
   };
+
+  return usesDevelopmentLoadout && startInGhostForm
+    ? applyCharacterHp(character, 0)
+    : character;
 }
 
 export function createInitialCombatState(setup: GameSetup): CombatState {
   const encounterId = setup.startingEncounterId ?? "forestAmbush";
-  const startingLevel = ENCOUNTER_DEFINITIONS[encounterId].number;
+  const encounter = ENCOUNTER_DEFINITIONS[encounterId];
+  const startingLevel =
+    Object.values(ENCOUNTER_DEFINITIONS).filter(
+      (candidate) =>
+        candidate.kind === "combat" &&
+        candidate.number < encounter.number,
+    ).length + 1;
+  const isRest = encounter.kind === "rest";
 
-  return prepareRoundTurnPriorities({
+  const initialState: CombatState = {
     mode: setup.mode,
     encounterId,
     randomSeed: setup.randomSeed,
     round: 1,
-    phase: "selectingActions",
+    phase: isRest ? "rest" : "selectingActions",
     players: {
       player1: {
         id: setup.players.player1.id,
@@ -98,18 +115,31 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
         startingLevel,
         setup.initialLoadout,
         setup.developmentPassives?.["character-1"] ?? [],
+        setup.developmentStartInGhostForm ?? false,
       ),
       "character-2": createCharacterState(
         setup.players.player2,
         startingLevel,
         setup.initialLoadout,
         setup.developmentPassives?.["character-2"] ?? [],
+        setup.developmentStartInGhostForm ?? false,
       ),
     },
     enemies: createEncounterEnemies(encounterId),
-    rewardOffers: null,
+    enemyIntents: {},
+    restStage: isRest ? "choice" : null,
+    rewardOffers: isRest
+      ? {
+          "character-1": createForestRestOffers(),
+          "character-2": createForestRestOffers(),
+        }
+      : null,
     itemRewards: null,
-  });
+  };
+
+  return isRest
+    ? initialState
+    : prepareEnemyIntents(prepareRoundTurnPriorities(initialState));
 }
 
 export function createClientBattleState(

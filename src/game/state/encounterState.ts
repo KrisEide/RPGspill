@@ -1,7 +1,9 @@
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { refreshSpiritActiveUses } from "../../data/spirits";
+import { createForestRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
+import { prepareEnemyIntents } from "../combat/enemyIntents";
 import type {
   CombatState,
   CombatStats,
@@ -36,7 +38,15 @@ function createEnemyState(
     barrier: 0,
     stats,
     abilityRanks: { ...definition.abilityRanks },
-    statuses: [],
+    statuses: definition.startsSleeping
+      ? [
+          {
+            id: "sleeping",
+            sourceId: instanceId,
+            appliedRound: 1,
+          },
+        ]
+      : [],
   };
 }
 
@@ -50,15 +60,22 @@ export function startEncounter(
   currentState: CombatState,
   encounterId: EncounterId,
 ): CombatState {
-  return prepareRoundTurnPriorities({
+  const encounter = ENCOUNTER_DEFINITIONS[encounterId];
+  const isRest = encounter.kind === "rest";
+  const restOffers = createForestRestOffers();
+  const levelIncrease =
+    ENCOUNTER_DEFINITIONS[currentState.encounterId].kind === "combat"
+      ? 1
+      : 0;
+  const nextState: CombatState = {
     ...currentState,
     encounterId,
     round: 1,
-    phase: "selectingActions",
+    phase: isRest ? "rest" : "selectingActions",
     characters: {
       "character-1": {
         ...currentState.characters["character-1"],
-        level: currentState.characters["character-1"].level + 1,
+        level: currentState.characters["character-1"].level + levelIncrease,
         spirits: refreshSpiritActiveUses(
           currentState.characters["character-1"].spirits,
         ),
@@ -70,7 +87,7 @@ export function startEncounter(
       },
       "character-2": {
         ...currentState.characters["character-2"],
-        level: currentState.characters["character-2"].level + 1,
+        level: currentState.characters["character-2"].level + levelIncrease,
         spirits: refreshSpiritActiveUses(
           currentState.characters["character-2"].spirits,
         ),
@@ -82,7 +99,26 @@ export function startEncounter(
       },
     },
     enemies: createEncounterEnemies(encounterId),
-    rewardOffers: null,
+    enemyIntents: {},
+    restStage: isRest ? "choice" : null,
+    rewardOffers: isRest
+      ? {
+          "character-1":
+            currentState.characters["character-1"].form ===
+            "permanentlyDead"
+              ? []
+              : restOffers,
+          "character-2":
+            currentState.characters["character-2"].form ===
+            "permanentlyDead"
+              ? []
+              : createForestRestOffers(),
+        }
+      : null,
     itemRewards: null,
-  });
+  };
+
+  return isRest
+    ? nextState
+    : prepareEnemyIntents(prepareRoundTurnPriorities(nextState));
 }

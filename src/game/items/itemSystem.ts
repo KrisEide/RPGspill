@@ -64,6 +64,10 @@ export function grantEncounterItemRewards(
   for (const characterId of CHARACTER_ORDER) {
     const character = nextState.characters[characterId];
 
+    if (character.form === "permanentlyDead") {
+      continue;
+    }
+
     let updatedCharacter = character;
 
     if (character.remainingItemRewardPool.length > 0) {

@@ -5,17 +5,27 @@ import { PASSIVE_REWARD_POOL } from "../../data/passives";
 import { getKnownAbilityRank, learnAbility } from "../abilities/abilityProgression";
 import { CHARACTER_ORDER } from "../playerControl";
 import { nextRandom } from "../combat/random";
+import {
+  getCharacterMaxHp,
+  getCharacterMaxPp,
+} from "../ghost/ghostSystem";
 import type {
   AbilityRewardOffer,
   CharacterInstanceId,
   CombatState,
+  EncounterId,
   RewardChoiceId,
   RewardOffers,
   PassiveRewardOffer,
+  RestRewardOffer,
   StatRewardOffer,
 } from "../types";
 
 const OFFERS_PER_CHARACTER = 3;
+const CORE_ABILITY_REWARD_ENCOUNTERS = new Set<EncounterId>([
+  "forestAmbush",
+  "orcReinforcements",
+]);
 
 export type GeneratedRewardOffers = {
   offers: RewardOffers;
@@ -139,7 +149,7 @@ function drawOffersForCharacter(
   characterId: CharacterInstanceId,
   seed: number,
 ) {
-  if (state.encounterId === "forestAmbush") {
+  if (CORE_ABILITY_REWARD_ENCOUNTERS.has(state.encounterId)) {
     const abilityOffers = drawOpeningAbilityOffers(
       state,
       characterId,
@@ -158,16 +168,18 @@ export function generateRewardOffers(
   state: CombatState,
   seed: number,
 ): GeneratedRewardOffers {
-  const firstCharacter = drawOffersForCharacter(
-    state,
-    "character-1",
-    seed,
-  );
-  const secondCharacter = drawOffersForCharacter(
-    state,
-    "character-2",
-    firstCharacter.nextSeed,
-  );
+  const firstCharacter =
+    state.characters["character-1"].form === "permanentlyDead"
+      ? { offers: [], nextSeed: seed }
+      : drawOffersForCharacter(state, "character-1", seed);
+  const secondCharacter =
+    state.characters["character-2"].form === "permanentlyDead"
+      ? { offers: [], nextSeed: firstCharacter.nextSeed }
+      : drawOffersForCharacter(
+          state,
+          "character-2",
+          firstCharacter.nextSeed,
+        );
 
   return {
     offers: {
@@ -176,6 +188,26 @@ export function generateRewardOffers(
     },
     nextSeed: secondCharacter.nextSeed,
   };
+}
+
+function generateStandardOffersForCharacters(
+  state: CombatState,
+  characterIds: CharacterInstanceId[],
+  seed: number,
+): GeneratedRewardOffers {
+  let nextSeed = seed;
+  const offers: RewardOffers = {
+    "character-1": [],
+    "character-2": [],
+  };
+
+  for (const characterId of characterIds) {
+    const generated = drawStandardOffers(state, characterId, nextSeed);
+    offers[characterId] = generated.offers;
+    nextSeed = generated.nextSeed;
+  }
+
+  return { offers, nextSeed };
 }
 
 function applyStatUpgrade(
@@ -224,8 +256,14 @@ function applyStatUpgrade(
       ...state.characters,
       [characterId]: {
         ...character,
-        hp: Math.min(nextStats.maxHp, character.hp + restoreHp),
-        pp: Math.min(nextStats.maxPp, character.pp + restorePp),
+        hp: Math.min(
+          character.form === "ghost" ? getCharacterMaxHp(character) : nextStats.maxHp,
+          character.hp + restoreHp,
+        ),
+        pp: Math.min(
+          character.form === "ghost" ? getCharacterMaxPp(character) : nextStats.maxPp,
+          character.pp + restorePp,
+        ),
         stats: nextStats,
       },
     },
@@ -282,6 +320,42 @@ function applyPassiveReward(
   };
 }
 
+function applyRestReward(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  offer: RestRewardOffer,
+): CombatState {
+  if (offer.effect.type !== "restore") {
+    return state;
+  }
+
+  const character = state.characters[characterId];
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        hp: Math.min(
+          getCharacterMaxHp(character),
+          character.hp + offer.effect.hp,
+        ),
+        pp: Math.min(
+          getCharacterMaxPp(character),
+          character.pp + offer.effect.pp,
+        ),
+      },
+    },
+  };
+}
+
+export function getRewardParticipantCharacterIds(state: CombatState) {
+  return CHARACTER_ORDER.filter(
+    (characterId) => (state.rewardOffers?.[characterId].length ?? 0) > 0,
+  );
+}
+
 export function isRewardOfferedToCharacter(
   state: CombatState,
   characterId: CharacterInstanceId,
@@ -296,12 +370,18 @@ export function isRewardOfferedToCharacter(
 
 export function applyRewardChoices(
   state: CombatState,
-  choices: Record<CharacterInstanceId, RewardChoiceId>,
+  choices: Partial<Record<CharacterInstanceId, RewardChoiceId>>,
 ): CombatState | null {
   let nextState = state;
+  const participants = getRewardParticipantCharacterIds(state);
+  const upgradeParticipants: CharacterInstanceId[] = [];
 
-  for (const characterId of CHARACTER_ORDER) {
+  for (const characterId of participants) {
     const choiceId = choices[characterId];
+    if (!choiceId) {
+      return null;
+    }
+
     const offer = state.rewardOffers?.[characterId].find(
       (candidate) => candidate.id === choiceId,
     );
@@ -310,8 +390,25 @@ export function applyRewardChoices(
       return null;
     }
 
+    if (
+      state.phase === "rest" &&
+      ((state.restStage === "choice" && offer.type !== "rest") ||
+        (state.restStage === "upgrade" && offer.type === "rest"))
+    ) {
+      return null;
+    }
+
+    if (
+      offer.type === "rest" &&
+      offer.effect.type === "normalReward"
+    ) {
+      upgradeParticipants.push(characterId);
+    }
+
     const appliedState =
-      offer.type === "stat"
+      offer.type === "rest"
+        ? applyRestReward(nextState, characterId, offer)
+        : offer.type === "stat"
         ? applyStatUpgrade(nextState, characterId, offer)
         : offer.type === "passive"
           ? applyPassiveReward(nextState, characterId, offer)
@@ -322,6 +419,37 @@ export function applyRewardChoices(
     }
 
     nextState = appliedState;
+  }
+
+  if (state.phase === "rest" && state.restStage === "choice") {
+    if (upgradeParticipants.length === 0) {
+      return {
+        ...nextState,
+        restStage: "complete",
+        rewardOffers: null,
+      };
+    }
+
+    const generated = generateStandardOffersForCharacters(
+      nextState,
+      upgradeParticipants,
+      nextState.randomSeed,
+    );
+
+    return {
+      ...nextState,
+      randomSeed: generated.nextSeed,
+      restStage: "upgrade",
+      rewardOffers: generated.offers,
+    };
+  }
+
+  if (state.phase === "rest" && state.restStage === "upgrade") {
+    return {
+      ...nextState,
+      restStage: "complete",
+      rewardOffers: null,
+    };
   }
 
   return nextState;

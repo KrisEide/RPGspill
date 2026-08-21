@@ -29,7 +29,7 @@ export function prepareRoundTurnPriorities(
 
       let roundPriorityActive = false;
 
-      if (passive && character.hp > 0) {
+      if (passive && character.form === "living" && character.hp > 0) {
         const result = nextRandom(randomSeed);
         randomSeed = result.nextSeed;
         roundPriorityActive = result.value < passive.chance;
@@ -59,6 +59,10 @@ export function getSpiritTurnResolutionPriority(
   combatantId: CombatantId,
 ) {
   if (!isCharacterInstanceId(combatantId)) {
+    return 0;
+  }
+
+  if (state.characters[combatantId].form !== "living") {
     return 0;
   }
 

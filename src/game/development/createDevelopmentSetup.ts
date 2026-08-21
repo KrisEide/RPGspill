@@ -12,12 +12,14 @@ export function createDevelopmentSetup(
   developmentPassives: Partial<
     Record<CharacterInstanceId, PassiveId[]>
   > = {},
+  startInGhostForm = false,
 ): GameSetup {
   return {
     mode: "singlePlayer",
     initialLoadout: "development",
     randomSeed,
     startingEncounterId,
+    developmentStartInGhostForm: startInGhostForm,
     developmentPassives,
     players: {
       player1: {

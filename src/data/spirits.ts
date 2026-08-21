@@ -13,9 +13,9 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     passive: {
       name: "Embertail",
       description:
-        "The first time you attack each round, deal 3 additional Spirit Fire damage to one enemy hit.",
-      firstDamageActionEachRound: {
-        basePower: 3,
+        "Your first attack each encounter deals 9 additional Spirit Fire damage to one enemy hit.",
+      firstDamageActionEachEncounter: {
+        basePower: 9,
         damageType: "elemental",
         element: "fire",
       },
@@ -79,7 +79,6 @@ export function createSpiritState(spiritId: SpiritId) {
   return {
     id: spiritId,
     activeUsesRemaining: definition.activeUsesPerEncounter,
-    passiveTriggeredRound: null,
     passiveTriggeredThisEncounter: false,
     roundPriorityActive: false,
   };

@@ -48,6 +48,10 @@ export type MultiplayerItemRequest = {
   targetId: CombatantId | null;
 };
 
+export type ReformGhostRequest = {
+  round: number;
+};
+
 export type MultiplayerItemResult = {
   accepted: boolean;
   resolvedImmediately: boolean;
@@ -90,7 +94,9 @@ export interface ServerToClientEvents {
   playerReadinessUpdated: (state: PlayerReadinessState) => void;
   roundResolved: (result: RoundResult) => void;
   immediateItemResolved: (result: ImmediateItemResult) => void;
+  ghostReformed: (state: CombatState) => void;
   upgradeReadinessUpdated: (state: UpgradeReadinessState) => void;
+  rewardStageUpdated: (state: CombatState) => void;
   encounterStarted: (state: CombatState) => void;
   sessionEnded: () => void;
 }
@@ -112,6 +118,10 @@ export interface ClientToServerEvents {
   selectItem: (
     request: MultiplayerItemRequest,
     respond: (result: MultiplayerItemResult) => void,
+  ) => void;
+  reformGhost: (
+    request: ReformGhostRequest,
+    respond: (accepted: boolean) => void,
   ) => void;
   selectUpgrade: (
     request: UpgradeSelectionRequest,

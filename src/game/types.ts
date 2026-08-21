@@ -26,15 +26,22 @@ export type EnemyId =
   | "orcMage"
   | "orcWizard"
   | "orcHealer"
-  | "orcMauler";
+  | "orcMauler"
+  | "orcGuard"
+  | "brakkBoss"
+  | "gorakBoss";
 
 export type EncounterId =
   | "forestAmbush"
   | "orcReinforcements"
+  | "raiderPatrol"
   | "raiderWarband"
   | "darkMage"
   | "dreadflameRitual"
-  | "mightAndMending";
+  | "guardPatrol"
+  | "mightAndMending"
+  | "forestRest"
+  | "orcBrothers";
 
 export type StatUpgradeId =
   | "vitality"
@@ -85,10 +92,16 @@ export type KnownPassives = Partial<Record<PassiveId, true>>;
 
 export type PassiveRewardChoiceId = `passive:${PassiveId}`;
 
+export type RestChoiceId =
+  | "rest:recover"
+  | "rest:focus"
+  | "rest:upgrade";
+
 export type RewardChoiceId =
   | StatUpgradeId
   | AbilityRewardChoiceId
-  | PassiveRewardChoiceId;
+  | PassiveRewardChoiceId
+  | RestChoiceId;
 
 export type StatUpgradeTarget =
   | "maxHp"
@@ -136,10 +149,25 @@ export type PassiveRewardOffer = RewardOfferBase & {
   category: PassiveCategory;
 };
 
+export type RestRewardOffer = RewardOfferBase & {
+  id: RestChoiceId;
+  type: "rest";
+  effect:
+    | {
+        type: "restore";
+        hp: number;
+        pp: number;
+      }
+    | {
+        type: "normalReward";
+      };
+};
+
 export type RewardOffer =
   | StatRewardOffer
   | AbilityRewardOffer
-  | PassiveRewardOffer;
+  | PassiveRewardOffer
+  | RestRewardOffer;
 
 export type RewardOffers = Record<CharacterInstanceId, RewardOffer[]>;
 
@@ -152,6 +180,9 @@ export type ElementalPower = Record<Element, number>;
 export type AbilityId =
   | "autoAttack"
   | "defend"
+  | "ghostStrike"
+  | "ghostBolt"
+  | "ghostHeal"
   | "fireball"
   | "crashingWave"
   | "healingTide"
@@ -163,6 +194,14 @@ export type AbilityId =
   | "gatherDreadflame"
   | "dreadflame"
   | "mendWounds"
+  | "guardRally"
+  | "guardShieldCharge"
+  | "gorakAutoAttack"
+  | "shieldCharge"
+  | "wakeUp"
+  | "bloodCleave"
+  | "smash"
+  | "catchBreath"
   | "cinderburst"
   | "stoneback"
   | "swiftWing"
@@ -190,7 +229,6 @@ export type KnownAbilities = Partial<Record<AbilityId, AbilityRank>>;
 export type SpiritState = {
   id: SpiritId;
   activeUsesRemaining: number;
-  passiveTriggeredRound: number | null;
   passiveTriggeredThisEncounter: boolean;
   roundPriorityActive: boolean;
 };
@@ -203,7 +241,9 @@ export type StatusId =
   | "cracked"
   | "wet"
   | "exposed"
-  | "weakened";
+  | "weakened"
+  | "stunned"
+  | "sleeping";
 
 export type ItemId = string;
 
@@ -301,6 +341,7 @@ export type StatusDefinition = {
     basePower: number;
     damageType: DamageType;
     element: Element | null;
+    ignoresMitigation?: boolean;
   };
   incomingDamageModifier?: {
     multiplier: number;
@@ -359,6 +400,12 @@ export type DamageEffect = {
   statusOnHit?: {
     statusId: StatusId;
     magnitude?: number;
+    chance?: number;
+  };
+  statusOnHpDamage?: {
+    statusId: StatusId;
+    magnitude?: number;
+    chance?: number;
   };
   spreadStatus?: {
     statusId: StatusId;
@@ -378,6 +425,11 @@ export type HealingEffect = {
   elementalPowerScaling: number;
 };
 
+export type GhostHealingEffect = {
+  type: "ghostHealing";
+  amount: number;
+};
+
 export type BarrierEffect = {
   type: "barrier";
   amount: number;
@@ -393,13 +445,25 @@ export type ChargeEffect = {
   readiesAbilityId: AbilityId;
 };
 
+export type WakeEnemyEffect = {
+  type: "wakeEnemy";
+  enemyId: EnemyId;
+};
+
+export type WaitEffect = {
+  type: "wait";
+};
+
 export type AbilityEffect =
   | DamageEffect
   | DefendEffect
   | HealingEffect
+  | GhostHealingEffect
   | BarrierEffect
   | CleanseEffect
-  | ChargeEffect;
+  | ChargeEffect
+  | WakeEnemyEffect
+  | WaitEffect;
 
 export type AbilityRankDefinition = {
   shortDescription: string;
@@ -436,7 +500,7 @@ export type SpiritDefinition = {
   passive: {
     name: string;
     description: string;
-    firstDamageActionEachRound?: {
+    firstDamageActionEachEncounter?: {
       basePower: number;
       damageType: DamageType;
       element: Element;
@@ -483,6 +547,10 @@ export type EnemyDefinition = {
   stats: CombatStats;
   abilityRanks: KnownAbilities;
   actionPattern?: AbilityId[];
+  openingActionPattern?: Array<AbilityId | null>;
+  repeatingActionPattern?: Array<AbilityId | null>;
+  startsSleeping?: boolean;
+  wakesOnRound?: number;
   passive?: {
     name: string;
     description: string;
@@ -520,6 +588,7 @@ export type GameSetup = {
   initialLoadout: InitialLoadout;
   randomSeed: number;
   startingEncounterId?: EncounterId;
+  developmentStartInGhostForm?: boolean;
   developmentPassives?: Partial<
     Record<CharacterInstanceId, PassiveId[]>
   >;
@@ -530,8 +599,10 @@ export type CharacterState = CharacterDraft & {
   instanceId: CharacterInstanceId;
   ownerId: PlayerId;
   level: number;
+  form: "living" | "ghost" | "permanentlyDead";
   hp: number;
   pp: number;
+  savedLivingPp: number | null;
   barrier: number;
   stats: CombatStats;
   abilityRanks: KnownAbilities;
@@ -544,6 +615,11 @@ export type CharacterState = CharacterDraft & {
   abilityDamageBonus: AbilityDamageBonus | null;
   statuses: ActiveStatus[];
 };
+
+export type CharacterEventState = Pick<
+  CharacterState,
+  "form" | "pp" | "savedLivingPp" | "statuses"
+>;
 
 export type AbilityCombatAction = {
   kind: "ability";
@@ -576,6 +652,12 @@ export type PlayerState = {
   controlledCharacterId: CharacterInstanceId;
 };
 
+export type EnemyIntent = {
+  abilityId: AbilityId;
+  targetId: CombatantId | null;
+  targetIds: CombatantId[];
+};
+
 export type DamageEvent = {
   type: "damage";
   actorId: CombatantId;
@@ -588,6 +670,7 @@ export type DamageEvent = {
   remainingBarrier: number;
   isCritical: boolean;
   statusChanges: StatusChange[];
+  characterState?: CharacterEventState;
   reflectedDamage?: ReflectedDamage;
 };
 
@@ -619,6 +702,33 @@ export type ChargeEvent = {
   readiedAbilityId: AbilityId;
 };
 
+export type WakeEvent = {
+  type: "wake";
+  actorId: CombatantId;
+  targetId: CombatantId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  statusChanges: StatusChange[];
+};
+
+export type WaitEvent = {
+  type: "wait";
+  actorId: CombatantId;
+  targetId: CombatantId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+};
+
+export type SkipTurnEvent = {
+  type: "skipTurn";
+  actorId: CombatantId;
+  targetId: CombatantId;
+  reason: "stunned";
+  skippedAbilityId?: AbilityId;
+  skippedItemId?: ItemId;
+  statusChanges: StatusChange[];
+};
+
 export type MultiTargetDamageImpact = {
   targetId: CombatantId;
   amount: number;
@@ -627,6 +737,7 @@ export type MultiTargetDamageImpact = {
   remainingBarrier: number;
   isCritical: boolean;
   statusChanges: StatusChange[];
+  characterState?: CharacterEventState;
   reflectedDamage?: ReflectedDamage;
 };
 
@@ -648,6 +759,7 @@ export type StatusDamageEvent = {
   remainingHp: number;
   isCritical: false;
   statusChanges: StatusChange[];
+  characterState?: CharacterEventState;
 };
 
 export type SpiritDamageEvent = {
@@ -677,6 +789,7 @@ export type SupportEvent = {
   ppRestored?: number;
   remainingPp?: number;
   statusChanges: StatusChange[];
+  characterState?: CharacterEventState;
   secondaryImpacts?: MultiTargetSupportImpact[];
 };
 
@@ -706,6 +819,7 @@ export type ItemUseImpact = {
   remainingBarrier: number;
   revived: boolean;
   statusChanges: StatusChange[];
+  characterState?: CharacterEventState;
 };
 
 export type ItemUseEvent = {
@@ -726,9 +840,16 @@ export type CombatEvent =
   | MultiTargetSupportEvent
   | ItemUseEvent
   | DefendEvent
-  | ChargeEvent;
+  | ChargeEvent
+  | WakeEvent
+  | WaitEvent
+  | SkipTurnEvent;
 
-export type RoundOutcomePhase = "selectingActions" | "victory" | "defeat";
+export type RoundOutcomePhase =
+  | "selectingActions"
+  | "victory"
+  | "defeat"
+  | "rest";
 
 export type GamePhase = RoundOutcomePhase | "animating";
 
@@ -741,6 +862,8 @@ export type CombatState = {
   players: Record<PlayerId, PlayerState>;
   characters: Record<CharacterInstanceId, CharacterState>;
   enemies: EnemyState[];
+  enemyIntents: Partial<Record<EnemyInstanceId, EnemyIntent>>;
+  restStage: "choice" | "upgrade" | "complete" | null;
   rewardOffers: RewardOffers | null;
   itemRewards: ItemRewards | null;
 };

@@ -6,6 +6,10 @@ export function getPartyHealingReceivedBonus(state: CombatState) {
   const activeSpiritIds = new Set<SpiritId>();
 
   for (const characterId of CHARACTER_ORDER) {
+    if (state.characters[characterId].form !== "living") {
+      continue;
+    }
+
     for (const spirit of Object.values(state.characters[characterId].spirits)) {
       if (spirit) {
         activeSpiritIds.add(spirit.id);

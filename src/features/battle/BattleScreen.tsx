@@ -14,6 +14,7 @@ import {
   SPIRIT_DEFINITIONS,
 } from "../../data/spirits";
 import CommandBar from "./components/CommandBar";
+import CombatLog from "./components/CombatLog";
 import DamageNumber from "./components/DamageNumber";
 import PartyStatusPanel from "./components/PartyStatusPanel";
 import UpgradeSelection from "./components/UpgradeSelection";
@@ -28,10 +29,22 @@ import {
 } from "../../game/state/initialState";
 import { gameReducer } from "../../game/state/gameReducer";
 import { startEncounter } from "../../game/state/encounterState";
-import { applyRewardChoices } from "../../game/rewards/rewardSystem";
+import {
+  applyRewardChoices,
+  getRewardParticipantCharacterIds,
+} from "../../game/rewards/rewardSystem";
 import { getEffectiveAbilityPpCost } from "../../game/passives/passiveSystem";
 import { getInventoryEntries } from "../../game/items/itemSystem";
 import { resolveImmediateItemUse } from "../../game/combat/resolveRound";
+import {
+  GHOST_MAX_HP,
+  isGhostAbilityId,
+  reformGhost,
+} from "../../game/ghost/ghostSystem";
+import {
+  isEnemySleeping,
+  isEnemyTargetable,
+} from "../../game/combat/targeting";
 import {
   getAbilityScalingDescription,
   getKnownAbilityIds,
@@ -47,10 +60,13 @@ import { getPortraitSource } from "../characterSelect/data/characterOptions";
 import {
   submitMultiplayerAction,
   submitMultiplayerItem,
+  submitMultiplayerReform,
   submitMultiplayerUpgrade,
   subscribeToEncounterStarted,
   subscribeToImmediateItemResolved,
+  subscribeToGhostReformed,
   subscribeToPlayerReadiness,
+  subscribeToRewardStageUpdated,
   subscribeToRoundResolved,
   subscribeToUpgradeReadiness,
 } from "../../network/socket";
@@ -71,6 +87,7 @@ import type {
   ItemUseEvent,
   PlayerId,
   RewardChoiceId,
+  CharacterState,
 } from "../../game/types";
 
 type Props =
@@ -234,6 +251,30 @@ function getProjectileOrigin(
     : null;
 }
 
+function resolveCharacterAction(
+  character: CharacterState,
+  abilityId: AbilityId,
+) {
+  if (character.form === "ghost") {
+    return isGhostAbilityId(abilityId)
+      ? resolveAbility(abilityId, 1)
+      : null;
+  }
+
+  if (character.form !== "living") {
+    return null;
+  }
+
+  const rank = getKnownAbilityRank(character.abilityRanks, abilityId);
+  const spirit = getSpiritForActiveAbility(character.spirits, abilityId);
+
+  return rank
+    ? resolveAbility(abilityId, rank)
+    : spirit
+      ? resolveAbility(abilityId, 1)
+      : null;
+}
+
 export default function BattleScreen(props: Props) {
   const [gameState, dispatch] = useReducer(
     gameReducer,
@@ -265,8 +306,13 @@ export default function BattleScreen(props: Props) {
   const [loadedBackgroundSrc, setLoadedBackgroundSrc] = useState<
     string | null
   >(null);
-  const [encounterIntroPhase, setEncounterIntroPhase] =
-    useState<EncounterIntroPhase>("background");
+  const [encounterIntroState, setEncounterIntroState] = useState<{
+    encounterId: CombatState["encounterId"];
+    phase: EncounterIntroPhase;
+  }>({
+    encounterId: gameState.combat.encounterId,
+    phase: "background",
+  });
   const [projectilePath, setProjectilePath] =
     useState<ProjectilePath | null>(null);
   const battleSceneRef = useRef<HTMLDivElement>(null);
@@ -276,6 +322,10 @@ export default function BattleScreen(props: Props) {
   const isMultiplayer = "localPlayerId" in props;
   const localPlayerId = isMultiplayer ? props.localPlayerId : null;
   const combatState = gameState.combat;
+  const encounterIntroPhase =
+    encounterIntroState.encounterId === combatState.encounterId
+      ? encounterIntroState.phase
+      : "background";
   const itemQueueScope = `${combatState.encounterId}:${combatState.round}`;
   const queuedItemCounts =
     queuedItemState.scope === itemQueueScope ? queuedItemState.counts : {};
@@ -290,17 +340,25 @@ export default function BattleScreen(props: Props) {
   const localCharacter = localCharacterId
     ? combatState.characters[localCharacterId]
     : null;
+  const isRest = gameState.phase === "rest";
   const upgradeSelectionIsActive =
-    gameState.phase === "victory" && nextEncounterId !== null;
+    (gameState.phase === "victory" && nextEncounterId !== null) ||
+    (isRest && combatState.restStage !== "complete");
   const singlePlayerUpgradePlayerId = !isMultiplayer
     ? (PLAYER_ORDER.find((playerId) => {
         const characterId =
           combatState.players[playerId].controlledCharacterId;
-        return singlePlayerUpgradeSelections[characterId] === null;
+        return (
+          (combatState.rewardOffers?.[characterId].length ?? 0) > 0 &&
+          singlePlayerUpgradeSelections[characterId] === null
+        );
       }) ?? null)
     : null;
   const upgradeCharacterId = isMultiplayer
-    ? localCharacterId
+    ? localCharacterId &&
+      (combatState.rewardOffers?.[localCharacterId].length ?? 0) > 0
+      ? localCharacterId
+      : null
     : singlePlayerUpgradePlayerId
       ? combatState.players[singlePlayerUpgradePlayerId].controlledCharacterId
       : null;
@@ -359,7 +417,8 @@ export default function BattleScreen(props: Props) {
     ? localCharacter
     : (activeCharacter ?? combatState.characters["character-1"]);
   const abilitiesAvailable = commandCharacter
-    ? hasKnownAbilityInCategory(commandCharacter.abilityRanks, "ability")
+    ? commandCharacter.form === "living" &&
+      hasKnownAbilityInCategory(commandCharacter.abilityRanks, "ability")
     : false;
   const knownAbilities = commandCharacter
     ? getKnownAbilityIds(commandCharacter.abilityRanks).flatMap(
@@ -398,7 +457,8 @@ export default function BattleScreen(props: Props) {
       )
     : [];
   const spiritAvailable = commandCharacter
-    ? Object.values(commandCharacter.spirits).some(Boolean)
+    ? commandCharacter.form === "living" &&
+      Object.values(commandCharacter.spirits).some(Boolean)
     : false;
   const knownSpirits = commandCharacter
     ? Object.values(commandCharacter.spirits).flatMap((spirit) => {
@@ -428,7 +488,8 @@ export default function BattleScreen(props: Props) {
       })
     : [];
   const inventoryItems = commandCharacter
-    ? getInventoryEntries(commandCharacter.inventory).map(
+    ? commandCharacter.form === "living"
+      ? getInventoryEntries(commandCharacter.inventory).map(
         ({ definition, quantity }) => ({
           id: definition.id,
           name: definition.name,
@@ -441,7 +502,8 @@ export default function BattleScreen(props: Props) {
           ),
           useTiming: definition.useTiming,
         }),
-      )
+        )
+      : []
     : [];
   const currentCombatEvent = gameState.pendingRound
     ? gameState.pendingRound.result.events[
@@ -453,7 +515,9 @@ export default function BattleScreen(props: Props) {
     currentCombatEvent?.type === "multiTargetDamage" ||
     currentCombatEvent?.type === "support" ||
     currentCombatEvent?.type === "multiTargetSupport" ||
-    currentCombatEvent?.type === "charge"
+    currentCombatEvent?.type === "charge" ||
+    currentCombatEvent?.type === "wake" ||
+    currentCombatEvent?.type === "wait"
       ? ABILITY_VISUALS[currentCombatEvent.abilityId]
       : null;
   const projectileOrigin = getProjectileOrigin(
@@ -488,9 +552,16 @@ export default function BattleScreen(props: Props) {
           const targetIndex = combatState.enemies.findIndex(
             (enemy) => enemy.instanceId === impact.targetId,
           );
+          const targetEnemy = combatState.enemies[targetIndex];
 
-          return targetIndex >= 0
-            ? [enemyFormationPositions[targetIndex]]
+          return targetIndex >= 0 && targetEnemy
+            ? [
+                {
+                  position: enemyFormationPositions[targetIndex],
+                  impactAnchor:
+                    ENEMY_VISUALS[targetEnemy.enemyId].impactAnchor,
+                },
+              ]
             : [];
         })
       : [];
@@ -499,12 +570,30 @@ export default function BattleScreen(props: Props) {
       ? {
           xPercent:
             battlefieldEffectPositions.reduce(
-              (sum, position) => sum + position.xPercent,
+              (sum, entry) => sum + entry.position.xPercent,
               0,
             ) / battlefieldEffectPositions.length,
           yPercent:
             battlefieldEffectPositions.reduce(
-              (sum, position) => sum + position.yPercent,
+              (sum, entry) => sum + entry.position.yPercent,
+              0,
+            ) / battlefieldEffectPositions.length,
+          xOffsetPx:
+            battlefieldEffectPositions.reduce(
+              (sum, entry) =>
+                sum +
+                ((entry.impactAnchor?.xRatio ?? 0.5) - 0.5) *
+                  550 *
+                  entry.position.scale,
+              0,
+            ) / battlefieldEffectPositions.length,
+          yOffsetPx:
+            battlefieldEffectPositions.reduce(
+              (sum, entry) =>
+                sum +
+                ((entry.impactAnchor?.yRatio ?? 0.5) - 0.5) *
+                  367 *
+                  entry.position.scale,
               0,
             ) / battlefieldEffectPositions.length,
         }
@@ -590,14 +679,24 @@ export default function BattleScreen(props: Props) {
       const sceneRect = sceneElement.getBoundingClientRect();
       const actorRect = actorElement.getBoundingClientRect();
       const targetRect = targetElement.getBoundingClientRect();
+      const targetEnemy = combatState.enemies.find(
+        (enemy) => enemy.instanceId === currentCombatEvent.targetId,
+      );
+      const targetImpactAnchor = targetEnemy
+        ? ENEMY_VISUALS[targetEnemy.enemyId].impactAnchor
+        : null;
       const startX =
         actorRect.left - sceneRect.left + actorRect.width * origin.xRatio;
       const startY =
         actorRect.top - sceneRect.top + actorRect.height * origin.yRatio;
       const endX =
-        targetRect.left - sceneRect.left + targetRect.width * 0.5;
+        targetRect.left -
+        sceneRect.left +
+        targetRect.width * (targetImpactAnchor?.xRatio ?? 0.5);
       const endY =
-        targetRect.top - sceneRect.top + targetRect.height * 0.62;
+        targetRect.top -
+        sceneRect.top +
+        targetRect.height * (targetImpactAnchor?.yRatio ?? 0.62);
 
       setProjectilePath({
         key: `${combatState.round}-${gameState.pendingRound?.nextEventIndex ?? 0}-${currentCombatEvent.actorId}`,
@@ -619,6 +718,7 @@ export default function BattleScreen(props: Props) {
       window.cancelAnimationFrame(measurementFrame);
     };
   }, [
+    combatState.enemies,
     combatState.round,
     currentCombatEvent,
     gameState.pendingRound?.nextEventIndex,
@@ -651,17 +751,26 @@ export default function BattleScreen(props: Props) {
     }
 
     const announcementTimer = window.setTimeout(() => {
-      setEncounterIntroPhase("announcement");
+      setEncounterIntroState({
+        encounterId: combatState.encounterId,
+        phase: "announcement",
+      });
     }, BACKGROUND_REVEAL_DURATION_MS);
     const entranceTimer = window.setTimeout(
       () => {
-        setEncounterIntroPhase("entering");
+        setEncounterIntroState({
+          encounterId: combatState.encounterId,
+          phase: "entering",
+        });
       },
       BACKGROUND_REVEAL_DURATION_MS + ENCOUNTER_ANNOUNCEMENT_DURATION_MS,
     );
     const readyTimer = window.setTimeout(
       () => {
-        setEncounterIntroPhase("ready");
+        setEncounterIntroState({
+          encounterId: combatState.encounterId,
+          phase: "ready",
+        });
       },
       BACKGROUND_REVEAL_DURATION_MS +
         ENCOUNTER_ANNOUNCEMENT_DURATION_MS +
@@ -745,12 +854,31 @@ export default function BattleScreen(props: Props) {
         setImmediateItemEvent(event);
       },
     );
+    const unsubscribeFromGhostReformed = subscribeToGhostReformed(
+      (nextCombatState) => {
+        setSelectedAbilityId(null);
+        setSelectedItemId(null);
+        dispatch({
+          type: "syncCombatState",
+          combatState: nextCombatState,
+        });
+      },
+    );
     const unsubscribeFromUpgradeReadiness = subscribeToUpgradeReadiness(
       setUpgradeReadiness,
     );
+    const unsubscribeFromRewardStage = subscribeToRewardStageUpdated(
+      (nextCombatState) => {
+        setUpgradeReadiness(null);
+        setLocalUpgradeChoiceId(null);
+        dispatch({
+          type: "syncCombatState",
+          combatState: nextCombatState,
+        });
+      },
+    );
     const unsubscribeFromEncounter = subscribeToEncounterStarted(
       (nextCombatState) => {
-        setEncounterIntroPhase("background");
         setPlayerReadiness(null);
         setUpgradeReadiness(null);
         setLocalUpgradeChoiceId(null);
@@ -767,7 +895,9 @@ export default function BattleScreen(props: Props) {
       unsubscribeFromReadiness();
       unsubscribeFromRound();
       unsubscribeFromImmediateItem();
+      unsubscribeFromGhostReformed();
       unsubscribeFromUpgradeReadiness();
+      unsubscribeFromRewardStage();
       unsubscribeFromEncounter();
     };
   }, [isMultiplayer]);
@@ -956,19 +1086,10 @@ export default function BattleScreen(props: Props) {
       return;
     }
 
-    const selectedRank = getKnownAbilityRank(
-      commandCharacter.abilityRanks,
+    const selectedAbility = resolveCharacterAction(
+      commandCharacter,
       selectedAbilityId,
     );
-    const selectedSpirit = getSpiritForActiveAbility(
-      commandCharacter.spirits,
-      selectedAbilityId,
-    );
-    const selectedAbility = selectedRank
-      ? resolveAbility(selectedAbilityId, selectedRank)
-      : selectedSpirit
-        ? resolveAbility(selectedAbilityId, 1)
-        : null;
 
     if (selectedAbility?.target !== "singleEnemy") {
       return;
@@ -1015,6 +1136,32 @@ export default function BattleScreen(props: Props) {
     await submitPlayerAction(selectedAbilityId, targetId);
   };
 
+  const selectReform = async () => {
+    if (!activeCharacterId || actionSubmitting) {
+      return;
+    }
+
+    if (isMultiplayer) {
+      setActionSubmitting(true);
+      const accepted = await submitMultiplayerReform({
+        round: combatState.round,
+      });
+      setActionSubmitting(false);
+      if (!accepted) {
+        return;
+      }
+    } else {
+      const reformedState = reformGhost(combatState, activeCharacterId);
+      if (!reformedState) {
+        return;
+      }
+      dispatch({ type: "syncCombatState", combatState: reformedState });
+    }
+
+    setSelectedAbilityId(null);
+    setSelectedItemId(null);
+  };
+
   const selectUpgrade = async (choiceId: RewardChoiceId) => {
     if (
       !upgradeSelectionIsActive ||
@@ -1056,11 +1203,60 @@ export default function BattleScreen(props: Props) {
       ...singlePlayerUpgradeSelections,
       [upgradeCharacterId]: choiceId,
     };
-    const firstChoice = nextSelections["character-1"];
-    const secondChoice = nextSelections["character-2"];
+    const rewardParticipants = getRewardParticipantCharacterIds(combatState);
 
-    if (!firstChoice || !secondChoice) {
+    if (
+      rewardParticipants.some(
+        (characterId) => !nextSelections[characterId],
+      )
+    ) {
       setSinglePlayerUpgradeSelections(nextSelections);
+      return;
+    }
+
+    const selectedChoices: Partial<
+      Record<CharacterInstanceId, RewardChoiceId>
+    > = {};
+
+    for (const characterId of rewardParticipants) {
+      const choice = nextSelections[characterId];
+      if (choice) {
+        selectedChoices[characterId] = choice;
+      }
+    }
+
+    const upgradedCombatState = applyRewardChoices(
+      combatState,
+      selectedChoices,
+    );
+
+    if (!upgradedCombatState) {
+      return;
+    }
+
+    setSinglePlayerUpgradeSelections({
+      "character-1": null,
+      "character-2": null,
+    });
+
+    if (isRest) {
+      if (
+        upgradedCombatState.restStage === "complete" &&
+        nextEncounterId
+      ) {
+        dispatch({
+          type: "startEncounter",
+          combatState: startEncounter(
+            upgradedCombatState,
+            nextEncounterId,
+          ),
+        });
+      } else {
+        dispatch({
+          type: "syncCombatState",
+          combatState: upgradedCombatState,
+        });
+      }
       return;
     }
 
@@ -1068,47 +1264,15 @@ export default function BattleScreen(props: Props) {
       return;
     }
 
-    const upgradedCombatState = applyRewardChoices(combatState, {
-      "character-1": firstChoice,
-      "character-2": secondChoice,
-    });
-
-    if (!upgradedCombatState) {
-      return;
-    }
-
-    setEncounterIntroPhase("background");
-    setSinglePlayerUpgradeSelections({
-      "character-1": null,
-      "character-2": null,
-    });
     dispatch({
       type: "startEncounter",
       combatState: startEncounter(upgradedCombatState, nextEncounterId),
     });
   };
 
-  const selectedRank =
-    selectedAbilityId && commandCharacter
-      ? getKnownAbilityRank(
-          commandCharacter.abilityRanks,
-          selectedAbilityId,
-        )
-      : null;
-  const selectedSpirit =
-    selectedAbilityId && commandCharacter
-      ? getSpiritForActiveAbility(
-          commandCharacter.spirits,
-          selectedAbilityId,
-        )
-      : null;
   const selectedAbility =
-    selectedAbilityId
-      ? selectedRank
-        ? resolveAbility(selectedAbilityId, selectedRank)
-        : selectedSpirit
-          ? resolveAbility(selectedAbilityId, 1)
-          : null
+    selectedAbilityId && commandCharacter
+      ? resolveCharacterAction(commandCharacter, selectedAbilityId)
       : null;
   const selectedItem = selectedItemId
     ? ITEM_DEFINITIONS[selectedItemId]
@@ -1128,7 +1292,13 @@ export default function BattleScreen(props: Props) {
       : gameState.phase === "defeat"
         ? "Defeat"
         : gameState.phase === "animating"
-          ? currentCombatEvent?.type === "defend"
+          ? currentCombatEvent?.type === "skipTurn"
+            ? `${getCombatantName(currentCombatEvent.actorId)} is Stunned and loses the action...`
+          : currentCombatEvent?.type === "wake"
+            ? `${getCombatantName(currentCombatEvent.actorId)} wakes ${getCombatantName(currentCombatEvent.targetId)}...`
+          : currentCombatEvent?.type === "wait"
+            ? `${getCombatantName(currentCombatEvent.actorId)} catches their breath...`
+          : currentCombatEvent?.type === "defend"
             ? `${getCombatantName(currentCombatEvent.actorId)} defends...`
             : currentCombatEvent?.type === "statusDamage"
               ? `${getCombatantName(currentCombatEvent.targetId)} takes damage from ${currentCombatEvent.statusId === "bleed" ? "Bleed" : "Burn"}...`
@@ -1177,7 +1347,9 @@ export default function BattleScreen(props: Props) {
         >
           <div className="encounterAnnouncement__content">
             <div className="encounterAnnouncement__label">
-              Encounter {encounter.number}
+              {encounter.kind === "rest"
+                ? "Rest"
+                : `Encounter ${encounter.number}`}
             </div>
             <div className="encounterAnnouncement__title">
               {encounter.title}
@@ -1191,7 +1363,9 @@ export default function BattleScreen(props: Props) {
         activeCharacterId={activeCharacterId}
       />
 
-      <div className="battleRound">Round {combatState.round}</div>
+      {encounter.kind === "combat" && (
+        <div className="battleRound">Round {combatState.round}</div>
+      )}
 
       {encounterEnemyTraits.length > 0 && (
         <aside className="enemyTraitPanel" aria-label="Enemy traits">
@@ -1207,98 +1381,16 @@ export default function BattleScreen(props: Props) {
         </aside>
       )}
 
-      {gameState.lastRoundEvents.length > 0 && (
-        <div className="combatLog" aria-live="polite">
-          {gameState.lastRoundEvents.map((event, index) => (
-            <div
-              key={
-                event.type === "statusDamage"
-                  ? `${event.targetId}-${event.statusId}-${index}`
-                  : event.type === "spiritDamage"
-                    ? `${event.sourceId}-${event.spiritId}-${event.targetId}-${index}`
-                    : event.type === "itemUse"
-                      ? `${event.actorId}-${event.itemId}-${index}`
-                  : `${event.actorId}-${event.abilityId}-${index}`
-              }
-            >
-              {event.type === "defend" ? (
-                <>{getCombatantName(event.actorId)} is defending.</>
-              ) : event.type === "charge" ? (
-                <>{getCombatantName(event.actorId)} gathered Dreadflame.</>
-              ) : event.type === "statusDamage" ? (
-                <>
-                  {event.statusId === "bleed" ? "Bleed" : "Burn"} dealt {event.amount} damage to{" "}
-                  {getCombatantName(event.targetId)}.
-                </>
-              ) : event.type === "spiritDamage" ? (
-                <>
-                  Embertail dealt {event.amount} Spirit Fire damage to{" "}
-                  {getCombatantName(event.targetId)}
-                  {event.absorbedByBarrier > 0
-                    ? `; Barrier absorbed ${event.absorbedByBarrier}`
-                    : ""}.
-                </>
-              ) : event.type === "multiTargetDamage" ? (
-                <>
-                  {getCombatantName(event.actorId)} used{" "}
-                  {resolveAbility(event.abilityId, event.abilityRank)?.name} and
-                  hit {event.impacts.length}{" "}
-                  {isCharacterInstanceId(event.actorId)
-                    ? "enemies"
-                    : "heroes"}
-                  .
-                </>
-              ) : event.type === "support" ? (
-                <>
-                  {getCombatantName(event.actorId)} used {resolveAbility(event.abilityId, event.abilityRank)?.name} on {getCombatantName(event.targetId)}
-                  {event.healingAmount > 0
-                    ? ` and restored ${event.healingAmount} HP`
-                    : ""}
-                  {event.barrierAmount > 0
-                    ? ` and granted ${event.barrierAmount} Barrier`
-                    : ""}.
-                </>
-              ) : event.type === "multiTargetSupport" ? (
-                <>
-                  {getCombatantName(event.actorId)} used{" "}
-                  {resolveAbility(event.abilityId, event.abilityRank)?.name}: {" "}
-                  {event.impacts
-                    .map((impact) =>
-                      impact.barrierAmount > 0
-                        ? `${getCombatantName(impact.targetId)} gained ${impact.barrierAmount} Barrier`
-                        : `${getCombatantName(impact.targetId)} received support`,
-                    )
-                    .join("; ")}.
-                </>
-              ) : event.type === "itemUse" ? (
-                <>
-                  {getCombatantName(event.actorId)} used{" "}
-                  {ITEM_DEFINITIONS[event.itemId]?.name ?? "an item"}.
-                </>
-              ) : (
-                <>
-                  {event.isCritical ? "Critical hit! " : ""}
-                  {getCombatantName(event.actorId)} dealt {event.amount} damage
-                  to {getCombatantName(event.targetId)}
-                  {event.absorbedByBarrier > 0
-                    ? `; Barrier absorbed ${event.absorbedByBarrier}`
-                    : ""}.
-                  {event.reflectedDamage
-                    ? ` Thorns dealt ${event.reflectedDamage.amount} damage to ${getCombatantName(event.reflectedDamage.targetId)}.`
-                    : ""}
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="battle__content">{/* her kommer sprites/targets */}</div>
       {PLAYER_ORDER.map((playerId, index) => {
         const characterId =
           combatState.players[playerId].controlledCharacterId;
         const character = combatState.characters[characterId];
         const visuals = CHARACTER_VISUALS[character.presetId];
+        const idleSpriteSrc =
+          character.form === "living"
+            ? visuals.idleSpriteSrc
+            : visuals.ghostIdleSpriteSrc;
         const isAttacking =
           (currentCombatEvent?.type === "damage" ||
             currentCombatEvent?.type === "multiTargetDamage" ||
@@ -1323,15 +1415,24 @@ export default function BattleScreen(props: Props) {
             currentCombatEvent.abilityId === "stoneback" ||
             currentCombatEvent.abilityId === "riverheart");
         const actionSpriteSrc = isAttacking
-          ? usesIdleActionSprite
-            ? visuals.idleSpriteSrc
+          ? character.form === "ghost"
+            ? (visuals.ghostAbilitySpriteSrcs[
+                currentCombatEvent.abilityId
+              ] ?? visuals.ghostIdleSpriteSrc)
+            : usesIdleActionSprite
+            ? idleSpriteSrc
             : (visuals.abilitySpriteSrcs[currentCombatEvent.abilityId] ??
               visuals.autoAttackSpriteSrc)
-          : visuals.autoAttackSpriteSrc;
+          : character.form === "ghost"
+            ? visuals.ghostIdleSpriteSrc
+            : visuals.autoAttackSpriteSrc;
         const actionSpriteAdjustment = isAttacking
           ? visuals.abilitySpriteAdjustments[currentCombatEvent.abilityId]
           : null;
         const isDefending = defendingCombatantIds.has(characterId);
+        const isStunned = character.statuses.some(
+          (status) => status.id === "stunned",
+        );
         const receivedDamage = getDamageImpactForTarget(
           displayedImpactEvent,
           characterId,
@@ -1344,6 +1445,10 @@ export default function BattleScreen(props: Props) {
             ? ABILITY_VISUALS[appliedCombatEvent.abilityId]
             : null;
         const isDarkImpact = receivedImpactVisuals?.impact === "dark";
+        const isShieldChargeImpact =
+          receivedDamage &&
+          appliedCombatEvent?.type === "damage" &&
+          appliedCombatEvent.abilityId === "shieldCharge";
         const isBurnImpact =
           (appliedCombatEvent?.type === "statusDamage" &&
             appliedCombatEvent.statusId === "burn" &&
@@ -1368,7 +1473,11 @@ export default function BattleScreen(props: Props) {
           ((selectedAbility?.target === "singleAlly" && character.hp > 0) ||
             (selectedItem?.target === "singleAlly" && character.hp > 0) ||
             (selectedItem?.target === "singleFallenAlly" &&
-              character.hp <= 0));
+              character.form === "ghost"));
+
+        if (character.form === "permanentlyDead" && !receivedDamage) {
+          return null;
+        }
 
         return (
           <div
@@ -1380,7 +1489,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(characterId);
               }
             }}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} ${unitEntranceClass} ${isAttacking ? `battleScene__playerUnit--acting battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isAttacking ? `battleScene__playerUnit--acting battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""}`}
             style={
               activeAbilityVisuals?.timing
                 ? ({
@@ -1391,7 +1500,7 @@ export default function BattleScreen(props: Props) {
           >
             <img
               className="battleScene__playerSprite battleScene__playerSprite--idle"
-              src={visuals.idleSpriteSrc}
+              src={idleSpriteSrc}
               alt=""
             />
             <img
@@ -1441,6 +1550,9 @@ export default function BattleScreen(props: Props) {
               <DamageNumber
                 amount={receivedDamage.amount}
                 isCritical={receivedDamage.isCritical}
+                durationMs={
+                  receivedImpactVisuals?.timing?.damageNumberDurationMs
+                }
                 absorbedByBarrier={
                   "absorbedByBarrier" in receivedDamage
                     ? receivedDamage.absorbedByBarrier
@@ -1485,19 +1597,22 @@ export default function BattleScreen(props: Props) {
           0,
           Math.min(100, (enemy.hp / enemy.stats.maxHp) * 100),
         );
+        const sleeping = isEnemySleeping(enemy);
         const canTarget =
           gameState.phase === "selectingActions" &&
           Boolean(activePlayerId) &&
           (selectedAbility?.target === "singleEnemy" ||
             selectedItem?.target === "singleEnemy") &&
           !actionSubmitting &&
-          enemy.hp > 0;
+          isEnemyTargetable(enemy);
         const isAttacking =
           (currentCombatEvent?.type === "damage" ||
             currentCombatEvent?.type === "multiTargetDamage" ||
             currentCombatEvent?.type === "support" ||
             currentCombatEvent?.type === "multiTargetSupport" ||
-            currentCombatEvent?.type === "charge") &&
+            currentCombatEvent?.type === "charge" ||
+            currentCombatEvent?.type === "wake" ||
+            currentCombatEvent?.type === "wait") &&
           currentCombatEvent.actorId === enemy.instanceId;
         const visuals = ENEMY_VISUALS[enemy.enemyId];
         const enemyDefinition = ENEMY_DEFINITIONS[enemy.enemyId];
@@ -1507,6 +1622,22 @@ export default function BattleScreen(props: Props) {
         const bleedStatus = enemy.statuses.find(
           (status) => status.id === "bleed",
         );
+        const enemyIntent = combatState.enemyIntents[enemy.instanceId];
+        const enemyIntentRank = enemyIntent
+          ? getKnownAbilityRank(enemy.abilityRanks, enemyIntent.abilityId)
+          : null;
+        const enemyIntentAbility =
+          enemyIntent && enemyIntentRank
+            ? resolveAbility(enemyIntent.abilityId, enemyIntentRank)
+            : null;
+        const enemyIntentTargets =
+          enemyIntent &&
+          gameState.phase === "selectingActions" &&
+          enemyIntentAbility?.effects.some(
+            (effect) => effect.type === "damage",
+          )
+            ? enemyIntent.targetIds.filter(isCharacterInstanceId)
+            : [];
         const passiveTooltipId = enemyDefinition.passive
           ? `enemy-passive-${enemy.instanceId}`
           : undefined;
@@ -1514,6 +1645,9 @@ export default function BattleScreen(props: Props) {
           displayedImpactEvent,
           enemy.instanceId,
         );
+        if (enemy.hp <= 0 && !receivedDamage) {
+          return null;
+        }
         const impactVisuals =
           receivedDamage &&
           appliedCombatEvent &&
@@ -1569,24 +1703,82 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(enemy.instanceId);
               }
             }}
-            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""} ${visuals.attackAnimationVariant ? `battleScene__enemyUnit--attack-${visuals.attackAnimationVariant}` : ""} ${activeEnemySpriteSequence ? `battleScene__enemyUnit--sequence-${activeEnemySpriteSequence.variant}` : ""} ${isProjectileCasting ? "battleScene__enemyUnit--projectile-casting" : ""} ${projectileVariant ? `battleScene__enemyUnit--projectile-${projectileVariant}` : ""} ${isFireImpact ? "battleScene__enemyUnit--fireImpact" : ""} ${isWindImpact ? "battleScene__enemyUnit--windImpact" : ""} ${isWaterImpact ? "battleScene__enemyUnit--waterImpact" : ""} ${isBurnImpact ? "battleScene__enemyUnit--burnImpact" : ""} ${supportImpact ? `battleScene__enemyUnit--supportImpact battleScene__enemyUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "earth") : "earth"}` : ""}`}
+            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${sleeping ? "battleScene__enemyUnit--sleeping" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""} ${visuals.attackAnimationVariant ? `battleScene__enemyUnit--attack-${visuals.attackAnimationVariant}` : ""} ${activeEnemySpriteSequence ? `battleScene__enemyUnit--sequence-${activeEnemySpriteSequence.variant}` : ""} ${isProjectileCasting ? "battleScene__enemyUnit--projectile-casting" : ""} ${projectileVariant ? `battleScene__enemyUnit--projectile-${projectileVariant}` : ""} ${isFireImpact ? "battleScene__enemyUnit--fireImpact" : ""} ${isWindImpact ? "battleScene__enemyUnit--windImpact" : ""} ${isWaterImpact ? "battleScene__enemyUnit--waterImpact" : ""} ${isBurnImpact ? "battleScene__enemyUnit--burnImpact" : ""} ${supportImpact ? `battleScene__enemyUnit--supportImpact battleScene__enemyUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "earth") : "earth"}` : ""}`}
             style={
               {
                 left: `${formationPosition.xPercent}%`,
                 top: `${formationPosition.yPercent}%`,
                 "--enemy-scale": formationPosition.scale,
                 "--enemy-sprite-scale": visuals.spriteScale ?? 1,
-                "--enemy-status-top": visuals.statusTop,
+                "--enemy-status-top": sleeping
+                  ? (visuals.sleepingStatusTop ?? visuals.statusTop)
+                  : visuals.statusTop,
+                "--enemy-hitbox-left": visuals.hitboxAdjustment?.left,
+                "--enemy-hitbox-top": visuals.hitboxAdjustment?.top,
+                "--enemy-hitbox-width": visuals.hitboxAdjustment?.width,
+                "--enemy-hitbox-height": visuals.hitboxAdjustment?.height,
+                "--enemy-impact-left": visuals.impactAnchor
+                  ? `${visuals.impactAnchor.xRatio * 100}%`
+                  : undefined,
+                "--enemy-impact-top": visuals.impactAnchor
+                  ? `${visuals.impactAnchor.yRatio * 100}%`
+                  : undefined,
                 "--action-animation-duration": `${activeAbilityVisuals?.timing?.animationDurationMs ?? visuals.attackAnimationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
                 zIndex: formationPosition.zIndex,
               } as CSSProperties
             }
           >
-            <div className="enemyStatus">
+            <div
+              className={`enemyStatus${enemy.isBoss ? " enemyStatus--boss" : ""}`}
+            >
+              {enemyIntentTargets.length > 0 && (
+                <div
+                  className="enemyStatus__intent"
+                  aria-label={`Targets ${enemyIntentTargets
+                    .map((targetId) => combatState.characters[targetId].name)
+                    .join(" and ")}`}
+                  title={`Targets ${enemyIntentTargets
+                    .map((targetId) => combatState.characters[targetId].name)
+                    .join(" and ")}`}
+                >
+                  <span className="enemyStatus__intentSword" aria-hidden="true">
+                    ⚔
+                  </span>
+                  <span className="enemyStatus__intentArrow" aria-hidden="true">
+                    ➜
+                  </span>
+                  {enemyIntentTargets.map((targetId) => {
+                    const target = combatState.characters[targetId];
+
+                    return (
+                      <img
+                        key={targetId}
+                        className={`enemyStatus__intentPortrait${target.form === "ghost" ? " enemyStatus__intentPortrait--ghost" : ""}`}
+                        src={getPortraitSource(target.portraitId)}
+                        alt={target.name}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+              {sleeping && (
+                <div className="enemyStatus__condition" role="status">
+                  💤 Sleeping
+                </div>
+              )}
               <div className="enemyStatus__heading">
                 <span>
                   {enemy.name}
                 </span>
+                {enemy.barrier > 0 && (
+                  <span
+                    className="enemyStatus__barrier"
+                    aria-label={`${enemy.barrier} Barrier`}
+                    title={`${enemy.barrier} Barrier`}
+                  >
+                    🛡 {enemy.barrier}
+                  </span>
+                )}
                 {burnStatus && (
                   <span
                     className="enemyStatus__effect enemyStatus__effect--burn"
@@ -1628,9 +1820,18 @@ export default function BattleScreen(props: Props) {
             <div className="battleScene__enemySpriteStage">
               <img
                 className="battleScene__enemySprite battleScene__enemySprite--idle"
-                src={visuals.idleSpriteSrc}
+                src={
+                  sleeping && visuals.sleepingSpriteSrc
+                    ? visuals.sleepingSpriteSrc
+                    : visuals.idleSpriteSrc
+                }
                 alt=""
-                style={visuals.idleSpriteAdjustment}
+                style={
+                  sleeping
+                    ? (visuals.sleepingSpriteAdjustment ??
+                      visuals.idleSpriteAdjustment)
+                    : visuals.idleSpriteAdjustment
+                }
               />
               {(activeEnemySpriteSequence?.frames ?? [
                 {
@@ -1717,10 +1918,10 @@ export default function BattleScreen(props: Props) {
             {
               left:
                 currentBattlefieldEffect.position?.left ??
-                `${battlefieldEffectCenter?.xPercent}%`,
+                `calc(${battlefieldEffectCenter?.xPercent}% + ${battlefieldEffectCenter?.xOffsetPx ?? 0}px)`,
               top:
                 currentBattlefieldEffect.position?.top ??
-                `${battlefieldEffectCenter?.yPercent}%`,
+                `calc(${battlefieldEffectCenter?.yPercent}% + ${battlefieldEffectCenter?.yOffsetPx ?? 0}px)`,
               width: `min(${currentBattlefieldEffect.width}px, 74vw)`,
               "--battlefield-effect-duration": `${currentAbilityVisuals?.timing?.animationDurationMs ?? COMBAT_EVENT_DURATION_MS}ms`,
             } as CSSProperties
@@ -1739,6 +1940,7 @@ export default function BattleScreen(props: Props) {
         }
 
         const formationPosition = enemyFormationPositions[index];
+        const visuals = ENEMY_VISUALS[enemy.enemyId];
 
         return (
           <div
@@ -1747,6 +1949,7 @@ export default function BattleScreen(props: Props) {
             style={{
               left: `${formationPosition.xPercent}%`,
               top: `calc(${formationPosition.yPercent}% + ${Math.round(37 * formationPosition.scale)}px)`,
+              transform: `translate(${visuals.damageAnchorAdjustment?.x ?? "0px"}, ${visuals.damageAnchorAdjustment?.y ?? "0px"})`,
             }}
           >
             <DamageNumber
@@ -1782,10 +1985,23 @@ export default function BattleScreen(props: Props) {
         />
       )}
 
-      {upgradeSelectionIsActive && upgradeCharacter && (
+      {upgradeSelectionIsActive &&
+        upgradeCharacter &&
+        (!isRest || encounterIntroComplete) && (
         <UpgradeSelection
+          mode={
+            isRest
+              ? combatState.restStage === "choice"
+                ? "restChoice"
+                : "restUpgrade"
+              : "victory"
+          }
           characterName={upgradeCharacter.name}
           itemRewards={(() => {
+            if (isRest && combatState.restStage !== "choice") {
+              return [];
+            }
+
             const itemIds = upgradeCharacterId
               ? combatState.itemRewards?.[upgradeCharacterId] ?? []
               : [];
@@ -1815,8 +2031,33 @@ export default function BattleScreen(props: Props) {
         />
       )}
 
-      <div className="battlePrompt">{prompt}</div>
-      <CommandBar
+      {isRest &&
+        encounterIntroComplete &&
+        (combatState.restStage === "complete" ||
+          (isMultiplayer &&
+            combatState.restStage === "upgrade" &&
+            !upgradeCharacter)) && (
+          <section className="upgradeSelection" aria-live="polite">
+            <div className="upgradeSelection__panel">
+              <div className="upgradeSelection__victory">
+                Boss Encounter Next
+              </div>
+              <h1 className="upgradeSelection__title">
+                Prepare for the Orc Brothers.
+              </h1>
+              <p className="upgradeSelection__character">
+                {combatState.restStage === "complete"
+                  ? "Preparations complete."
+                  : "Your preparation is complete. The other player is choosing an upgrade."}
+              </p>
+            </div>
+          </section>
+        )}
+
+      {encounter.kind === "combat" && (
+        <>
+          <div className="battlePrompt">{prompt}</div>
+          <CommandBar
         portraitSrc={
           getPortraitSource(
             commandCharacter?.portraitId ??
@@ -1828,9 +2069,23 @@ export default function BattleScreen(props: Props) {
         }
         abilitiesAvailable={abilitiesAvailable}
         spiritAvailable={spiritAvailable}
+        ghostMode={commandCharacter?.form === "ghost"}
+        ghostBoltAvailable={
+          commandCharacter?.form === "ghost" && commandCharacter.pp >= 4
+        }
+        canReform={
+          commandCharacter?.form === "ghost" &&
+          commandCharacter.hp >= GHOST_MAX_HP
+        }
         abilities={knownAbilities}
         spirits={knownSpirits}
         items={inventoryItems}
+        battleLog={
+          <CombatLog
+            events={gameState.lastRoundEvents}
+            getCombatantName={getCombatantName}
+          />
+        }
         onAttackSelect={() => {
           if (activePlayerId) {
             setSelectedItemId(null);
@@ -1904,7 +2159,30 @@ export default function BattleScreen(props: Props) {
             void submitPlayerAction("defend", activeCharacterId);
           }
         }}
-      />
+        onGhostStrikeSelect={() => {
+          if (activePlayerId) {
+            setSelectedItemId(null);
+            setSelectedAbilityId("ghostStrike");
+          }
+        }}
+        onGhostBoltSelect={() => {
+          if (activePlayerId) {
+            setSelectedItemId(null);
+            setSelectedAbilityId("ghostBolt");
+          }
+        }}
+        onGhostHealSelect={() => {
+          if (activePlayerId && activeCharacterId) {
+            setSelectedItemId(null);
+            void submitPlayerAction("ghostHeal", activeCharacterId);
+          }
+        }}
+        onReform={() => {
+          void selectReform();
+        }}
+          />
+        </>
+      )}
     </div>
   );
 }

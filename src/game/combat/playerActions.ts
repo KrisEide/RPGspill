@@ -18,6 +18,8 @@ import type {
   RoundSelections,
 } from "../types";
 import { getEffectiveAbilityPpCost } from "../passives/passiveSystem";
+import { isEnemyTargetable } from "./targeting";
+import { isGhostAbilityId } from "../ghost/ghostSystem";
 
 type PlayerActionRequest = {
   playerId: PlayerId;
@@ -41,12 +43,12 @@ export function isValidPlayerTarget(
     return (
       targetId !== null &&
       isCharacterInstanceId(targetId) &&
-      state.characters[targetId].hp <= 0
+      state.characters[targetId].form === "ghost"
     );
   }
 
   if (targetType === "allEnemies") {
-    return targetId === null && state.enemies.some((enemy) => enemy.hp > 0);
+    return targetId === null && state.enemies.some(isEnemyTargetable);
   }
 
   if (targetType === "allAllies") {
@@ -74,7 +76,8 @@ export function isValidPlayerTarget(
     !isCharacterInstanceId(targetId) &&
     Boolean(
       state.enemies.find(
-        (enemy) => enemy.instanceId === targetId && enemy.hp > 0,
+        (enemy) =>
+          enemy.instanceId === targetId && isEnemyTargetable(enemy),
       ),
     )
   );
@@ -107,7 +110,13 @@ export function selectPlayerAction(
     actor.spirits,
     request.abilityId,
   );
-  const ability = abilityRank
+  const ghostAbility =
+    actor.form === "ghost" && isGhostAbilityId(request.abilityId);
+  const ability = ghostAbility
+    ? resolveAbility(request.abilityId, 1)
+    : actor.form !== "living"
+      ? null
+      : abilityRank
     ? resolveAbility(request.abilityId, abilityRank)
     : activeSpirit
       ? resolveAbility(request.abilityId, 1)
@@ -117,7 +126,7 @@ export function selectPlayerAction(
     : 0;
 
   if (
-    actor.hp <= 0 ||
+    actor.form === "permanentlyDead" ||
     selection.action !== null ||
     !ability ||
     (ability.category === "spirit" &&
@@ -162,7 +171,7 @@ export function selectPlayerItem(
   const selection = selections[characterId];
 
   if (
-    actor.hp <= 0 ||
+    actor.form !== "living" ||
     !definition ||
     definition.resolutionTiming === "preRound" ||
     !isValidPlayerTarget(

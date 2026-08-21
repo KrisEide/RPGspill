@@ -5,9 +5,9 @@ export type InitialAbilityRewardDefinition = {
   icon: string;
 };
 
-// Encounter 1 introduces one of these core Rank 1 abilities to each player.
+// Encounters 1 and 2 introduce core Rank 1 abilities to each player.
 // Keeping this pool explicit prevents enemy actions and future advanced
-// abilities from entering the opening reward by accident.
+// abilities from entering these early reward milestones by accident.
 export const INITIAL_ABILITY_REWARD_POOL = [
   { abilityId: "fireball", icon: "🔥" },
   { abilityId: "crashingWave", icon: "🌊" },

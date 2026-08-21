@@ -4,6 +4,10 @@ import type {
 } from "../../../game/types";
 import { CHARACTER_ORDER } from "../../../game/playerControl";
 import { getPortraitSource } from "../../characterSelect/data/characterOptions";
+import {
+  getCharacterMaxHp,
+  getCharacterMaxPp,
+} from "../../../game/ghost/ghostSystem";
 
 type Props = {
   characters: Record<CharacterInstanceId, CharacterState>;
@@ -27,15 +31,21 @@ function CharacterStatusCard({
   character,
   isActive,
 }: CharacterStatusCardProps) {
-  const hpPercent = getResourcePercent(character.hp, character.stats.maxHp);
-  const ppPercent = getResourcePercent(character.pp, character.stats.maxPp);
+  const maxHp = getCharacterMaxHp(character);
+  const maxPp = getCharacterMaxPp(character);
+  const hpPercent = getResourcePercent(character.hp, maxHp);
+  const ppPercent = getResourcePercent(character.pp, maxPp);
   const swiftWingIsActive = Boolean(
-    character.spirits.swiftWing?.roundPriorityActive,
+    character.form === "living" &&
+      character.spirits.swiftWing?.roundPriorityActive,
+  );
+  const isStunned = character.statuses.some(
+    (status) => status.id === "stunned",
   );
 
   return (
     <article
-      className={`statusCard ${isActive ? "statusCard--active" : ""}`}
+      className={`statusCard ${isActive ? "statusCard--active" : ""} statusCard--${character.form}`}
     >
       <div className="statusCard__portraitFrame">
         <img
@@ -49,6 +59,15 @@ function CharacterStatusCard({
         <div className="statusCard__heading">
           <h2 className="statusCard__name">{character.name}</h2>
           <div className="statusCard__headingMeta">
+            {isStunned && (
+              <span
+                className="statusCard__stunned"
+                aria-label="Stunned: the next action will be lost"
+                title="Stunned: The next action will be lost."
+              >
+                💫
+              </span>
+            )}
             {swiftWingIsActive && (
               <span
                 className="statusCard__turnPriority"
@@ -58,7 +77,13 @@ function CharacterStatusCard({
                 🪽
               </span>
             )}
-            <span className="statusCard__level">Lv. {character.level}</span>
+            <span className="statusCard__level">
+              {character.form === "ghost"
+                ? "Ghost"
+                : character.form === "permanentlyDead"
+                  ? "Fallen"
+                  : `Lv. ${character.level}`}
+            </span>
           </div>
         </div>
 
@@ -68,7 +93,7 @@ function CharacterStatusCard({
               ♥
             </span>
             <span>
-              HP {character.hp} / {character.stats.maxHp}
+              HP {character.hp} / {maxHp}
             </span>
             {character.barrier > 0 && (
               <span
@@ -85,7 +110,7 @@ function CharacterStatusCard({
             role="progressbar"
             aria-label={`${character.name} HP`}
             aria-valuemin={0}
-            aria-valuemax={character.stats.maxHp}
+            aria-valuemax={maxHp}
             aria-valuenow={character.hp}
           >
             <div
@@ -101,7 +126,7 @@ function CharacterStatusCard({
               ✦
             </span>
             <span>
-              PP {character.pp} / {character.stats.maxPp}
+              PP {character.pp} / {maxPp}
             </span>
           </div>
           <div
@@ -109,7 +134,7 @@ function CharacterStatusCard({
             role="progressbar"
             aria-label={`${character.name} PP`}
             aria-valuemin={0}
-            aria-valuemax={character.stats.maxPp}
+            aria-valuemax={maxPp}
             aria-valuenow={character.pp}
           >
             <div

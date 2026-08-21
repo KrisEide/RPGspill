@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 
 import attackIcon from "../../../assets/icons/attackicon.png";
 import defendIcon from "../../../assets/icons/defend_icon.png";
@@ -12,7 +13,16 @@ import type {
   SpiritId,
 } from "../../../game/types";
 
-type CommandId = "attack" | "abilities" | "defend" | "spirit" | "items";
+type CommandId =
+  | "attack"
+  | "abilities"
+  | "defend"
+  | "spirit"
+  | "items"
+  | "ghostStrike"
+  | "ghostBolt"
+  | "ghostHeal"
+  | "reform";
 type CommandPanelId = "abilities" | "spirit" | "items";
 
 type CommandDefinition = {
@@ -20,6 +30,7 @@ type CommandDefinition = {
   title: string;
   desc: string;
   icon: string;
+  glyph?: string;
   panelId: CommandPanelId | null;
 };
 
@@ -46,6 +57,9 @@ type Props = {
   actionsDisabled?: boolean;
   abilitiesAvailable?: boolean;
   spiritAvailable?: boolean;
+  ghostMode?: boolean;
+  ghostBoltAvailable?: boolean;
+  canReform?: boolean;
   abilities: {
     id: AbilityId;
     name: string;
@@ -57,6 +71,7 @@ type Props = {
     icon: string;
     available: boolean;
   }[];
+  battleLog?: ReactNode;
   spirits: {
     id: SpiritId;
     name: string;
@@ -83,6 +98,10 @@ type Props = {
   onSpiritSelect: (abilityId: AbilityId) => void;
   onItemSelect: (itemId: string) => void;
   onDefendSelect: () => void;
+  onGhostStrikeSelect: () => void;
+  onGhostBoltSelect: () => void;
+  onGhostHealSelect: () => void;
+  onReform: () => void;
 };
 
 export default function CommandBar({
@@ -90,14 +109,22 @@ export default function CommandBar({
   actionsDisabled = false,
   abilitiesAvailable = false,
   spiritAvailable = false,
+  ghostMode = false,
+  ghostBoltAvailable = false,
+  canReform = false,
   abilities,
   spirits,
   items,
+  battleLog,
   onAttackSelect,
   onAbilitySelect,
   onSpiritSelect,
   onItemSelect,
   onDefendSelect,
+  onGhostStrikeSelect,
+  onGhostBoltSelect,
+  onGhostHealSelect,
+  onReform,
 }: Props) {
   const [selected, setSelected] = useState<CommandId>("attack");
   const [hovered, setHovered] = useState<CommandId | null>(null);
@@ -105,7 +132,44 @@ export default function CommandBar({
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   const commands = useMemo<CommandDefinition[]>(
-    () => [
+    () => ghostMode
+      ? [
+          {
+            id: "ghostStrike",
+            title: "Ghost Strike",
+            desc: "Deal weak Physical damage to one enemy.",
+            icon: attackIcon,
+            glyph: "👻",
+            panelId: null,
+          },
+          {
+            id: "ghostBolt",
+            title: "Ghost Bolt",
+            desc: "Deal Dark damage to one enemy. Costs 4 Ghost PP.",
+            icon: magicIcon,
+            glyph: "🔮",
+            panelId: null,
+          },
+          {
+            id: "ghostHeal",
+            title: "Ghost Heal",
+            desc: "Restore 7 Ghost HP.",
+            icon: spiritIcon,
+            glyph: "💠",
+            panelId: null,
+          },
+          {
+            id: "reform",
+            title: "Reform",
+            desc: canReform
+              ? "Return to Living Form with 30 HP."
+              : "Requires 100 Ghost HP.",
+            icon: defendIcon,
+            glyph: "✨",
+            panelId: null,
+          },
+        ]
+      : [
       {
         id: "attack",
         title: "Attack",
@@ -142,11 +206,11 @@ export default function CommandBar({
         panelId: "items",
       },
     ],
-    [],
+    [canReform, ghostMode],
   );
 
   const activeId = hovered ?? selected;
-  const active = commands.find((c) => c.id === activeId)!;
+  const active = commands.find((c) => c.id === activeId) ?? commands[0];
 
   const portraitToUse = portraitSrc ?? portrait;
   const panelContent = openPanel ? PANEL_CONTENT[openPanel] : null;
@@ -154,7 +218,7 @@ export default function CommandBar({
 
   return (
     <div
-      className={`cmdbar${openPanel === "items" ? " cmdbar--inventoryOpen" : ""}`}
+      className={`cmdbar${openPanel === "items" ? " cmdbar--inventoryOpen" : ""}${ghostMode ? " cmdbar--ghost" : ""}`}
     >
       <div className="cmdbar__inner">
         <div className="cmdbar__portrait">
@@ -375,23 +439,31 @@ export default function CommandBar({
             </div>
           </section>
         ) : (
-          <div className="cmdbar__centerRow">
-            <div className="cmdbar__icons">
+          <div className="cmdbar__mainLayout">
+            <div className="cmdbar__centerRow">
+              <div className="cmdbar__icons">
               {commands.map((c) => {
                 const isSelected = c.id === selected;
                 const isLocked =
                   (c.id === "abilities" && !abilitiesAvailable) ||
-                  (c.id === "spirit" && !spiritAvailable);
+                  (c.id === "spirit" && !spiritAvailable) ||
+                  (c.id === "ghostBolt" && !ghostBoltAvailable) ||
+                  (c.id === "reform" && !canReform);
                 const isActionUnavailable =
-                  (c.id === "attack" || c.id === "defend") &&
+                  (c.id === "attack" ||
+                    c.id === "defend" ||
+                    c.id === "ghostStrike" ||
+                    c.id === "ghostBolt" ||
+                    c.id === "ghostHeal" ||
+                    c.id === "reform") &&
                   actionsDisabled;
 
                 return (
                   <button
                     key={c.id}
                     type="button"
-                    className={`cmdbar__slot ${isSelected ? "cmdbar__slot--selected" : ""}`}
-                    disabled={isLocked}
+                    className={`cmdbar__slot ${isSelected ? "cmdbar__slot--selected" : ""} ${isLocked ? "cmdbar__slot--locked" : ""}`}
+                    disabled={isLocked && c.id !== "reform"}
                     aria-disabled={isLocked || isActionUnavailable}
                     onClick={() => {
                       if (isLocked || isActionUnavailable) {
@@ -411,6 +483,26 @@ export default function CommandBar({
                         return;
                       }
 
+                      if (c.id === "ghostStrike") {
+                        onGhostStrikeSelect();
+                        return;
+                      }
+
+                      if (c.id === "ghostBolt") {
+                        onGhostBoltSelect();
+                        return;
+                      }
+
+                      if (c.id === "ghostHeal") {
+                        onGhostHealSelect();
+                        return;
+                      }
+
+                      if (c.id === "reform") {
+                        onReform();
+                        return;
+                      }
+
                       if (c.panelId) {
                         setOpenPanel(c.panelId);
                       }
@@ -419,20 +511,28 @@ export default function CommandBar({
                     onMouseLeave={() => setHovered(null)}
                     aria-label={c.title}
                   >
-                    <img
-                      className={`cmdbar__icon cmdbar__icon--${c.id}`}
-                      src={c.icon}
-                      alt=""
-                    />
+                    {c.glyph ? (
+                      <span className="cmdbar__ghostIcon" aria-hidden="true">
+                        {c.glyph}
+                      </span>
+                    ) : (
+                      <img
+                        className={`cmdbar__icon cmdbar__icon--${c.id}`}
+                        src={c.icon}
+                        alt=""
+                      />
+                    )}
                   </button>
                 );
               })}
-            </div>
+              </div>
 
-            <div className="cmdbar__text">
-              <div className="cmdbar__title">{active.title}</div>
-              <div className="cmdbar__desc">{active.desc}</div>
+              <div className="cmdbar__text">
+                <div className="cmdbar__title">{active.title}</div>
+                <div className="cmdbar__desc">{active.desc}</div>
+              </div>
             </div>
+            {battleLog}
           </div>
         )}
       </div>

@@ -21,13 +21,16 @@ import {
 import { ITEM_DEFINITIONS } from "../../src/data/items";
 import { createInitialCombatState } from "../../src/game/state/initialState";
 import { startEncounter } from "../../src/game/state/encounterState";
+import { reformGhost } from "../../src/game/ghost/ghostSystem";
 import {
   applyRewardChoices,
+  getRewardParticipantCharacterIds,
   isRewardOfferedToCharacter,
 } from "../../src/game/rewards/rewardSystem";
 import { ENCOUNTER_DEFINITIONS } from "../../src/data/encounters";
 import type {
   CharacterDraft,
+  CharacterInstanceId,
   CombatState,
   GameSetup,
   PlayerId,
@@ -450,6 +453,40 @@ io.on("connection", (socket) => {
     io.to(room.code).emit("roundResolved", result);
   });
 
+  socket.on("reformGhost", (request, respond) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+
+    if (
+      !room ||
+      !room.combatState ||
+      !playerId ||
+      room.combatState.phase !== "selectingActions" ||
+      request.round !== room.combatState.round
+    ) {
+      respond(false);
+      return;
+    }
+
+    const characterId =
+      room.combatState.players[playerId].controlledCharacterId;
+    if (room.roundSelections[characterId].action !== null) {
+      respond(false);
+      return;
+    }
+
+    const reformedState = reformGhost(room.combatState, characterId);
+    if (!reformedState) {
+      respond(false);
+      return;
+    }
+
+    room.combatState = reformedState;
+    respond(true);
+    io.to(room.code).emit("ghostReformed", room.combatState);
+  });
+
   socket.on("selectUpgrade", (request, respond) => {
     const roomCode = socket.data.roomCode;
     const playerId = socket.data.playerId;
@@ -463,9 +500,10 @@ io.on("connection", (socket) => {
       !room ||
       !room.combatState ||
       !playerId ||
-      room.combatState.phase !== "victory" ||
+      (room.combatState.phase !== "victory" &&
+        room.combatState.phase !== "rest") ||
       room.combatState.encounterId !== request.completedEncounterId ||
-      !nextEncounterId ||
+      (room.combatState.phase === "victory" && !nextEncounterId) ||
       room.upgradeSelections[playerId] !== null ||
       !isRewardOfferedToCharacter(
         room.combatState,
@@ -484,42 +522,78 @@ io.on("connection", (socket) => {
       createUpgradeReadinessState(room),
     );
 
-    if (PLAYER_ORDER.some((id) => room.upgradeSelections[id] === null)) {
+    const rewardParticipantCharacterIds =
+      getRewardParticipantCharacterIds(room.combatState);
+    const rewardParticipantPlayerIds = PLAYER_ORDER.filter((id) =>
+      rewardParticipantCharacterIds.includes(
+        room.combatState!.players[id].controlledCharacterId,
+      ),
+    );
+
+    if (
+      rewardParticipantPlayerIds.some(
+        (id) => room.upgradeSelections[id] === null,
+      )
+    ) {
       return;
     }
 
-    const firstCharacterChoice =
-      room.upgradeSelections[
-        room.combatState.characters["character-1"].ownerId
-      ];
-    const secondCharacterChoice =
-      room.upgradeSelections[
-        room.combatState.characters["character-2"].ownerId
-      ];
+    const choices: Partial<
+      Record<CharacterInstanceId, RewardChoiceId>
+    > = {};
 
-    if (!firstCharacterChoice || !secondCharacterChoice) {
-      return;
+    for (const characterId of rewardParticipantCharacterIds) {
+      const choice =
+        room.upgradeSelections[
+          room.combatState.characters[characterId].ownerId
+        ];
+
+      if (!choice) {
+        return;
+      }
+
+      choices[characterId] = choice;
     }
 
-    const upgradedCombatState = applyRewardChoices(room.combatState, {
-      "character-1": firstCharacterChoice,
-      "character-2": secondCharacterChoice,
-    });
+    const currentPhase = room.combatState.phase;
+    const upgradedCombatState = applyRewardChoices(
+      room.combatState,
+      choices,
+    );
 
     if (!upgradedCombatState) {
       return;
     }
 
-    room.combatState = startEncounter(
-      upgradedCombatState,
-      nextEncounterId,
-    );
     room.roundSelections = createEmptyRoundSelections();
     room.upgradeSelections = {
       player1: null,
       player2: null,
     };
-    io.to(room.code).emit("encounterStarted", room.combatState);
+
+    if (currentPhase === "victory" && nextEncounterId) {
+      room.combatState = startEncounter(
+        upgradedCombatState,
+        nextEncounterId,
+      );
+      io.to(room.code).emit("encounterStarted", room.combatState);
+      return;
+    }
+
+    if (
+      upgradedCombatState.restStage === "complete" &&
+      nextEncounterId
+    ) {
+      room.combatState = startEncounter(
+        upgradedCombatState,
+        nextEncounterId,
+      );
+      io.to(room.code).emit("encounterStarted", room.combatState);
+      return;
+    }
+
+    room.combatState = upgradedCombatState;
+    io.to(room.code).emit("rewardStageUpdated", room.combatState);
   });
 
   socket.on("disconnect", () => {

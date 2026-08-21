@@ -114,12 +114,18 @@ export default function App() {
   const startDevelopmentEncounter = (
     encounterId: EncounterId,
     passives: Partial<Record<CharacterInstanceId, PassiveId[]>> = {},
+    startInGhostForm = false,
   ) => {
     setGameMode("singlePlayer");
     setPlayerOne(null);
     setSelectingPlayerId("player1");
     setGameSetup(
-      createDevelopmentSetup(encounterId, createRandomSeed(), passives),
+      createDevelopmentSetup(
+        encounterId,
+        createRandomSeed(),
+        passives,
+        startInGhostForm,
+      ),
     );
     setScreen("battle");
   };

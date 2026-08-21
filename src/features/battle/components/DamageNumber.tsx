@@ -5,15 +5,25 @@ type Props = {
   amount: number;
   isCritical: boolean;
   absorbedByBarrier?: number;
+  durationMs?: number;
 };
 
 export default function DamageNumber({
   amount,
   isCritical,
   absorbedByBarrier = 0,
+  durationMs,
 }: Props) {
   return (
-    <div className="damageNumberGroup" aria-hidden="true">
+    <div
+      className="damageNumberGroup"
+      aria-hidden="true"
+      style={
+        durationMs
+          ? ({ "--damage-number-duration": `${durationMs}ms` } as React.CSSProperties)
+          : undefined
+      }
+    >
       {absorbedByBarrier > 0 && (
         <div className="barrierNumber">🛡 −{absorbedByBarrier}</div>
       )}

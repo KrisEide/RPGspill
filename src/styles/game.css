@@ -51,6 +51,31 @@ body {
     0 4px 12px rgba(0, 0, 0, 0.55);
 }
 
+.statusCard--ghost {
+  border-color: #82d9ff;
+  box-shadow:
+    inset 0 0 16px rgba(87, 190, 255, 0.18),
+    0 0 14px rgba(76, 194, 255, 0.24);
+}
+
+.statusCard--ghost .statusCard__portrait {
+  filter: grayscale(0.25) sepia(0.15) hue-rotate(145deg) saturate(1.55)
+    brightness(1.12);
+}
+
+.statusCard--ghost .statusCard__level {
+  color: #8cddff;
+}
+
+.statusCard--permanentlyDead {
+  filter: grayscale(0.9) brightness(0.55);
+}
+
+.enemyStatus__intentPortrait--ghost {
+  filter: grayscale(0.25) sepia(0.12) hue-rotate(145deg) saturate(1.55)
+    brightness(1.12);
+}
+
 .statusCard__portraitFrame {
   width: 84px;
   height: 84px;
@@ -109,6 +134,12 @@ body {
   font-size: 14px;
   line-height: 1;
   filter: drop-shadow(0 0 4px rgb(147 225 255 / 75%));
+}
+
+.statusCard__stunned {
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 0 4px rgb(255 211 79 / 80%));
 }
 
 .statusCard__level {
@@ -251,6 +282,21 @@ body {
   box-sizing: border-box;
 }
 
+.cmdbar--ghost {
+  background: linear-gradient(
+    180deg,
+    rgba(24, 72, 94, 0.97) 0%,
+    rgba(15, 48, 70, 0.97) 48%,
+    rgba(6, 21, 34, 0.99) 100%
+  );
+  border-top-color: rgba(155, 227, 255, 0.82);
+}
+
+.cmdbar--ghost .cmdbar__portraitImg {
+  filter: grayscale(0.2) sepia(0.12) hue-rotate(145deg) saturate(1.5)
+    brightness(1.12);
+}
+
 .cmdbar--inventoryOpen .cmdbar__panel {
   gap: 12px;
 }
@@ -265,8 +311,8 @@ body {
   position: absolute;
   left: 1px;
   bottom: 5px;
-  width: 115px;
-  height: 115px;
+  width: 100px;
+  height: 100px;
   padding: 3px;
   display: grid;
   place-items: center;
@@ -282,14 +328,25 @@ body {
   image-rendering: crisp-edges;
 }
 
-.cmdbar__centerRow {
+.cmdbar__mainLayout {
   position: absolute;
-  left: 50%;
-  bottom: 14px; /* legg den på samme "bunnlinje" */
-  transform: translateX(-50%);
+  top: 6px;
+  right: 20px;
+  bottom: 6px;
+  left: clamp(205px, 17vw, 275px);
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+  align-items: center;
+  gap: 18px;
+}
+
+.cmdbar__centerRow {
+  min-width: 0;
 
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 14px;
 }
 
@@ -302,8 +359,8 @@ body {
 
 /* store ikon-knapper */
 .cmdbar__slot {
-  width: 96px;
-  height: 96px;
+  width: 84px;
+  height: 84px;
   padding: 0;
 
   border: 0;
@@ -339,14 +396,24 @@ body {
   filter: grayscale(0.7) brightness(0.65);
 }
 
+.cmdbar__slot--locked {
+  cursor: not-allowed;
+  filter: grayscale(0.7) brightness(0.65);
+}
+
+.cmdbar__slot--locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+
 .cmdbar__slot:disabled:hover {
   transform: none;
   box-shadow: none;
 }
 
 .cmdbar__icon {
-  width: 96px;
-  height: 96px;
+  width: 84px;
+  height: 84px;
 
   object-fit: contain; /* <- VIKTIG: cover kutter kanter */
   border-radius: 0; /* <- ikke rund av */
@@ -364,10 +431,26 @@ body {
   transform: scale(1.08);
 }
 
+.cmdbar__ghostIcon {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  color: #d9f5ff;
+  font-size: 42px;
+  line-height: 1;
+  background: radial-gradient(circle, rgba(66, 170, 227, 0.55), rgba(10, 35, 56, 0.9));
+  border: 3px solid #8edfff;
+  border-radius: 9px;
+  box-shadow:
+    inset 0 0 15px rgba(208, 247, 255, 0.28),
+    0 0 12px rgba(69, 190, 255, 0.45);
+}
+
 /* Informasjonstekst for ikonene */
 .cmdbar__text {
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 9px;
 
   background: rgba(0, 0, 0, 0.22);
   border: 1px solid rgba(210, 255, 225, 0.18);
@@ -380,7 +463,7 @@ body {
 }
 
 .cmdbar__title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.5px;
   color: white;
@@ -388,9 +471,9 @@ body {
 }
 
 .cmdbar__desc {
-  margin-top: 6px;
-  font-size: 14px;
-  line-height: 1.3rem;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.2rem;
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
 }
@@ -765,8 +848,8 @@ body {
 
 .cmdbar__text {
   flex: 1 1 auto;
-  max-width: 420px;
-  width: clamp(220px, 38vw, 420px);
+  max-width: 310px;
+  width: clamp(190px, 22vw, 310px);
 }
 
 .cmdbar__icons {
@@ -1331,7 +1414,7 @@ body {
 /* Dette er en variabel som endrer på høyden på command baren og padding på
 battlescene bilde. */
 :root {
-  --hud-height: 125px;
+  --hud-height: 110px;
   --combat-animation-duration: 1200ms;
 }
 
@@ -1360,6 +1443,28 @@ battlescene bilde. */
 .battleScene__playerUnit--two {
   left: 390px;
   z-index: 13;
+}
+
+.battleScene__playerUnit--ghost .battleScene__playerSprite {
+  filter: drop-shadow(0 0 13px rgba(104, 211, 255, 0.78));
+}
+
+.battleScene__playerUnit--ghost .battleScene__playerSprite--idle {
+  object-fit: contain;
+}
+
+.battleScene__playerUnit--two.battleScene__playerUnit--ghost
+  .battleScene__playerSprite--idle {
+  top: 5%;
+  right: auto;
+  bottom: auto;
+  left: 2.5%;
+  width: 95%;
+  height: 95%;
+}
+
+.battleScene__playerUnit--ghost {
+  opacity: 0.88;
 }
 
 .battleScene__allyHitbox {
@@ -2049,7 +2154,7 @@ battlescene bilde. */
 
 .battleScene__targetEffect {
   position: absolute;
-  left: 50%;
+  left: var(--enemy-impact-left, 50%);
   bottom: 40px;
   z-index: 9;
 
@@ -2226,8 +2331,8 @@ battlescene bilde. */
 
 .battleScene__enemyUnit--windImpact::after {
   position: absolute;
-  left: 50%;
-  top: 60%;
+  left: var(--enemy-impact-left, 50%);
+  top: var(--enemy-impact-top, 60%);
   width: 62%;
   height: 48%;
   z-index: 5;
@@ -2363,8 +2468,8 @@ battlescene bilde. */
 
 .battleScene__enemyUnit--fireImpact::after {
   position: absolute;
-  left: 50%;
-  top: 60%;
+  left: var(--enemy-impact-left, 50%);
+  top: var(--enemy-impact-top, 60%);
   width: 58%;
   height: 58%;
   z-index: 5;
@@ -2463,23 +2568,24 @@ battlescene bilde. */
 
 .battleScene__enemyHitbox {
   position: absolute;
-  left: 50%;
-  top: calc(50% + 30px);
+  left: var(--enemy-hitbox-left, 50%);
+  top: var(--enemy-hitbox-top, calc(50% + 30px));
   transform: translate(-50%, -50%);
 
-  width: 345px;
-  height: 250px;
+  width: var(--enemy-hitbox-width, 345px);
+  height: var(--enemy-hitbox-height, 250px);
   padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
-  pointer-events: auto;
+  pointer-events: none;
 
   z-index: 4;
 }
 
 .battleScene__enemyUnit--selectable .battleScene__enemyHitbox {
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .battleScene__enemyUnit:has(.battleScene__enemyHitbox:hover) {
@@ -2601,11 +2707,6 @@ battlescene bilde. */
   transform: scale(calc(var(--enemy-sprite-scale, 1) * 1.025));
 }
 
-.battleScene__enemyUnit--defeated .battleScene__enemySpriteStage {
-  filter: grayscale(0.8);
-  opacity: 0.35;
-}
-
 .battleScene__enemyUnit--attacking .battleScene__enemySpriteStage {
   z-index: 3;
   animation: enemyAdvance
@@ -2638,22 +2739,6 @@ battlescene bilde. */
 .battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-snappy
   .battleScene__enemySprite--attack {
   animation-name: snappyAttackSwap;
-}
-
-.battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-raiderStab
-  .battleScene__enemySpriteStage {
-  animation-name: enemyRaiderStab;
-  animation-timing-function: cubic-bezier(0.22, 0.72, 0.28, 1);
-}
-
-.battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-raiderStab
-  .battleScene__enemySprite--idle {
-  animation-name: idleRaiderStabSwap;
-}
-
-.battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-raiderStab
-  .battleScene__enemySprite--attack {
-  animation-name: raiderStabSwap;
 }
 
 .battleScene__enemyUnit--attacking.battleScene__enemyUnit--attack-stationaryStrike
@@ -2700,6 +2785,22 @@ battlescene bilde. */
 .battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-healing
   .battleScene__enemySprite--attackFrame-1 {
   animation-name: healingFrameOne;
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-charge
+  .battleScene__enemySpriteStage {
+  animation-name: enemyShieldCharge;
+  animation-timing-function: cubic-bezier(0.22, 0.72, 0.3, 1);
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-charge
+  .battleScene__enemySprite--idle {
+  animation-name: idleShieldChargeSequence;
+}
+
+.battleScene__enemyUnit--attacking.battleScene__enemyUnit--sequence-charge
+  .battleScene__enemySprite--attackFrame-1 {
+  animation-name: shieldChargeFrame;
 }
 
 .battleScene__enemyUnit--projectile-casting .battleScene__enemySpriteStage {
@@ -2811,65 +2912,6 @@ battlescene bilde. */
   }
 }
 
-@keyframes enemyRaiderStab {
-  0%,
-  10% {
-    filter: brightness(1);
-    transform: translate(0, 0) scale(var(--enemy-sprite-scale, 1));
-  }
-  28% {
-    filter: brightness(1.08);
-    transform: translate(-22px, 6px)
-      scale(calc(var(--enemy-sprite-scale, 1) * 1.005));
-  }
-  40%,
-  56% {
-    filter: brightness(1.16);
-    transform: translate(-30px, 9px)
-      scale(calc(var(--enemy-sprite-scale, 1) * 1.01));
-  }
-  72% {
-    filter: brightness(1.06);
-    transform: translate(-12px, 4px)
-      scale(calc(var(--enemy-sprite-scale, 1) * 1.004));
-  }
-  88%,
-  100% {
-    filter: brightness(1);
-    transform: translate(0, 0) scale(var(--enemy-sprite-scale, 1));
-  }
-}
-
-@keyframes idleRaiderStabSwap {
-  0%,
-  10% {
-    opacity: 1;
-  }
-  18%,
-  64% {
-    opacity: 0;
-  }
-  76%,
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes raiderStabSwap {
-  0%,
-  10% {
-    opacity: 0;
-  }
-  18%,
-  64% {
-    opacity: 1;
-  }
-  76%,
-  100% {
-    opacity: 0;
-  }
-}
-
 @keyframes enemyStationaryStrike {
   0%,
   10%,
@@ -2913,6 +2955,114 @@ battlescene bilde. */
   82%,
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes enemyShieldCharge {
+  0%,
+  24% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(var(--enemy-sprite-scale, 1));
+  }
+  44%,
+  68% {
+    filter: brightness(1.16);
+    transform: translate(-380px, 70px) scale(var(--enemy-sprite-scale, 1));
+  }
+  90%,
+  100% {
+    filter: brightness(1);
+    transform: translate(0, 0) scale(var(--enemy-sprite-scale, 1));
+  }
+}
+
+@keyframes idleShieldChargeSequence {
+  0%,
+  13% {
+    opacity: 1;
+  }
+  19%,
+  80% {
+    opacity: 0;
+  }
+  87%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes shieldChargeFrame {
+  0%,
+  12% {
+    opacity: 0;
+  }
+  18%,
+  77% {
+    opacity: 1;
+  }
+  84%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.battleScene__playerUnit--shieldChargeImpact
+  .battleScene__playerSprite--idle {
+  animation: shieldChargeTargetHit 420ms cubic-bezier(0.2, 0.74, 0.3, 1)
+    both;
+}
+
+.battleScene__playerUnit--stunned::before {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  z-index: 26;
+
+  width: 150px;
+  color: #ffe36e;
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 13px;
+  text-align: center;
+  text-shadow:
+    0 2px 2px rgba(65, 34, 0, 0.92),
+    0 0 9px rgba(255, 223, 91, 0.95);
+  content: "✦ ✧ ✦";
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: stunnedStars 1500ms ease-in-out infinite;
+}
+
+@keyframes stunnedStars {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateX(-50%) translateY(-7px) rotate(4deg);
+  }
+}
+
+@keyframes shieldChargeTargetHit {
+  0% {
+    filter: brightness(1);
+    transform: translate(0, 0);
+  }
+  18% {
+    filter: brightness(1.38) saturate(0.88);
+    transform: translate(-5px, 1px);
+  }
+  38% {
+    transform: translate(4px, 0);
+  }
+  58% {
+    filter: brightness(1.12);
+    transform: translate(-2px, 0);
+  }
+  100% {
+    filter: brightness(1);
+    transform: translate(0, 0);
   }
 }
 
@@ -3206,7 +3356,7 @@ battlescene bilde. */
   display: grid;
   place-items: center;
   pointer-events: none;
-  animation: damageNumberPop 750ms ease-out both;
+  animation: damageNumberPop var(--damage-number-duration, 750ms) ease-out both;
 }
 
 .battleScene__enemyDamageAnchor {
@@ -3307,11 +3457,82 @@ battlescene bilde. */
   font-weight: 800;
 }
 
+.enemyStatus--boss {
+  width: 190px;
+}
+
+.enemyStatus__intent {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 28px;
+  padding: 3px 6px;
+
+  color: #fff1bc;
+  background: rgba(7, 12, 9, 0.9);
+  border: 1px solid rgba(213, 167, 47, 0.9);
+  border-radius: 5px;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+
+.enemyStatus__intentSword {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.enemyStatus__intentArrow {
+  color: #f6c947;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.enemyStatus__intentPortrait {
+  width: 23px;
+  height: 23px;
+  object-fit: cover;
+  border: 1px solid #e9bd43;
+  border-radius: 3px;
+}
+
+.enemyStatus__condition {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 50%;
+  transform: translateX(-50%);
+
+  padding: 4px 9px;
+  white-space: nowrap;
+
+  color: #dce7ff;
+  font-size: 13px;
+  line-height: 1;
+  font-weight: 850;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 90%);
+  background: rgb(7 12 18 / 92%);
+  border: 1px solid rgb(146 174 225 / 85%);
+  border-radius: 999px;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 55%);
+}
+
 .enemyStatus__effect {
   flex: 0 0 auto;
   font-size: 13px;
   line-height: 1;
   pointer-events: auto;
+}
+
+.enemyStatus__barrier {
+  flex: 0 0 auto;
+  color: #9edcff;
+  font-size: 10px;
+  line-height: 1;
+  text-shadow: 0 0 4px rgba(68, 172, 255, 0.9);
 }
 
 .enemyStatus__effect--burn {
@@ -3355,7 +3576,7 @@ battlescene bilde. */
 .battleRound {
   position: absolute;
   top: 14px;
-  left: 50%;
+  left: 42%;
   z-index: 31;
   transform: translateX(-50%);
 
@@ -3369,21 +3590,28 @@ battlescene bilde. */
 }
 
 .combatLog {
-  position: absolute;
-  top: 52px;
-  left: 50%;
-  z-index: 31;
-  transform: translateX(-50%);
-
-  width: min(420px, calc(100vw - 32px));
-  padding: 8px 10px;
+  align-self: center;
+  min-width: 0;
+  max-height: 88px;
+  padding: 9px 12px;
+  overflow-y: auto;
+  box-sizing: border-box;
 
   color: white;
-  font-size: 13px;
-  text-align: center;
-  background: rgba(8, 14, 10, 0.78);
+  font-size: 11px;
+  line-height: 1.28;
+  text-align: left;
+  background: rgba(5, 13, 8, 0.62);
+  border: 1px solid rgba(210, 255, 225, 0.16);
   border-radius: 6px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+  scrollbar-color: rgba(255, 211, 79, 0.45) rgba(0, 0, 0, 0.18);
+  scrollbar-width: thin;
   text-shadow: 0 1px 2px black;
+}
+
+.combatLog > div + div {
+  margin-top: 2px;
 }
 
 .battlePrompt {
@@ -3406,6 +3634,10 @@ battlescene bilde. */
 }
 
 @media (max-width: 700px) {
+  .battleRound {
+    left: 50%;
+  }
+
   .battlePrompt {
     left: 58%;
     min-width: 220px;

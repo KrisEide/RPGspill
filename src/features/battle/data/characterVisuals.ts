@@ -12,6 +12,12 @@ import lyraWhirlwindSprite from "../../../assets/sprites/characters/lyra-whirlwi
 import lyraCastingSprite from "../../../assets/sprites/characters/lyracasting.png";
 import lyraEarthHealingSprite from "../../../assets/sprites/characters/lyra_earthheal.png";
 import lyraWaterHealingSprite from "../../../assets/sprites/characters/lyra_waterhealing.png";
+import rowanGhostIdleSprite from "../../../assets/sprites/characters/rowan_ghost_idle.png";
+import rowanGhostStrikeSprite from "../../../assets/sprites/characters/rowan_ghost_ghoststrike.png";
+import rowanGhostBoltSprite from "../../../assets/sprites/characters/rowan_ghost_ghostbolt.png";
+import lyraGhostIdleSprite from "../../../assets/sprites/characters/lyra_ghost_idle.png";
+import lyraGhostStrikeSprite from "../../../assets/sprites/characters/lyra_ghost_ghoststrike.png";
+import lyraGhostBoltSprite from "../../../assets/sprites/characters/lyra_ghost_ghostbolt.png";
 import type {
   AbilityId,
   CharacterPresetId,
@@ -74,6 +80,8 @@ const LYRA_WATER_HEALING_SPRITE_ADJUSTMENT =
 
 type CharacterVisualDefinition = {
   idleSpriteSrc: string;
+  ghostIdleSpriteSrc: string;
+  ghostAbilitySpriteSrcs: Partial<Record<AbilityId, string>>;
   autoAttackSpriteSrc: string;
   abilitySpriteSrcs: Partial<Record<AbilityId, string>>;
   abilitySpriteAdjustments: Partial<
@@ -90,6 +98,12 @@ export const CHARACTER_VISUALS: Record<
 > = {
   char1: {
     idleSpriteSrc: rowanIdleSprite,
+    ghostIdleSpriteSrc: rowanGhostIdleSprite,
+    ghostAbilitySpriteSrcs: {
+      ghostStrike: rowanGhostStrikeSprite,
+      ghostBolt: rowanGhostBoltSprite,
+      ghostHeal: rowanGhostIdleSprite,
+    },
     autoAttackSpriteSrc: rowanAutoAttackSprite,
     abilitySpriteSrcs: {
       fireball: rowanFireballSprite,
@@ -130,6 +144,12 @@ export const CHARACTER_VISUALS: Record<
   },
   char2: {
     idleSpriteSrc: lyraIdleSprite,
+    ghostIdleSpriteSrc: lyraGhostIdleSprite,
+    ghostAbilitySpriteSrcs: {
+      ghostStrike: lyraGhostStrikeSprite,
+      ghostBolt: lyraGhostBoltSprite,
+      ghostHeal: lyraGhostIdleSprite,
+    },
     autoAttackSpriteSrc: lyraAutoAttackSprite,
     abilitySpriteSrcs: {
       fireball: lyraFireballSprite,

@@ -23,6 +23,7 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
       basePower: 2,
       damageType: "physical",
       element: null,
+      ignoresMitigation: true,
     },
   },
   cracked: {
@@ -56,5 +57,17 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     outgoingDamageModifier: {
       consumeOnNextDamageAction: true,
     },
+  },
+  stunned: {
+    id: "stunned",
+    name: "Stunned",
+    stackingRule: "refresh",
+    maxStacks: 1,
+  },
+  sleeping: {
+    id: "sleeping",
+    name: "Sleeping",
+    stackingRule: "refresh",
+    maxStacks: 1,
   },
 };

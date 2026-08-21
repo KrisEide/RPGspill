@@ -10,6 +10,18 @@ import orcHealerAttackSprite from "../../../assets/sprites/monsters/orchealer_at
 import orcHealerHealingSprite from "../../../assets/sprites/monsters/orchealer_healing.png";
 import orcMaulerSprite from "../../../assets/sprites/monsters/orcmauler.png";
 import orcMaulerAttackSprite from "../../../assets/sprites/monsters/orcmauler_attack.png";
+import orcGuardSprite from "../../../assets/sprites/monsters/orc_guard.png";
+import orcGuardAttackSprite from "../../../assets/sprites/monsters/orc_guard_attack.png";
+import orcGuardRallySprite from "../../../assets/sprites/monsters/orc_guard_rally.png";
+import gorakBossSprite from "../../../assets/sprites/monsters/orc_gorak_boss.png";
+import gorakAttackSprite from "../../../assets/sprites/monsters/orc_gorak_attack.png";
+import gorakChargeSprite from "../../../assets/sprites/monsters/orc_gorak_charge.png";
+import gorakWakeUpSprite from "../../../assets/sprites/monsters/orc_gorak_wakeup.png";
+import brakkBossSleepingSprite from "../../../assets/sprites/monsters/orc_brakk_boss_sleeping.png";
+import brakkIdleSprite from "../../../assets/sprites/monsters/orc_brakk_idle.png";
+import brakkBloodCleaveSprite from "../../../assets/sprites/monsters/orc_brakk_slashbleed.png";
+import brakkSmashSprite from "../../../assets/sprites/monsters/orc_brakk_smash.png";
+import brakkTiredSprite from "../../../assets/sprites/monsters/orc_brakk_tired.png";
 import level1OrcAutoAttackSprite from "../../../assets/sprites/monsters/level1orcattack.png";
 import type { AbilityId, EnemyId } from "../../../game/types";
 
@@ -18,6 +30,23 @@ type EnemySpriteAdjustment = {
   height: string;
   left: string;
   top: string;
+};
+
+type EnemyHitboxAdjustment = {
+  left?: string;
+  top?: string;
+  width?: string;
+  height?: string;
+};
+
+type EnemyDamageAnchorAdjustment = {
+  x?: string;
+  y?: string;
+};
+
+type EnemyImpactAnchor = {
+  xRatio: number;
+  yRatio: number;
 };
 
 type AnchoredEnemySpriteLayout = {
@@ -39,28 +68,33 @@ const createAnchoredEnemySpriteAdjustment = ({
   top: `${targetAnchor.y - sourceAnchor.y * displayScale}px`,
 });
 
-const orcWizardCastingSpriteAdjustment =
-  createAnchoredEnemySpriteAdjustment({
-    sourceSize: { width: 1254, height: 1254 },
-    sourceAnchor: { x: 720, y: 1215 },
-    targetAnchor: { x: 260, y: 330 },
-    displayScale: 0.352,
-  });
+const orcWizardCastingSpriteAdjustment = createAnchoredEnemySpriteAdjustment({
+  sourceSize: { width: 1254, height: 1254 },
+  sourceAnchor: { x: 720, y: 1215 },
+  targetAnchor: { x: 260, y: 330 },
+  displayScale: 0.352,
+});
 
 type EnemyVisualDefinition = {
   idleSpriteSrc: string;
+  sleepingSpriteSrc?: string;
   autoAttackSpriteSrc: string;
-  attackAnimationVariant?: "snappy" | "raiderStab" | "stationaryStrike";
+  attackAnimationVariant?: "snappy" | "stationaryStrike";
   attackAnimationDurationMs?: number;
   spriteScale?: number;
   statusTop?: string;
+  sleepingStatusTop?: string;
   idleSpriteAdjustment?: EnemySpriteAdjustment;
+  sleepingSpriteAdjustment?: EnemySpriteAdjustment;
+  hitboxAdjustment?: EnemyHitboxAdjustment;
+  damageAnchorAdjustment?: EnemyDamageAnchorAdjustment;
+  impactAnchor?: EnemyImpactAnchor;
   attackSpriteAdjustment?: EnemySpriteAdjustment;
   abilitySpriteSequences?: Partial<
     Record<
       AbilityId,
       {
-        variant: "dreadflame" | "healing";
+        variant: "dreadflame" | "healing" | "bossAction" | "charge";
         frames: Array<{
           spriteSrc: string;
           adjustment?: EnemySpriteAdjustment;
@@ -83,8 +117,8 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
   orcRaider: {
     idleSpriteSrc: orcRaiderSprite,
     autoAttackSpriteSrc: orcRaiderAttackSprite,
-    attackAnimationVariant: "raiderStab",
-    attackAnimationDurationMs: 1650,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 1950,
     statusTop: "-28px",
     idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
       sourceSize: { width: 1536, height: 1024 },
@@ -95,8 +129,8 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
     attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
       sourceSize: { width: 1024, height: 1536 },
       sourceAnchor: { x: 650, y: 1280 },
-      targetAnchor: { x: 275, y: 330 },
-      displayScale: 0.3,
+      targetAnchor: { x: 120, y: 390 },
+      displayScale: 0.34,
     }),
   },
   orcMage: {
@@ -203,5 +237,192 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
       targetAnchor: { x: 90, y: 395 },
       displayScale: 0.33,
     }),
+  },
+  orcGuard: {
+    idleSpriteSrc: orcGuardSprite,
+    autoAttackSpriteSrc: orcGuardAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2400,
+    statusTop: "18px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1536, height: 1024 },
+      sourceAnchor: { x: 870, y: 915 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.3,
+    }),
+    attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 850, y: 980 },
+      targetAnchor: { x: 110, y: 390 },
+      displayScale: 0.36,
+    }),
+    abilitySpriteSequences: {
+      guardRally: {
+        variant: "healing",
+        frames: [
+          {
+            spriteSrc: orcGuardRallySprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1448, height: 1086 },
+              sourceAnchor: { x: 800, y: 1040 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.38,
+            }),
+          },
+        ],
+      },
+      guardShieldCharge: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: orcGuardAttackSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1254, height: 1254 },
+              sourceAnchor: { x: 850, y: 980 },
+              targetAnchor: { x: 110, y: 390 },
+              displayScale: 0.36,
+            }),
+          },
+        ],
+      },
+    },
+  },
+  brakkBoss: {
+    idleSpriteSrc: brakkIdleSprite,
+    sleepingSpriteSrc: brakkBossSleepingSprite,
+    autoAttackSpriteSrc: brakkSmashSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 3000,
+    spriteScale: 1,
+    statusTop: "-112px",
+    sleepingStatusTop: "-42px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1086, height: 1448 },
+      sourceAnchor: { x: 650, y: 1320 },
+      targetAnchor: { x: 335, y: 315 },
+      displayScale: 0.335,
+    }),
+    sleepingSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1448, height: 1086 },
+      sourceAnchor: { x: 724, y: 970 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.34,
+    }),
+    abilitySpriteSequences: {
+      bloodCleave: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: brakkBloodCleaveSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1122, height: 1402 },
+              sourceAnchor: { x: 690, y: 1250 },
+              targetAnchor: { x: 35, y: 405 },
+              displayScale: 0.47,
+            }),
+          },
+        ],
+      },
+      smash: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: brakkSmashSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1536, height: 1024 },
+              sourceAnchor: { x: 960, y: 950 },
+              targetAnchor: { x: 125, y: 390 },
+              displayScale: 0.4,
+            }),
+          },
+        ],
+      },
+      catchBreath: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: brakkTiredSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1536, height: 1024 },
+              sourceAnchor: { x: 900, y: 940 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.35,
+            }),
+          },
+        ],
+      },
+    },
+  },
+  gorakBoss: {
+    idleSpriteSrc: gorakBossSprite,
+    autoAttackSpriteSrc: gorakAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 1900,
+    spriteScale: 1.14,
+    statusTop: "-110px",
+    hitboxAdjustment: {
+      left: "24%",
+      top: "52%",
+      width: "360px",
+      height: "280px",
+    },
+    damageAnchorAdjustment: {
+      x: "-150px",
+      y: "-55px",
+    },
+    impactAnchor: {
+      xRatio: 0.12,
+      yRatio: 0.42,
+    },
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1206, height: 1305 },
+      sourceAnchor: { x: 1000, y: 1100 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.425,
+    }),
+    abilitySpriteSequences: {
+      gorakAutoAttack: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: gorakAttackSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1448, height: 1086 },
+              sourceAnchor: { x: 800, y: 980 },
+              targetAnchor: { x: -180, y: 440 },
+              displayScale: 0.37,
+            }),
+          },
+        ],
+      },
+      shieldCharge: {
+        variant: "charge",
+        frames: [
+          {
+            spriteSrc: gorakChargeSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1536, height: 1024 },
+              sourceAnchor: { x: 800, y: 965 },
+              targetAnchor: { x: 135, y: 382 },
+              displayScale: 0.35,
+            }),
+          },
+        ],
+      },
+      wakeUp: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: gorakWakeUpSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1536, height: 1024 },
+              sourceAnchor: { x: 850, y: 960 },
+              targetAnchor: { x: 195, y: 340 },
+              displayScale: 0.35,
+            }),
+          },
+        ],
+      },
+    },
   },
 };

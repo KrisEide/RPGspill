@@ -7,6 +7,7 @@ export type EncounterEnemy = {
 
 export type EncounterDefinition = {
   id: EncounterId;
+  kind: "combat" | "rest";
   number: number;
   title: string;
   enemies: EncounterEnemy[];
@@ -16,6 +17,7 @@ export type EncounterDefinition = {
 export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   forestAmbush: {
     id: "forestAmbush",
+    kind: "combat",
     number: 1,
     title: "Forest Ambush",
     nextEncounterId: "orcReinforcements",
@@ -28,9 +30,10 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   },
   orcReinforcements: {
     id: "orcReinforcements",
+    kind: "combat",
     number: 2,
     title: "Orc Reinforcements",
-    nextEncounterId: "darkMage",
+    nextEncounterId: "raiderPatrol",
     enemies: [
       {
         enemyId: "level1Orc",
@@ -42,11 +45,24 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
       },
     ],
   },
+  raiderPatrol: {
+    id: "raiderPatrol",
+    kind: "combat",
+    number: 3,
+    title: "Raider Patrol",
+    nextEncounterId: "darkMage",
+    enemies: [
+      { enemyId: "orcRaider", instanceId: "enemy-1" },
+      { enemyId: "orcRaider", instanceId: "enemy-2" },
+      { enemyId: "level1Orc", instanceId: "enemy-3" },
+    ],
+  },
   raiderWarband: {
     id: "raiderWarband",
-    number: 4,
+    kind: "combat",
+    number: 5,
     title: "Raider Warband",
-    nextEncounterId: "dreadflameRitual",
+    nextEncounterId: "guardPatrol",
     enemies: [
       { enemyId: "orcRaider", instanceId: "enemy-1" },
       { enemyId: "orcRaider", instanceId: "enemy-2" },
@@ -56,7 +72,8 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   },
   darkMage: {
     id: "darkMage",
-    number: 3,
+    kind: "combat",
+    number: 4,
     title: "The Cursed Crossing",
     nextEncounterId: "raiderWarband",
     enemies: [
@@ -66,7 +83,8 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   },
   dreadflameRitual: {
     id: "dreadflameRitual",
-    number: 5,
+    kind: "combat",
+    number: 7,
     title: "A Dark Presence",
     nextEncounterId: "mightAndMending",
     enemies: [
@@ -74,14 +92,46 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
       { enemyId: "level1Orc", instanceId: "enemy-2" },
     ],
   },
+  guardPatrol: {
+    id: "guardPatrol",
+    kind: "combat",
+    number: 6,
+    title: "The Shield Line",
+    nextEncounterId: "dreadflameRitual",
+    enemies: [
+      { enemyId: "orcGuard", instanceId: "enemy-1" },
+      { enemyId: "level1Orc", instanceId: "enemy-2" },
+      { enemyId: "level1Orc", instanceId: "enemy-3" },
+    ],
+  },
   mightAndMending: {
     id: "mightAndMending",
-    number: 6,
+    kind: "combat",
+    number: 8,
     title: "Might and Mending",
-    nextEncounterId: null,
+    nextEncounterId: "forestRest",
     enemies: [
       { enemyId: "orcHealer", instanceId: "enemy-1" },
       { enemyId: "orcMauler", instanceId: "enemy-2" },
+    ],
+  },
+  forestRest: {
+    id: "forestRest",
+    kind: "rest",
+    number: 9,
+    title: "Forest Rest",
+    nextEncounterId: "orcBrothers",
+    enemies: [],
+  },
+  orcBrothers: {
+    id: "orcBrothers",
+    kind: "combat",
+    number: 10,
+    title: "The Orc Brothers",
+    nextEncounterId: null,
+    enemies: [
+      { enemyId: "brakkBoss", instanceId: "enemy-1" },
+      { enemyId: "gorakBoss", instanceId: "enemy-2" },
     ],
   },
 };

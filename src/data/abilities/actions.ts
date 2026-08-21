@@ -51,6 +51,70 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  ghostStrike: {
+    id: "ghostStrike",
+    name: "Ghost Strike",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "A weak spectral strike.",
+        description: "Deal 5 raw Physical damage to one enemy.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 5,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  ghostBolt: {
+    id: "ghostBolt",
+    name: "Ghost Bolt",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Dark damage to one enemy.",
+        description: "Deal 10 raw Magical damage to one enemy.",
+        ppCost: 4,
+        effects: [
+          {
+            type: "damage",
+            damageType: "magical",
+            basePower: 10,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  ghostHeal: {
+    id: "ghostHeal",
+    name: "Ghost Heal",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Restore 7 Ghost HP.",
+        description: "Restore 7 Ghost HP. This is fixed Ghost recovery.",
+        ppCost: 0,
+        effects: [{ type: "ghostHealing", amount: 7 }],
+      },
+    },
+  },
   gangStrike: {
     id: "gangStrike",
     name: "Gang Strike",
@@ -174,13 +238,206 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  guardRally: {
+    id: "guardRally",
+    name: "Rally",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allAllies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Grant 10 Barrier to all enemies.",
+        description: "Grant 10 Barrier to all living enemies, including the Orc Guard.",
+        ppCost: 0,
+        effects: [{ type: "barrier", amount: 10 }],
+      },
+    },
+  },
+  guardShieldCharge: {
+    id: "guardShieldCharge",
+    name: "Shield Charge",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Deal 16 raw Physical damage with a chance to Stun.",
+        description:
+          "Deal 16 raw Physical damage to one random hero. HP damage has a 25% chance to Stun.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 16,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            statusOnHpDamage: { statusId: "stunned", chance: 0.25 },
+          },
+        ],
+      },
+    },
+  },
+  gorakAutoAttack: {
+    id: "gorakAutoAttack",
+    name: "Auto Attack",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Deal 14 raw Physical damage.",
+        description: "Strike one random hero for 14 raw Physical damage.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 14,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            criticalHit: {
+              chance: 0.05,
+              damageMultiplier: 1.5,
+            },
+          },
+        ],
+      },
+    },
+  },
+  shieldCharge: {
+    id: "shieldCharge",
+    name: "Shield Charge",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Deal 18 raw Physical damage and Stun on HP damage.",
+        description:
+          "Strike one random hero for 18 raw Physical damage. If the hit damages HP, Stun them for their next action.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 18,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            statusOnHpDamage: { statusId: "stunned" },
+          },
+        ],
+      },
+    },
+  },
+  wakeUp: {
+    id: "wakeUp",
+    name: "Wake Up",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Wake Brakk.",
+        description: "Wake Brakk from his sleep.",
+        ppCost: 0,
+        effects: [{ type: "wakeEnemy", enemyId: "brakkBoss" }],
+      },
+    },
+  },
+  bloodCleave: {
+    id: "bloodCleave",
+    name: "Blood Cleave",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Deal 16 raw Physical damage to both heroes.",
+        description:
+          "Deal 16 raw Physical damage to both heroes. HP damage applies Bleed.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 16,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            statusOnHpDamage: { statusId: "bleed" },
+          },
+        ],
+      },
+    },
+  },
+  smash: {
+    id: "smash",
+    name: "Smash",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Deal 27 raw Physical damage.",
+        description: "Smash one random hero for 27 raw Physical damage.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 27,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  catchBreath: {
+    id: "catchBreath",
+    name: "Catch Breath",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Take no offensive action this turn.",
+        description: "Brakk pauses to catch his breath.",
+        ppCost: 0,
+        effects: [{ type: "wait" }],
+      },
+    },
+  },
 } satisfies Record<
   | "autoAttack"
   | "defend"
+  | "ghostStrike"
+  | "ghostBolt"
+  | "ghostHeal"
   | "gangStrike"
   | "darkBolt"
   | "gatherDreadflame"
   | "dreadflame"
-  | "mendWounds",
+  | "mendWounds"
+  | "guardRally"
+  | "guardShieldCharge"
+  | "gorakAutoAttack"
+  | "shieldCharge"
+  | "wakeUp"
+  | "bloodCleave"
+  | "smash"
+  | "catchBreath",
   AbilityDefinition
 >;

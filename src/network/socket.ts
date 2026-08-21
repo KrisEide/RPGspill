@@ -7,6 +7,7 @@ import type {
   MultiplayerItemRequest,
   MultiplayerItemResult,
   ImmediateItemResult,
+  ReformGhostRequest,
   PlayerReadinessState,
   RoomConnection,
   ServerToClientEvents,
@@ -126,6 +127,16 @@ export async function submitMultiplayerItem(
   });
 }
 
+export async function submitMultiplayerReform(
+  request: ReformGhostRequest,
+) {
+  await connect();
+
+  return new Promise<boolean>((resolve) => {
+    socket.emit("reformGhost", request, resolve);
+  });
+}
+
 export async function submitMultiplayerUpgrade(
   request: UpgradeSelectionRequest,
 ) {
@@ -204,6 +215,16 @@ export function subscribeToImmediateItemResolved(
   };
 }
 
+export function subscribeToGhostReformed(
+  handleGhostReformed: (state: CombatState) => void,
+) {
+  socket.on("ghostReformed", handleGhostReformed);
+
+  return () => {
+    socket.off("ghostReformed", handleGhostReformed);
+  };
+}
+
 export function subscribeToUpgradeReadiness(
   handleReadinessUpdated: (state: UpgradeReadinessState) => void,
 ) {
@@ -211,6 +232,16 @@ export function subscribeToUpgradeReadiness(
 
   return () => {
     socket.off("upgradeReadinessUpdated", handleReadinessUpdated);
+  };
+}
+
+export function subscribeToRewardStageUpdated(
+  handleRewardStageUpdated: (state: CombatState) => void,
+) {
+  socket.on("rewardStageUpdated", handleRewardStageUpdated);
+
+  return () => {
+    socket.off("rewardStageUpdated", handleRewardStageUpdated);
   };
 }
 

@@ -31,7 +31,7 @@ export function characterHasPassive(
   character: CharacterState,
   passiveId: PassiveId,
 ) {
-  return hasPassive(character.passives, passiveId);
+  return character.form === "living" && hasPassive(character.passives, passiveId);
 }
 
 export function getStatusDurationForSource(

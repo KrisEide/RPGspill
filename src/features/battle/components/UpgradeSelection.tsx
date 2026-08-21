@@ -4,6 +4,7 @@ import type {
 } from "../../../game/types";
 
 type Props = {
+  mode?: "victory" | "restChoice" | "restUpgrade";
   characterName: string;
   itemRewards: {
     name: string;
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export default function UpgradeSelection({
+  mode = "victory",
   characterName,
   itemRewards,
   choices,
@@ -28,15 +30,23 @@ export default function UpgradeSelection({
   submitting,
   onSelect,
 }: Props) {
+  const isRest = mode !== "victory";
+
   return (
     <section className="upgradeSelection" aria-labelledby="upgrade-title">
       <div className="upgradeSelection__panel">
-        <div className="upgradeSelection__victory">Victory</div>
+        <div className="upgradeSelection__victory">
+          {isRest ? "Boss Encounter Next" : "Victory"}
+        </div>
         <h1 id="upgrade-title" className="upgradeSelection__title">
-          Choose an Upgrade
+          {isRest
+            ? "Prepare for the Orc Brothers."
+            : "Choose an Upgrade"}
         </h1>
         <p className="upgradeSelection__character">
-          Choose one reward for {characterName}
+          {mode === "restChoice"
+            ? `Choose how ${characterName} prepares.`
+            : `Choose one reward for ${characterName}`}
         </p>
         {itemRewards.map((itemReward, index) => (
           <div
@@ -90,7 +100,9 @@ export default function UpgradeSelection({
                     ? "New Ability"
                     : choice.type === "passive"
                       ? "Passive"
-                    : "Stat Upgrade"}
+                      : choice.type === "rest"
+                        ? "Preparation"
+                        : "Stat Upgrade"}
                 </span>
                 <strong className="upgradeSelection__cardTitle">
                   {choice.title}

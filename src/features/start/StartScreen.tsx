@@ -14,6 +14,7 @@ type Props = {
   onDevelopmentStart: (
     encounterId: EncounterId,
     passives?: Partial<Record<CharacterInstanceId, PassiveId[]>>,
+    startInGhostForm?: boolean,
   ) => void;
   onCreateGame: () => Promise<void>;
   onJoinGame: (roomCode: string) => Promise<void>;
@@ -64,6 +65,8 @@ export default function StartScreen({
   const [requestInProgress, setRequestInProgress] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [developmentMenuOpen, setDevelopmentMenuOpen] = useState(false);
+  const [developmentStartInGhostForm, setDevelopmentStartInGhostForm] =
+    useState(false);
   const [developmentPassives, setDevelopmentPassives] = useState<
     Record<CharacterInstanceId, PassiveId[]>
   >({
@@ -349,6 +352,28 @@ export default function StartScreen({
               ))}
 
               <h3 className="mt-6 text-sm font-extrabold uppercase tracking-[0.2em] text-amber-300/75">
+                Starting form
+              </h3>
+              <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-lg border border-white/15 bg-white/5 px-4 py-3 hover:border-amber-300/40 hover:bg-white/[0.08]">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 cursor-pointer accent-amber-400"
+                  checked={developmentStartInGhostForm}
+                  onChange={(event) =>
+                    setDevelopmentStartInGhostForm(event.target.checked)
+                  }
+                />
+                <span>
+                  <span className="block font-bold">
+                    Start both in Ghost Form
+                  </span>
+                  <span className="mt-0.5 block text-xs text-white/55">
+                    Rowan and Lyra begin with 30 Ghost HP and 20 Ghost PP.
+                  </span>
+                </span>
+              </label>
+
+              <h3 className="mt-6 text-sm font-extrabold uppercase tracking-[0.2em] text-amber-300/75">
                 Start at encounter
               </h3>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -358,14 +383,18 @@ export default function StartScreen({
                     type="button"
                     className="flex items-center justify-between rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-left hover:border-amber-300/55 hover:bg-white/10 active:scale-[0.99]"
                     onClick={() =>
-                      onDevelopmentStart(encounter.id, {
-                        "character-1": [
-                          ...developmentPassives["character-1"],
-                        ],
-                        "character-2": [
-                          ...developmentPassives["character-2"],
-                        ],
-                      })
+                      onDevelopmentStart(
+                        encounter.id,
+                        {
+                          "character-1": [
+                            ...developmentPassives["character-1"],
+                          ],
+                          "character-2": [
+                            ...developmentPassives["character-2"],
+                          ],
+                        },
+                        developmentStartInGhostForm,
+                      )
                     }
                   >
                     <span className="font-bold">{encounter.title}</span>
