@@ -18,9 +18,16 @@ import rowanGhostBoltSprite from "../../../assets/sprites/characters/rowan_ghost
 import lyraGhostIdleSprite from "../../../assets/sprites/characters/lyra_ghost_idle.png";
 import lyraGhostStrikeSprite from "../../../assets/sprites/characters/lyra_ghost_ghoststrike.png";
 import lyraGhostBoltSprite from "../../../assets/sprites/characters/lyra_ghost_ghostbolt.png";
+import rowanPotionUseSprite from "../../../assets/sprites/characters/rowan_potionuse.png";
+import lyraPotionUseSprite from "../../../assets/sprites/characters/lyra_potionuse.png";
+import rowanCastSpellSprite from "../../../assets/sprites/characters/rowan_castspell.png";
+import lyraCastSpellSprite from "../../../assets/sprites/characters/lyra_castspell.png";
+import rowanMagicBagSprite from "../../../assets/sprites/characters/rowan_magicbag.png";
+import lyraMagicBagSprite from "../../../assets/sprites/characters/lyra_magicbag.png";
 import type {
   AbilityId,
   CharacterPresetId,
+  ItemId,
 } from "../../../game/types";
 
 type AbilitySpriteAdjustment = {
@@ -84,12 +91,15 @@ type CharacterVisualDefinition = {
   ghostAbilitySpriteSrcs: Partial<Record<AbilityId, string>>;
   autoAttackSpriteSrc: string;
   abilitySpriteSrcs: Partial<Record<AbilityId, string>>;
+  chargeAbilitySpriteSrcs: Partial<Record<AbilityId, string>>;
+  itemSpriteSrcs: Partial<Record<ItemId, string>>;
   abilitySpriteAdjustments: Partial<
     Record<AbilityId, AbilitySpriteAdjustment>
   >;
   projectileOrigins: Partial<
     Record<AbilityId, { xRatio: number; yRatio: number }>
   >;
+  itemProjectileOrigin: { xRatio: number; yRatio: number };
 };
 
 export const CHARACTER_VISUALS: Record<
@@ -103,14 +113,40 @@ export const CHARACTER_VISUALS: Record<
       ghostStrike: rowanGhostStrikeSprite,
       ghostBolt: rowanGhostBoltSprite,
       ghostHeal: rowanGhostIdleSprite,
+      possession: rowanGhostIdleSprite,
     },
     autoAttackSpriteSrc: rowanAutoAttackSprite,
     abilitySpriteSrcs: {
       fireball: rowanFireballSprite,
+      cinderCurse: rowanCastSpellSprite,
+      earthquake: rowanCastSpellSprite,
+      stonebreaker: rowanCastSpellSprite,
       crashingWave: rowanCastingSprite,
+      tidalDrain: rowanCastSpellSprite,
+      restoringCurrent: rowanEarthHealingSprite,
+      magicBag: rowanMagicBagSprite,
       healingTide: rowanWaterHealingSprite,
       stonebloom: rowanEarthHealingSprite,
       whirlwind: rowanWhirlwindSprite,
+      razorGale: rowanCastSpellSprite,
+      warhound: rowanCastSpellSprite,
+      bodyguard: rowanCastSpellSprite,
+      ironquill: rowanCastSpellSprite,
+    },
+    chargeAbilitySpriteSrcs: {
+      stonebreaker: rowanCastSpellSprite,
+      restoringCurrent: rowanCastSpellSprite,
+    },
+    itemSpriteSrcs: {
+      healingPotion: rowanPotionUseSprite,
+      elixir: rowanPotionUseSprite,
+      throwingKnife: rowanCastSpellSprite,
+      steelDart: rowanCastSpellSprite,
+      fuseDart: rowanCastSpellSprite,
+      barrierFlask: rowanPotionUseSprite,
+      powerTonic: rowanPotionUseSprite,
+      cleansingTonic: rowanPotionUseSprite,
+      phoenixTonic: rowanPotionUseSprite,
     },
     abilitySpriteAdjustments: {
       fireball: {
@@ -119,6 +155,7 @@ export const CHARACTER_VISUALS: Record<
         scale: 0.92,
       },
       healingTide: HEALING_SPRITE_ADJUSTMENT,
+      restoringCurrent: HEALING_SPRITE_ADJUSTMENT,
       stonebloom: HEALING_SPRITE_ADJUSTMENT,
       whirlwind: createAnchoredSpriteAdjustment({
         sourceSize: { width: 1680, height: 936 },
@@ -140,6 +177,14 @@ export const CHARACTER_VISUALS: Record<
         xRatio: 0.76,
         yRatio: 0.5,
       },
+      ironquill: {
+        xRatio: 0.82,
+        yRatio: 0.28,
+      },
+    },
+    itemProjectileOrigin: {
+      xRatio: 0.82,
+      yRatio: 0.28,
     },
   },
   char2: {
@@ -149,14 +194,40 @@ export const CHARACTER_VISUALS: Record<
       ghostStrike: lyraGhostStrikeSprite,
       ghostBolt: lyraGhostBoltSprite,
       ghostHeal: lyraGhostIdleSprite,
+      possession: lyraGhostIdleSprite,
     },
     autoAttackSpriteSrc: lyraAutoAttackSprite,
     abilitySpriteSrcs: {
       fireball: lyraFireballSprite,
+      cinderCurse: lyraCastSpellSprite,
+      earthquake: lyraCastSpellSprite,
+      stonebreaker: lyraCastSpellSprite,
       crashingWave: lyraCastingSprite,
+      tidalDrain: lyraCastSpellSprite,
+      restoringCurrent: lyraEarthHealingSprite,
+      magicBag: lyraMagicBagSprite,
       healingTide: lyraWaterHealingSprite,
       stonebloom: lyraEarthHealingSprite,
       whirlwind: lyraWhirlwindSprite,
+      razorGale: lyraCastSpellSprite,
+      warhound: lyraCastSpellSprite,
+      bodyguard: lyraCastSpellSprite,
+      ironquill: lyraCastSpellSprite,
+    },
+    chargeAbilitySpriteSrcs: {
+      stonebreaker: lyraCastSpellSprite,
+      restoringCurrent: lyraCastSpellSprite,
+    },
+    itemSpriteSrcs: {
+      healingPotion: lyraPotionUseSprite,
+      elixir: lyraPotionUseSprite,
+      throwingKnife: lyraCastSpellSprite,
+      steelDart: lyraCastSpellSprite,
+      fuseDart: lyraCastSpellSprite,
+      barrierFlask: lyraPotionUseSprite,
+      powerTonic: lyraPotionUseSprite,
+      cleansingTonic: lyraPotionUseSprite,
+      phoenixTonic: lyraPotionUseSprite,
     },
     abilitySpriteAdjustments: {
       fireball: {
@@ -165,6 +236,7 @@ export const CHARACTER_VISUALS: Record<
         scale: 1.08,
       },
       healingTide: LYRA_WATER_HEALING_SPRITE_ADJUSTMENT,
+      restoringCurrent: LYRA_EARTH_HEALING_SPRITE_ADJUSTMENT,
       stonebloom: LYRA_EARTH_HEALING_SPRITE_ADJUSTMENT,
       whirlwind: createAnchoredSpriteAdjustment({
         sourceSize: { width: 1680, height: 936 },
@@ -186,6 +258,14 @@ export const CHARACTER_VISUALS: Record<
         xRatio: 0.76,
         yRatio: 0.5,
       },
+      ironquill: {
+        xRatio: 0.82,
+        yRatio: 0.27,
+      },
+    },
+    itemProjectileOrigin: {
+      xRatio: 0.82,
+      yRatio: 0.27,
     },
   },
 };

@@ -13,6 +13,64 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
       element: "fire",
     },
   },
+  poison: {
+    id: "poison",
+    name: "Poison",
+    stackingRule: "increaseTickPower",
+    maxStacks: 1,
+    tickPowerIncreasePerApplication: 1,
+    persistsUntilCombatEnd: true,
+    endOfRoundDamage: {
+      basePower: 2,
+      damageType: "magical",
+      element: null,
+      ignoresMitigation: true,
+    },
+  },
+  empowered: {
+    id: "empowered",
+    name: "Empowered",
+    stackingRule: "increaseMagnitude",
+    maxStacks: 4,
+    maxMagnitude: 1,
+    persistsUntilCombatEnd: true,
+    outgoingDamageModifier: {
+      operation: "increase",
+      consumeOnNextDamageAction: false,
+    },
+  },
+  cinderCurse: {
+    id: "cinderCurse",
+    name: "Cinder Curse",
+    stackingRule: "refresh",
+    stackingScope: "source",
+    maxStacks: 1,
+    persistsUntilCombatEnd: true,
+    endOfRoundDamage: {
+      basePower: 8,
+      damageType: "elemental",
+      element: "fire",
+    },
+  },
+  rootseed: {
+    id: "rootseed",
+    name: "Rootseed",
+    stackingRule: "refresh",
+    stackingScope: "source",
+    maxStacks: 1,
+    persistsUntilCombatEnd: true,
+    endOfRoundDamage: {
+      basePower: 6,
+      damageType: "elemental",
+      element: "earth",
+    },
+  },
+  abilityCharge: {
+    id: "abilityCharge",
+    name: "Charging Ability",
+    stackingRule: "refresh",
+    maxStacks: 1,
+  },
   bleed: {
     id: "bleed",
     name: "Bleed",
@@ -31,6 +89,11 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     name: "Cracked",
     stackingRule: "refresh",
     maxStacks: 1,
+    durationRounds: 2,
+    defensiveStatReduction: {
+      defense: 5,
+      resistance: 5,
+    },
   },
   wet: {
     id: "wet",
@@ -55,8 +118,16 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     stackingRule: "refresh",
     maxStacks: 1,
     outgoingDamageModifier: {
+      operation: "decrease",
       consumeOnNextDamageAction: true,
     },
+  },
+  bodyguard: {
+    id: "bodyguard",
+    name: "Bodyguard",
+    stackingRule: "refresh",
+    maxStacks: 1,
+    persistsUntilCombatEnd: true,
   },
   stunned: {
     id: "stunned",

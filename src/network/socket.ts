@@ -1,9 +1,11 @@
 import { io, type Socket } from "socket.io-client";
 import type {
+  AutomaticRoundRequest,
   CharacterReadinessState,
   ClientToServerEvents,
   LobbyState,
   MultiplayerActionRequest,
+  MultiplayerActionResult,
   MultiplayerItemRequest,
   MultiplayerItemResult,
   ImmediateItemResult,
@@ -112,8 +114,18 @@ export async function submitMultiplayerAction(
 ) {
   await connect();
 
-  return new Promise<boolean>((resolve) => {
+  return new Promise<MultiplayerActionResult>((resolve) => {
     socket.emit("selectAction", request, resolve);
+  });
+}
+
+export async function resolveMultiplayerAutomaticRound(
+  request: AutomaticRoundRequest,
+) {
+  await connect();
+
+  return new Promise<boolean>((resolve) => {
+    socket.emit("resolveAutomaticRound", request, resolve);
   });
 }
 

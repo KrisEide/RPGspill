@@ -1,8 +1,20 @@
 import { ABILITIES } from "../../data/abilities";
-import { INITIAL_ABILITY_REWARD_POOL } from "../../data/abilityRewards";
+import { ABILITY_REWARD_POOL } from "../../data/abilityRewards";
 import { STAT_UPGRADE_POOL } from "../../data/upgrades";
 import { PASSIVE_REWARD_POOL } from "../../data/passives";
-import { getKnownAbilityRank, learnAbility } from "../abilities/abilityProgression";
+import { GHOST_REWARD_POOL } from "../../data/ghostRewards";
+import {
+  createKnownSpirits,
+  SPIRIT_DEFINITIONS,
+} from "../../data/spirits";
+import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
+import {
+  getAbilityScalingDescription,
+  getKnownAbilityRank,
+  learnAbility,
+  resolveAbility,
+  upgradeAbility,
+} from "../abilities/abilityProgression";
 import { CHARACTER_ORDER } from "../playerControl";
 import { nextRandom } from "../combat/random";
 import {
@@ -13,24 +25,86 @@ import type {
   AbilityRewardOffer,
   CharacterInstanceId,
   CombatState,
-  EncounterId,
+  GhostAbilityRewardOffer,
+  GhostUpgradeRewardOffer,
   RewardChoiceId,
   RewardOffers,
   PassiveRewardOffer,
   RestRewardOffer,
+  SpiritRewardOffer,
   StatRewardOffer,
 } from "../types";
 
 const OFFERS_PER_CHARACTER = 3;
-const CORE_ABILITY_REWARD_ENCOUNTERS = new Set<EncounterId>([
-  "forestAmbush",
-  "orcReinforcements",
-]);
-
+const RANK_TWO_START_ENCOUNTER = 6;
+const RANK_TWO_FULL_WEIGHT_ENCOUNTER = 10;
+const STANDARD_REWARD_CATEGORY_WEIGHT = 1;
+const NEW_ABILITY_CATEGORY_WEIGHT = 0.5;
 export type GeneratedRewardOffers = {
   offers: RewardOffers;
   nextSeed: number;
 };
+
+function createSpiritRewardOffer(
+  definition: (typeof SPIRIT_DEFINITIONS)[keyof typeof SPIRIT_DEFINITIONS],
+): SpiritRewardOffer {
+  const activeAbility = resolveAbility(definition.activeAbilityId, 1);
+  const activeDescription =
+    activeAbility?.shortDescription ?? "Use this Spirit once per encounter.";
+
+  return {
+    id: `spirit:${definition.id}`,
+    type: "newSpirit",
+    spiritId: definition.id,
+    icon: definition.icon,
+    title: definition.name,
+    description: `${definition.passive.description} ${activeDescription}`,
+    passiveName: definition.passive.name,
+    passiveDescription: definition.passive.description,
+    activeName: activeAbility?.name ?? definition.name,
+    activeDescription,
+  };
+}
+
+function drawSpiritOffers(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  seed: number,
+) {
+  let nextSeed = seed;
+  const character = state.characters[characterId];
+  const allDefinitions = Object.values(SPIRIT_DEFINITIONS);
+  const unownedDefinitions = allDefinitions.filter(
+    (definition) => !character.spirits[definition.id],
+  );
+  const availableDefinitions = [
+    ...(unownedDefinitions.length >= OFFERS_PER_CHARACTER
+      ? unownedDefinitions
+      : allDefinitions),
+  ];
+  const offers: SpiritRewardOffer[] = [];
+
+  while (
+    offers.length < OFFERS_PER_CHARACTER &&
+    availableDefinitions.length > 0
+  ) {
+    const roll = nextRandom(nextSeed);
+    nextSeed = roll.nextSeed;
+    const selectedIndex = Math.floor(
+      roll.value * availableDefinitions.length,
+    );
+    const [selectedDefinition] = availableDefinitions.splice(
+      selectedIndex,
+      1,
+    );
+
+    if (selectedDefinition) {
+      offers.push(createSpiritRewardOffer(selectedDefinition));
+    }
+  }
+
+  return { offers, nextSeed };
+}
 
 function createPassiveRewardOffer(
   definition: (typeof PASSIVE_REWARD_POOL)[number],
@@ -46,6 +120,52 @@ function createPassiveRewardOffer(
   };
 }
 
+function getRewardProgressEncounterNumber(state: CombatState) {
+  const encounter = ENCOUNTER_DEFINITIONS[state.encounterId];
+
+  // A rest belongs to the encounter that was just completed. This prevents
+  // the pre-Encounter 6 camp from unlocking Rank 2 one fight too early.
+  return encounter.kind === "rest"
+    ? Math.max(0, encounter.number - 1)
+    : encounter.number;
+}
+
+function getRankTwoCategoryWeight(state: CombatState) {
+  const encounterNumber = getRewardProgressEncounterNumber(state);
+
+  if (encounterNumber < RANK_TWO_START_ENCOUNTER) {
+    return 0;
+  }
+
+  const progressionSteps =
+    RANK_TWO_FULL_WEIGHT_ENCOUNTER - RANK_TWO_START_ENCOUNTER + 1;
+
+  return Math.min(
+    STANDARD_REWARD_CATEGORY_WEIGHT,
+    (encounterNumber - RANK_TWO_START_ENCOUNTER + 1) / progressionSteps,
+  );
+}
+
+function drawWeightedCategory<T extends string>(
+  categories: Array<{ id: T; weight: number }>,
+  randomValue: number,
+) {
+  const totalWeight = categories.reduce(
+    (sum, category) => sum + category.weight,
+    0,
+  );
+  let cursor = randomValue * totalWeight;
+
+  for (const category of categories) {
+    cursor -= category.weight;
+    if (cursor < 0) {
+      return category.id;
+    }
+  }
+
+  return categories[categories.length - 1]?.id;
+}
+
 function drawStandardOffers(
   state: CombatState,
   characterId: CharacterInstanceId,
@@ -57,12 +177,51 @@ function drawStandardOffers(
   const passiveOffers = PASSIVE_REWARD_POOL.filter(
     (passive) => !character.passives[passive.id],
   );
-  const offers: (StatRewardOffer | PassiveRewardOffer)[] = [];
+  const newAbilityDefinitions = ABILITY_REWARD_POOL.filter(
+    ({ abilityId }) =>
+      getKnownAbilityRank(character.abilityRanks, abilityId) === null,
+  );
+  const rankTwoDefinitions = ABILITY_REWARD_POOL.filter(
+    ({ abilityId }) =>
+      getKnownAbilityRank(character.abilityRanks, abilityId) === 1 &&
+      ABILITIES[abilityId].ranks[2] !== undefined,
+  );
+  const rankTwoCategoryWeight = getRankTwoCategoryWeight(state);
+  const offers: (
+    | StatRewardOffer
+    | PassiveRewardOffer
+    | AbilityRewardOffer
+  )[] = [];
 
   while (offers.length < OFFERS_PER_CHARACTER) {
     const availableCategories = [
-      ...(statOffers.length > 0 ? ["stat" as const] : []),
-      ...(passiveOffers.length > 0 ? ["passive" as const] : []),
+      ...(statOffers.length > 0
+        ? [{ id: "stat" as const, weight: STANDARD_REWARD_CATEGORY_WEIGHT }]
+        : []),
+      ...(passiveOffers.length > 0
+        ? [
+            {
+              id: "passive" as const,
+              weight: STANDARD_REWARD_CATEGORY_WEIGHT,
+            },
+          ]
+        : []),
+      ...(newAbilityDefinitions.length > 0
+        ? [
+            {
+              id: "newAbility" as const,
+              weight: NEW_ABILITY_CATEGORY_WEIGHT,
+            },
+          ]
+        : []),
+      ...(rankTwoDefinitions.length > 0 && rankTwoCategoryWeight > 0
+        ? [
+            {
+              id: "abilityRank" as const,
+              weight: rankTwoCategoryWeight,
+            },
+          ]
+        : []),
     ];
 
     if (availableCategories.length === 0) {
@@ -71,10 +230,10 @@ function drawStandardOffers(
 
     const categoryRoll = nextRandom(nextSeed);
     nextSeed = categoryRoll.nextSeed;
-    const category =
-      availableCategories[
-        Math.floor(categoryRoll.value * availableCategories.length)
-      ];
+    const category = drawWeightedCategory(
+      availableCategories,
+      categoryRoll.value,
+    );
     const selectionRoll = nextRandom(nextSeed);
     nextSeed = selectionRoll.nextSeed;
 
@@ -82,10 +241,26 @@ function drawStandardOffers(
       const index = Math.floor(selectionRoll.value * passiveOffers.length);
       const [passive] = passiveOffers.splice(index, 1);
       if (passive) offers.push(createPassiveRewardOffer(passive));
-    } else {
+    } else if (category === "stat") {
       const index = Math.floor(selectionRoll.value * statOffers.length);
       const [stat] = statOffers.splice(index, 1);
       if (stat) offers.push(stat);
+    } else if (category === "newAbility") {
+      const index = Math.floor(
+        selectionRoll.value * newAbilityDefinitions.length,
+      );
+      const [definition] = newAbilityDefinitions.splice(index, 1);
+      if (definition) {
+        offers.push(createAbilityRewardOffer(definition));
+      }
+    } else {
+      const index = Math.floor(
+        selectionRoll.value * rankTwoDefinitions.length,
+      );
+      const [definition] = rankTwoDefinitions.splice(index, 1);
+      if (definition) {
+        offers.push(createAbilityRewardOffer(definition, 2));
+      }
     }
   }
 
@@ -93,21 +268,122 @@ function drawStandardOffers(
 }
 
 function createAbilityRewardOffer(
-  definition: (typeof INITIAL_ABILITY_REWARD_POOL)[number],
+  definition: (typeof ABILITY_REWARD_POOL)[number],
+  rankNumber: 1 | 2 = 1,
 ): AbilityRewardOffer {
   const ability = ABILITIES[definition.abilityId];
-  const rank = ability.ranks[1];
+  const rank = ability.ranks[rankNumber];
+  const resolvedAbility = resolveAbility(definition.abilityId, rankNumber);
+
+  if (!rank) {
+    throw new Error(
+      `${ability.name} does not define Rank ${rankNumber}.`,
+    );
+  }
 
   return {
-    id: `ability:${definition.abilityId}:1`,
-    type: "newAbility",
+    id: `ability:${definition.abilityId}:${rankNumber}`,
+    type: rankNumber === 1 ? "newAbility" : "abilityRank",
     abilityId: definition.abilityId,
-    rank: 1,
+    rank: rankNumber,
     ppCost: rank.ppCost,
     icon: definition.icon,
     title: ability.name,
-    description: rank.description,
+    description: rank.shortDescription,
+    detailedDescription: rank.description,
+    scalingDescription: resolvedAbility
+      ? getAbilityScalingDescription(resolvedAbility)
+      : "",
   };
+}
+
+function createGhostAbilityRewardOffer(
+  definition: Extract<
+    (typeof GHOST_REWARD_POOL)[number],
+    { type: "newGhostAbility" }
+  >,
+): GhostAbilityRewardOffer {
+  const ability = ABILITIES[definition.abilityId];
+  const rank = ability.ranks[1];
+  const resolvedAbility = resolveAbility(definition.abilityId, 1);
+  const ghostHpCost = rank.effects.find(
+    (effect) => effect.type === "ghostHpCost",
+  )?.amount;
+
+  return {
+    id: `ghostAbility:${definition.abilityId}:1`,
+    type: "newGhostAbility",
+    abilityId: definition.abilityId,
+    rank: 1,
+    ppCost: rank.ppCost,
+    costLabel: ghostHpCost
+      ? `${ghostHpCost} Ghost HP`
+      : `${rank.ppCost} Ghost PP`,
+    icon: definition.icon,
+    title: ability.name,
+    description: rank.shortDescription,
+    detailedDescription: rank.description,
+    scalingDescription: resolvedAbility
+      ? getAbilityScalingDescription(resolvedAbility)
+      : "",
+  };
+}
+
+function createGhostUpgradeRewardOffer(
+  definition: Extract<
+    (typeof GHOST_REWARD_POOL)[number],
+    { type: "ghostUpgrade" }
+  >,
+): GhostUpgradeRewardOffer {
+  return {
+    id: `ghostUpgrade:${definition.upgradeId}`,
+    type: "ghostUpgrade",
+    upgradeId: definition.upgradeId,
+    icon: definition.icon,
+    title: definition.title,
+    description: definition.description,
+  };
+}
+
+function drawGhostOffers(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  seed: number,
+) {
+  let nextSeed = seed;
+  const character = state.characters[characterId];
+  const availableDefinitions = GHOST_REWARD_POOL.filter(
+    (definition) =>
+      definition.type === "newGhostAbility"
+        ? character.ghostAbilityRanks[definition.abilityId] === undefined
+        : !character.ghostUpgrades[definition.upgradeId],
+  );
+  const offers: (GhostAbilityRewardOffer | GhostUpgradeRewardOffer)[] = [];
+
+  while (
+    offers.length < OFFERS_PER_CHARACTER &&
+    availableDefinitions.length > 0
+  ) {
+    const roll = nextRandom(nextSeed);
+    nextSeed = roll.nextSeed;
+    const selectedIndex = Math.floor(
+      roll.value * availableDefinitions.length,
+    );
+    const [selectedDefinition] = availableDefinitions.splice(
+      selectedIndex,
+      1,
+    );
+
+    if (selectedDefinition) {
+      offers.push(
+        selectedDefinition.type === "newGhostAbility"
+          ? createGhostAbilityRewardOffer(selectedDefinition)
+          : createGhostUpgradeRewardOffer(selectedDefinition),
+      );
+    }
+  }
+
+  return { offers, nextSeed };
 }
 
 function drawOpeningAbilityOffers(
@@ -117,8 +393,10 @@ function drawOpeningAbilityOffers(
 ) {
   let nextSeed = seed;
   const abilityRanks = state.characters[characterId].abilityRanks;
-  const availableDefinitions = INITIAL_ABILITY_REWARD_POOL.filter(
-    ({ abilityId }) => getKnownAbilityRank(abilityRanks, abilityId) === null,
+  const availableDefinitions = ABILITY_REWARD_POOL.filter(
+    ({ abilityId, availableInOpeningRewards }) =>
+      availableInOpeningRewards !== false &&
+      getKnownAbilityRank(abilityRanks, abilityId) === null,
   );
   const offers: AbilityRewardOffer[] = [];
 
@@ -149,7 +427,17 @@ function drawOffersForCharacter(
   characterId: CharacterInstanceId,
   seed: number,
 ) {
-  if (CORE_ABILITY_REWARD_ENCOUNTERS.has(state.encounterId)) {
+  const rewardType = ENCOUNTER_DEFINITIONS[state.encounterId].rewardType;
+
+  if (rewardType === "spirits") {
+    return drawSpiritOffers(state, characterId, seed);
+  }
+
+  if (state.characters[characterId].form === "ghost") {
+    return drawGhostOffers(state, characterId, seed);
+  }
+
+  if (rewardType === "openingAbilities") {
     const abilityOffers = drawOpeningAbilityOffers(
       state,
       characterId,
@@ -162,6 +450,25 @@ function drawOffersForCharacter(
   }
 
   return drawStandardOffers(state, characterId, seed);
+}
+
+function applySpiritReward(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  offer: SpiritRewardOffer,
+): CombatState {
+  const character = state.characters[characterId];
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        spirits: createKnownSpirits([offer.spiritId]),
+      },
+    },
+  };
 }
 
 export function generateRewardOffers(
@@ -276,7 +583,10 @@ function applyAbilityReward(
   offer: AbilityRewardOffer,
 ): CombatState | null {
   const character = state.characters[characterId];
-  const abilityRanks = learnAbility(character.abilityRanks, offer.abilityId);
+  const abilityRanks =
+    offer.type === "abilityRank"
+      ? upgradeAbility(character.abilityRanks, offer.abilityId)
+      : learnAbility(character.abilityRanks, offer.abilityId);
 
   if (!abilityRanks) {
     return null;
@@ -289,6 +599,64 @@ function applyAbilityReward(
       [characterId]: {
         ...character,
         abilityRanks,
+      },
+    },
+  };
+}
+
+function applyGhostAbilityReward(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  offer: GhostAbilityRewardOffer,
+): CombatState | null {
+  const character = state.characters[characterId];
+
+  if (
+    character.form !== "ghost" ||
+    character.ghostAbilityRanks[offer.abilityId] !== undefined
+  ) {
+    return null;
+  }
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        ghostAbilityRanks: {
+          ...character.ghostAbilityRanks,
+          [offer.abilityId]: 1,
+        },
+      },
+    },
+  };
+}
+
+function applyGhostUpgradeReward(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  offer: GhostUpgradeRewardOffer,
+): CombatState | null {
+  const character = state.characters[characterId];
+
+  if (
+    character.form !== "ghost" ||
+    character.ghostUpgrades[offer.upgradeId]
+  ) {
+    return null;
+  }
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        ghostUpgrades: {
+          ...character.ghostUpgrades,
+          [offer.upgradeId]: true,
+        },
       },
     },
   };
@@ -408,11 +776,17 @@ export function applyRewardChoices(
     const appliedState =
       offer.type === "rest"
         ? applyRestReward(nextState, characterId, offer)
+        : offer.type === "newSpirit"
+          ? applySpiritReward(nextState, characterId, offer)
         : offer.type === "stat"
         ? applyStatUpgrade(nextState, characterId, offer)
         : offer.type === "passive"
           ? applyPassiveReward(nextState, characterId, offer)
-          : applyAbilityReward(nextState, characterId, offer);
+          : offer.type === "ghostUpgrade"
+            ? applyGhostUpgradeReward(nextState, characterId, offer)
+          : offer.type === "newGhostAbility"
+            ? applyGhostAbilityReward(nextState, characterId, offer)
+            : applyAbilityReward(nextState, characterId, offer);
 
     if (!appliedState) {
       return null;

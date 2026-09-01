@@ -1,6 +1,40 @@
 import type { AbilityDefinition } from "../../game/types";
 
 export const PHYSICAL_ABILITY_DEFINITIONS = {
+  sacrificialStrike: {
+    id: "sacrificialStrike",
+    name: "Sacrificial Strike",
+    category: "ability",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "A powerful strike that costs 10 HP.",
+        description:
+          "Deal heavy Physical damage to one enemy, then lose 10 HP. The HP loss bypasses Barrier and can send you into Ghost Form. This ability can critically hit.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 17,
+            attackScaling: 0.7,
+            elementalPowerScaling: 0,
+            criticalHit: {
+              chance: 0.05,
+              damageMultiplier: 1.5,
+            },
+          },
+          {
+            type: "selfHpDamage",
+            amount: 10,
+            timing: "afterDamage",
+          },
+        ],
+      },
+    },
+  },
   whirlwind: {
     id: "whirlwind",
     name: "Whirlwind",
@@ -46,4 +80,4 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
       },
     },
   },
-} satisfies Record<"whirlwind", AbilityDefinition>;
+} satisfies Record<"sacrificialStrike" | "whirlwind", AbilityDefinition>;

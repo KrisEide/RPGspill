@@ -79,6 +79,63 @@ function getLowestHpLivingEnemy(state: CombatState) {
     )[0];
 }
 
+function getPatternTargetId(
+  state: CombatState,
+  enemy: EnemyState,
+  livingCharacterIds: typeof CHARACTER_ORDER[number][],
+) {
+  const definition = ENEMY_DEFINITIONS[enemy.enemyId];
+
+  if (definition.targetingPattern !== "splitThenAlternate") {
+    return null;
+  }
+
+  const matchingLivingEnemies = state.enemies.filter(
+    (candidate) =>
+      candidate.enemyId === enemy.enemyId && isEnemyTargetable(candidate),
+  );
+
+  if (matchingLivingEnemies.length > 1) {
+    const splitIndex = matchingLivingEnemies.findIndex(
+      (candidate) => candidate.instanceId === enemy.instanceId,
+    );
+    return livingCharacterIds[splitIndex % livingCharacterIds.length];
+  }
+
+  return livingCharacterIds[(state.round - 1) % livingCharacterIds.length];
+}
+
+function getRandomPatternAbility(
+  state: CombatState,
+  enemy: EnemyState,
+  seed: number,
+) {
+  const pattern = ENEMY_DEFINITIONS[enemy.enemyId].randomActionPattern;
+
+  if (!pattern || state.round <= (pattern.startsAfterRound ?? 0)) {
+    return { ability: null, nextSeed: seed, isActive: false };
+  }
+
+  const previousAbilityId = state.enemyIntents[enemy.instanceId]?.abilityId;
+  const withoutPrevious = pattern.preventImmediateRepeat
+    ? pattern.abilityIds.filter(
+        (abilityId) => abilityId !== previousAbilityId,
+      )
+    : pattern.abilityIds;
+  const candidates = withoutPrevious.length > 0
+    ? withoutPrevious
+    : pattern.abilityIds;
+  const roll = nextRandom(seed);
+  const abilityId =
+    candidates[Math.floor(roll.value * candidates.length)];
+
+  return {
+    ability: abilityId ? getEnemyAbility(enemy, abilityId) : null,
+    nextSeed: roll.nextSeed,
+    isActive: true,
+  };
+}
+
 export function prepareEnemyIntents(state: CombatState): CombatState {
   if (state.phase !== "selectingActions") {
     return { ...state, enemyIntents: {} };
@@ -95,17 +152,36 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
       return;
     }
 
-    const ability = getPlannedAbility(state, enemy);
+    const randomPatternResult = getRandomPatternAbility(
+      state,
+      enemy,
+      randomSeed,
+    );
+    const hasRandomPattern = randomPatternResult.isActive;
+    const ability = hasRandomPattern
+      ? randomPatternResult.ability
+      : getPlannedAbility(state, enemy);
+    if (hasRandomPattern) {
+      randomSeed = randomPatternResult.nextSeed;
+    }
     if (!ability) {
       return;
     }
 
     let targetId: CombatantId | null = null;
     let targetIds: CombatantId[] = [];
+    const patternTargetId = getPatternTargetId(
+      state,
+      enemy,
+      livingCharacterIds,
+    );
 
     if (ability.target === "self") {
       targetId = enemy.instanceId;
       targetIds = [enemy.instanceId];
+    } else if (patternTargetId) {
+      targetId = patternTargetId;
+      targetIds = [patternTargetId];
     } else if (ability.aiTargeting === "randomLivingCharacter") {
       const targetRoll = nextRandom(randomSeed);
       randomSeed = targetRoll.nextSeed;

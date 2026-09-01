@@ -1,5 +1,8 @@
 import { ITEM_DEFINITIONS } from "../../data/items";
-import { getSpiritForActiveAbility } from "../../data/spirits";
+import {
+  getSpiritForActiveAbility,
+  SPIRIT_DEFINITIONS,
+} from "../../data/spirits";
 import {
   getKnownAbilityRank,
   resolveAbility,
@@ -10,6 +13,7 @@ import {
 } from "../playerControl";
 import type {
   AbilityId,
+  CharacterInstanceId,
   CombatantId,
   CombatState,
   ItemId,
@@ -19,12 +23,13 @@ import type {
 } from "../types";
 import { getEffectiveAbilityPpCost } from "../passives/passiveSystem";
 import { isEnemyTargetable } from "./targeting";
-import { isGhostAbilityId } from "../ghost/ghostSystem";
+import { canCharacterUseGhostAbility } from "../ghost/ghostSystem";
 
 type PlayerActionRequest = {
   playerId: PlayerId;
   abilityId: AbilityId;
   targetId: CombatantId | null;
+  secondaryTargetId?: CombatantId | null;
 };
 
 type PlayerItemRequest = {
@@ -85,9 +90,58 @@ export function isValidPlayerTarget(
 
 export function createEmptyRoundSelections(): RoundSelections {
   return {
-    "character-1": { action: null, quickActions: [] },
-    "character-2": { action: null, quickActions: [] },
+    "character-1": { action: null, bonusAction: null, quickActions: [] },
+    "character-2": { action: null, bonusAction: null, quickActions: [] },
   };
+}
+
+function getPossessionSourceForCharacter(
+  selections: RoundSelections,
+  characterId: CharacterInstanceId,
+) {
+  for (const sourceId of Object.keys(selections) as CharacterInstanceId[]) {
+    const action = selections[sourceId].action;
+
+    if (
+      action?.kind === "ability" &&
+      action.abilityId === "possession" &&
+      action.targetId === characterId
+    ) {
+      return sourceId;
+    }
+  }
+
+  return null;
+}
+
+export function doesCharacterNeedAction(
+  state: CombatState,
+  selections: RoundSelections,
+  characterId: CharacterInstanceId,
+) {
+  if (state.characters[characterId].hp <= 0) {
+    return false;
+  }
+
+  if (
+    state.characters[characterId].form === "living" &&
+    state.characters[characterId].statuses.some(
+      (status) => status.id === "abilityCharge",
+    )
+  ) {
+    return false;
+  }
+
+  const selection = selections[characterId];
+
+  if (selection.action === null) {
+    return true;
+  }
+
+  return (
+    getPossessionSourceForCharacter(selections, characterId) !== null &&
+    selection.bonusAction === null
+  );
 }
 
 export function selectPlayerAction(
@@ -110,8 +164,10 @@ export function selectPlayerAction(
     actor.spirits,
     request.abilityId,
   );
-  const ghostAbility =
-    actor.form === "ghost" && isGhostAbilityId(request.abilityId);
+  const ghostAbility = canCharacterUseGhostAbility(
+    actor,
+    request.abilityId,
+  );
   const ability = ghostAbility
     ? resolveAbility(request.abilityId, 1)
     : actor.form !== "living"
@@ -124,14 +180,67 @@ export function selectPlayerAction(
   const ppCost = ability
     ? getEffectiveAbilityPpCost(actor, ability.category, ability.ppCost)
     : 0;
+  const ghostHpCost =
+    ability?.effects.find((effect) => effect.type === "ghostHpCost")
+      ?.amount ?? 0;
+  const possessionTargetIsValid =
+    request.abilityId !== "possession" ||
+    (request.targetId !== null &&
+      isCharacterInstanceId(request.targetId) &&
+      request.targetId !== characterId &&
+      state.characters[request.targetId].form === "living");
+  const isBonusAction =
+    selection.action !== null &&
+    getPossessionSourceForCharacter(selections, characterId) !== null;
+  const secondaryTargetIsValid = ability?.secondaryTarget
+    ? isValidPlayerTarget(
+        state,
+        characterId,
+        request.secondaryTargetId ?? null,
+        ability.secondaryTarget,
+      )
+      : request.secondaryTargetId === undefined ||
+      request.secondaryTargetId === null;
+  const warhound = actor.spirits.warhound;
+  const isWarhoundQuickAutoAttack =
+    request.abilityId === "autoAttack" &&
+    actor.form === "living" &&
+    Boolean(
+      warhound &&
+        SPIRIT_DEFINITIONS[warhound.id].passive
+          .firstAutoAttackEachRoundIsQuick,
+    ) &&
+    selection.action === null &&
+    !actor.statuses.some((status) => status.id === "stunned") &&
+    !selection.quickActions.some(
+      (action) =>
+        action.kind === "ability" && action.abilityId === "autoAttack",
+    );
+  const isQuickAbility = ability?.useTiming === "quickAction";
+  const spiritActiveAlreadyQueued = Boolean(
+    activeSpirit &&
+      selection.quickActions.some(
+        (action) =>
+          action.kind === "ability" &&
+          action.abilityId === request.abilityId,
+      ),
+  );
 
   if (
     actor.form === "permanentlyDead" ||
-    selection.action !== null ||
+    actor.statuses.some((status) => status.id === "abilityCharge") ||
+    (selection.action !== null &&
+      (!isBonusAction || selection.bonusAction !== null)) ||
     !ability ||
     (ability.category === "spirit" &&
       (!activeSpirit || activeSpirit.activeUsesRemaining <= 0)) ||
+    (isQuickAbility &&
+      actor.statuses.some((status) => status.id === "stunned")) ||
+    spiritActiveAlreadyQueued ||
     actor.pp < ppCost ||
+    actor.hp < ghostHpCost ||
+    !possessionTargetIsValid ||
+    !secondaryTargetIsValid ||
     !isValidPlayerTarget(
       state,
       characterId,
@@ -142,16 +251,29 @@ export function selectPlayerAction(
     return null;
   }
 
+  const abilityAction = {
+    kind: "ability" as const,
+    actorId: characterId,
+    abilityId: request.abilityId,
+    targetId: request.targetId,
+    secondaryTargetId: request.secondaryTargetId ?? null,
+  };
+
+  if (isWarhoundQuickAutoAttack || isQuickAbility) {
+    return {
+      ...selections,
+      [characterId]: {
+        ...selection,
+        quickActions: [...selection.quickActions, abilityAction],
+      },
+    };
+  }
+
   return {
     ...selections,
     [characterId]: {
       ...selection,
-      action: {
-        kind: "ability",
-        actorId: characterId,
-        abilityId: request.abilityId,
-        targetId: request.targetId,
-      },
+      [isBonusAction ? "bonusAction" : "action"]: abilityAction,
     },
   };
 }
@@ -172,6 +294,9 @@ export function selectPlayerItem(
 
   if (
     actor.form !== "living" ||
+    actor.statuses.some((status) => status.id === "abilityCharge") ||
+    (definition?.useTiming === "quickAction" &&
+      actor.statuses.some((status) => status.id === "stunned")) ||
     !definition ||
     definition.resolutionTiming === "preRound" ||
     !isValidPlayerTarget(
@@ -184,7 +309,11 @@ export function selectPlayerItem(
     return null;
   }
 
-  const queuedQuantity = [selection.action, ...selection.quickActions].filter(
+  const queuedQuantity = [
+    selection.action,
+    selection.bonusAction,
+    ...selection.quickActions,
+  ].filter(
     (action) => action?.kind === "item" && action.itemId === request.itemId,
   ).length;
 
@@ -209,7 +338,14 @@ export function selectPlayerItem(
     };
   }
 
-  if (selection.action !== null) {
+  const isBonusAction =
+    selection.action !== null &&
+    getPossessionSourceForCharacter(selections, characterId) !== null;
+
+  if (
+    selection.action !== null &&
+    (!isBonusAction || selection.bonusAction !== null)
+  ) {
     return null;
   }
 
@@ -217,7 +353,7 @@ export function selectPlayerItem(
     ...selections,
     [characterId]: {
       ...selection,
-      action: itemAction,
+      [isBonusAction ? "bonusAction" : "action"]: itemAction,
     },
   };
 }
@@ -229,9 +365,6 @@ export function areAllLivingPlayersReady(
   return PLAYER_ORDER.every((playerId) => {
     const characterId = state.players[playerId].controlledCharacterId;
 
-    return (
-      state.characters[characterId].hp <= 0 ||
-      selections[characterId].action !== null
-    );
+    return !doesCharacterNeedAction(state, selections, characterId);
   });
 }

@@ -25,10 +25,14 @@ import type {
 
 export type GameAction =
   | {
+      type: "resolveAutomaticRound";
+    }
+  | {
       type: "submitPlayerAction";
       playerId: PlayerId;
       abilityId: AbilityId;
       targetId: CombatantId | null;
+      secondaryTargetId?: CombatantId | null;
     }
   | {
       type: "submitPlayerItem";
@@ -93,6 +97,17 @@ export function gameReducer(
     return state;
   }
 
+  if (action.type === "resolveAutomaticRound") {
+    if (!areAllLivingPlayersReady(state.combat, state.roundSelections)) {
+      return state;
+    }
+
+    return beginRoundAnimation(
+      state,
+      resolveRound(state.combat, state.roundSelections),
+    );
+  }
+
   const roundSelections =
     action.type === "submitPlayerItem"
       ? selectPlayerItem(state.combat, state.roundSelections, action)
@@ -153,6 +168,14 @@ function applyDamageEvent(
     DamageEvent,
     "targetId" | "remainingHp" | "statusChanges"
   > & {
+    actorId?: DamageEvent["actorId"];
+    actorHealingAmount?: number;
+    actorRemainingHp?: number;
+    actorCharacterState?: CharacterEventState;
+    sourceId?: CombatantId;
+    sourceHealingAmount?: number;
+    sourceRemainingHp?: number;
+    sourceCharacterState?: CharacterEventState;
     remainingBarrier?: number;
     reflectedDamage?: ReflectedDamage;
     characterState?: CharacterEventState;
@@ -200,11 +223,18 @@ function applyDamageEvent(
     const statuses =
       change.type === "removed"
         ? combatant.statuses.filter(
-            (status) => status.id !== change.statusId,
+            (status) =>
+              status.id !== change.statusId ||
+              (change.sourceId !== undefined &&
+                status.sourceId !== change.sourceId),
           )
         : [
             ...combatant.statuses.filter(
-              (status) => status.id !== change.status.id,
+              (status) =>
+                status.id !== change.status.id ||
+                ((change.status.id === "cinderCurse" ||
+                  change.status.id === "rootseed") &&
+                  status.sourceId !== change.status.sourceId),
             ),
             change.status,
           ];
@@ -246,7 +276,7 @@ function applyDamageEvent(
         }
       : combatAfterStatuses;
 
-  return event.reflectedDamage
+  const combatAfterReflection = event.reflectedDamage
     ? applyDamageEvent(combatAfterCharacterSnapshot, {
         targetId: event.reflectedDamage.targetId,
         remainingHp: event.reflectedDamage.remainingHp,
@@ -254,6 +284,38 @@ function applyDamageEvent(
         statusChanges: event.reflectedDamage.statusChanges,
       })
     : combatAfterCharacterSnapshot;
+
+  const combatAfterActorRecovery = event.actorId &&
+    isCharacterInstanceId(event.actorId) &&
+    event.actorRemainingHp !== undefined
+    ? {
+        ...combatAfterReflection,
+        characters: {
+          ...combatAfterReflection.characters,
+          [event.actorId]: {
+            ...combatAfterReflection.characters[event.actorId],
+            hp: event.actorRemainingHp,
+            ...(event.actorCharacterState ?? {}),
+          },
+        },
+      }
+    : combatAfterReflection;
+
+  return event.sourceId &&
+    isCharacterInstanceId(event.sourceId) &&
+    event.sourceRemainingHp !== undefined
+    ? {
+        ...combatAfterActorRecovery,
+        characters: {
+          ...combatAfterActorRecovery.characters,
+          [event.sourceId]: {
+            ...combatAfterActorRecovery.characters[event.sourceId],
+            hp: event.sourceRemainingHp,
+            ...(event.sourceCharacterState ?? {}),
+          },
+        },
+      }
+    : combatAfterActorRecovery;
 }
 
 function applyStatusChanges(
@@ -306,7 +368,43 @@ function applySupportImpact(
         ),
       };
 
-  return applyStatusChanges(combatAfterSupport, event.statusChanges);
+  const combatAfterActorCost =
+    "actorId" in event &&
+    isCharacterInstanceId(event.actorId) &&
+    event.actorRemainingHp !== undefined
+      ? {
+          ...combatAfterSupport,
+          characters: {
+            ...combatAfterSupport.characters,
+            [event.actorId]: {
+              ...combatAfterSupport.characters[event.actorId],
+              hp: event.actorRemainingHp,
+              ...(event.actorCharacterState ?? {}),
+            },
+          },
+        }
+      : combatAfterSupport;
+
+  const combatAfterItemGain =
+    isCharacterInstanceId(event.targetId) &&
+    event.gainedItemId &&
+    event.gainedItemQuantity !== undefined
+      ? {
+          ...combatAfterActorCost,
+          characters: {
+            ...combatAfterActorCost.characters,
+            [event.targetId]: {
+              ...combatAfterActorCost.characters[event.targetId],
+              inventory: {
+                ...combatAfterActorCost.characters[event.targetId].inventory,
+                [event.gainedItemId]: event.gainedItemQuantity,
+              },
+            },
+          },
+        }
+      : combatAfterActorCost;
+
+  return applyStatusChanges(combatAfterItemGain, event.statusChanges);
 }
 
 function applyItemImpact(
@@ -365,6 +463,7 @@ function applyCurrentCombatEvent(
 
   let combatAfterEvent =
     event.type === "damage" ||
+    event.type === "selfDamage" ||
     event.type === "statusDamage" ||
     event.type === "spiritDamage"
       ? applyDamageEvent(state.combat, event)
@@ -385,9 +484,26 @@ function applyCurrentCombatEvent(
                     (combat, impact) => applyItemImpact(combat, impact),
                     state.combat,
                   )
-                : event.type === "wake" || event.type === "skipTurn"
+                : event.type === "wake" ||
+                    event.type === "skipTurn" ||
+                    event.type === "statusApplied" ||
+                    event.type === "charge"
                   ? applyStatusChanges(state.combat, event.statusChanges)
                 : state.combat;
+
+  if (event.type === "damage" && event.linkedSupportImpact) {
+    combatAfterEvent = applySupportImpact(
+      combatAfterEvent,
+      event.linkedSupportImpact,
+    );
+
+    if (event.linkedSecondarySupportImpacts) {
+      combatAfterEvent = event.linkedSecondarySupportImpacts.reduce(
+        (combat, impact) => applySupportImpact(combat, impact),
+        combatAfterEvent,
+      );
+    }
+  }
 
   if (
     (event.type === "support" || event.type === "multiTargetSupport") &&

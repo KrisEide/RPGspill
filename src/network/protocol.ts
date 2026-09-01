@@ -40,6 +40,16 @@ export type MultiplayerActionRequest = {
   round: number;
   abilityId: AbilityId;
   targetId: CombatantId | null;
+  secondaryTargetId: CombatantId | null;
+};
+
+export type MultiplayerActionResult = {
+  accepted: boolean;
+  playerReady: boolean;
+};
+
+export type AutomaticRoundRequest = {
+  round: number;
 };
 
 export type MultiplayerItemRequest = {
@@ -113,6 +123,10 @@ export interface ClientToServerEvents {
   ) => void;
   selectAction: (
     request: MultiplayerActionRequest,
+    respond: (result: MultiplayerActionResult) => void,
+  ) => void;
+  resolveAutomaticRound: (
+    request: AutomaticRoundRequest,
     respond: (accepted: boolean) => void,
   ) => void;
   selectItem: (

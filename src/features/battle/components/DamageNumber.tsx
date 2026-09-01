@@ -6,6 +6,7 @@ type Props = {
   isCritical: boolean;
   absorbedByBarrier?: number;
   durationMs?: number;
+  isBlocked?: boolean;
 };
 
 export default function DamageNumber({
@@ -13,6 +14,7 @@ export default function DamageNumber({
   isCritical,
   absorbedByBarrier = 0,
   durationMs,
+  isBlocked = false,
 }: Props) {
   return (
     <div
@@ -26,6 +28,9 @@ export default function DamageNumber({
     >
       {absorbedByBarrier > 0 && (
         <div className="barrierNumber">🛡 −{absorbedByBarrier}</div>
+      )}
+      {isBlocked && (
+        <div className="bodyguardNumber">🐕 BLOCKED</div>
       )}
       {amount > 0 && (
         <div

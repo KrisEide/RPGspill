@@ -1,10 +1,17 @@
 import fireballProjectile from "../../../assets/sprites/characters/fireball-projectile.png";
-import darkBoltProjectile from "../../../assets/sprites/monsters/dark-bolt-effect.png";
+import darkBoltProjectile from "../../../assets/sprites/monsters/orcs/dark-bolt-effect.png";
 import windSlashEffect from "../../../assets/Effect/windslash.png";
 import crashingWaveEffect from "../../../assets/Effect/crashingwave.png";
 import cinderburstEffect from "../../../assets/Effect/embertail_cinderburst.png";
 import stonebackEffect from "../../../assets/Effect/stoneback.png";
-import dreadflameEffect from "../../../assets/sprites/monsters/orcwizard_effekt.png";
+import cinderCurseEffect from "../../../assets/Effect/cindercurse.png";
+import cinderCurseTickEffect from "../../../assets/Effect/cindercurse_tick.png";
+import earthSpellEffect from "../../../assets/Effect/earthspell.png";
+import razorGaleEffect from "../../../assets/Effect/razorgale.png";
+import healEffect from "../../../assets/Effect/healeffekt.png";
+import warhoundEffect from "../../../assets/Effect/warhound.png";
+import steelDartEffect from "../../../assets/icons/steeldart.png";
+import dreadflameEffect from "../../../assets/sprites/monsters/orcs/orcwizard_effekt.png";
 import type { AbilityId } from "../../../game/types";
 
 export type AbilityVisualDefinition = {
@@ -21,18 +28,39 @@ export type AbilityVisualDefinition = {
   projectile?: {
     spriteSrc: string;
     width: number;
-    variant: "fire" | "dark" | "wind";
+    variant: "fire" | "dark" | "wind" | "steelDart";
     rotationOffsetDegrees?: number;
   };
   targetEffect?: {
     spriteSrc: string;
     width: number;
-    variant: "water" | "dreadflame";
+    startsOnImpact?: boolean;
+    variant:
+      | "water"
+      | "tidalDrain"
+      | "dreadflame"
+      | "cinderCurse"
+      | "cinderCurseTick"
+      | "stonebreaker"
+      | "warhound";
+    durationMs?: number;
+  };
+  supportEffect?: {
+    spriteSrc: string;
+    width: number;
+    variant: "restoringCurrentHeal";
+    durationMs?: number;
+  };
+  statusTickEffect?: {
+    spriteSrc: string;
+    width: number;
+    variant: "cinderCurseTick";
+    durationMs?: number;
   };
   battlefieldEffect?: {
     spriteSrc: string;
     width: number;
-    variant: "cinderburst" | "stoneback";
+    variant: "cinderburst" | "stoneback" | "earthquake" | "razorGale";
     position?: {
       left: string;
       top: string;
@@ -43,6 +71,56 @@ export type AbilityVisualDefinition = {
 export const ABILITY_VISUALS: Partial<
   Record<AbilityId, AbilityVisualDefinition>
 > = {
+  sacrificialStrike: {
+    icon: "🩸",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2100,
+      impactDelayMs: 1100,
+      eventDurationMs: 2800,
+      damageNumberDurationMs: 1500,
+    },
+  },
+  orcGruntMultiAttack: {
+    icon: "💢",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 3300,
+      impactDelayMs: 1900,
+      eventDurationMs: 4000,
+      damageNumberDurationMs: 2200,
+    },
+  },
+  greenSlimeStrongAttack: {
+    icon: "💥",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2500,
+      impactDelayMs: 1250,
+      eventDurationMs: 3100,
+      damageNumberDurationMs: 1500,
+    },
+  },
+  greenSlimeBuff: {
+    icon: "💪",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 3200,
+      impactDelayMs: 1500,
+      eventDurationMs: 3800,
+    },
+  },
+  blueSlimePoisonAttack: {
+    icon: "☠️",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 3000,
+      impactDelayMs: 1500,
+      eventDurationMs: 3700,
+      damageNumberDurationMs: 1700,
+    },
+    impact: "dark",
+  },
   ghostStrike: {
     icon: "👻",
     animation: "melee",
@@ -74,6 +152,16 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "water",
   },
+  possession: {
+    icon: "🫴",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 2200,
+      impactDelayMs: 1200,
+      eventDurationMs: 2900,
+    },
+    impact: "dark",
+  },
   fireball: {
     icon: "🔥",
     animation: "cast",
@@ -90,6 +178,74 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "fire",
   },
+  cinderCurse: {
+    icon: "🕯️",
+    animation: "cast",
+    castVariant: "fire",
+    timing: {
+      animationDurationMs: 3800,
+      impactDelayMs: 2200,
+      eventDurationMs: 4600,
+      damageNumberDurationMs: 1300,
+    },
+    targetEffect: {
+      spriteSrc: cinderCurseEffect,
+      width: 300,
+      variant: "cinderCurse",
+    },
+    statusTickEffect: {
+      spriteSrc: cinderCurseTickEffect,
+      width: 115,
+      variant: "cinderCurseTick",
+    },
+    impact: "fire",
+  },
+  rootseed: {
+    icon: "🌱",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 2400,
+      impactDelayMs: 1500,
+      eventDurationMs: 3100,
+    },
+    impact: "earth",
+  },
+  earthquake: {
+    icon: "🌎",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 3900,
+      impactDelayMs: 2200,
+      eventDurationMs: 4500,
+      damageNumberDurationMs: 1900,
+    },
+    battlefieldEffect: {
+      spriteSrc: earthSpellEffect,
+      width: 800,
+      variant: "earthquake",
+    },
+    impact: "earth",
+  },
+  stonebreaker: {
+    icon: "🪨",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 2700,
+      impactDelayMs: 1650,
+      eventDurationMs: 3500,
+      damageNumberDurationMs: 1800,
+    },
+    targetEffect: {
+      spriteSrc: earthSpellEffect,
+      width: 280,
+      variant: "stonebreaker",
+      durationMs: 2100,
+    },
+    impact: "earth",
+  },
   crashingWave: {
     icon: "🌊",
     animation: "cast",
@@ -105,6 +261,49 @@ export const ABILITY_VISUALS: Partial<
       variant: "water",
     },
     impact: "water",
+  },
+  tidalDrain: {
+    icon: "🌀",
+    animation: "cast",
+    castVariant: "water",
+    timing: {
+      animationDurationMs: 3400,
+      impactDelayMs: 2050,
+      eventDurationMs: 4200,
+      damageNumberDurationMs: 1400,
+    },
+    targetEffect: {
+      spriteSrc: crashingWaveEffect,
+      width: 220,
+      variant: "tidalDrain",
+    },
+    impact: "water",
+  },
+  restoringCurrent: {
+    icon: "💚",
+    animation: "cast",
+    castVariant: "water",
+    timing: {
+      animationDurationMs: 3600,
+      impactDelayMs: 1750,
+      eventDurationMs: 4200,
+    },
+    supportEffect: {
+      spriteSrc: healEffect,
+      width: 240,
+      variant: "restoringCurrentHeal",
+      durationMs: 3600,
+    },
+    impact: "water",
+  },
+  magicBag: {
+    icon: "🎒",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 5200,
+      impactDelayMs: 2400,
+      eventDurationMs: 6100,
+    },
   },
   healingTide: {
     icon: "💧",
@@ -149,6 +348,22 @@ export const ABILITY_VISUALS: Partial<
       spriteSrc: windSlashEffect,
       width: 260,
       variant: "wind",
+    },
+    impact: "wind",
+  },
+  razorGale: {
+    icon: "🌬️",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 1800,
+      impactDelayMs: 950,
+      eventDurationMs: 2300,
+      damageNumberDurationMs: 1000,
+    },
+    battlefieldEffect: {
+      spriteSrc: razorGaleEffect,
+      width: 540,
+      variant: "razorGale",
     },
     impact: "wind",
   },
@@ -337,5 +552,47 @@ export const ABILITY_VISUALS: Partial<
       eventDurationMs: 3200,
     },
     impact: "water",
+  },
+  warhound: {
+    icon: "🐺",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 3600,
+      impactDelayMs: 1850,
+      eventDurationMs: 4800,
+      damageNumberDurationMs: 2700,
+    },
+    targetEffect: {
+      spriteSrc: warhoundEffect,
+      width: 460,
+      variant: "warhound",
+      durationMs: 2000,
+      startsOnImpact: true,
+    },
+  },
+  bodyguard: {
+    icon: "🛡️",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 1800,
+      impactDelayMs: 700,
+      eventDurationMs: 2200,
+    },
+  },
+  ironquill: {
+    icon: "🪶",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 1500,
+      impactDelayMs: 750,
+      eventDurationMs: 1750,
+      damageNumberDurationMs: 1100,
+    },
+    projectile: {
+      spriteSrc: steelDartEffect,
+      width: 115,
+      variant: "steelDart",
+      rotationOffsetDegrees: -135,
+    },
   },
 };

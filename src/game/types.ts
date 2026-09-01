@@ -21,6 +21,9 @@ export type PortraitId =
   | "c2p3";
 
 export type EnemyId =
+  | "smallSlime"
+  | "greenSlime"
+  | "blueSlime"
   | "level1Orc"
   | "orcRaider"
   | "orcMage"
@@ -32,8 +35,12 @@ export type EnemyId =
   | "gorakBoss";
 
 export type EncounterId =
+  | "slimeTrail"
+  | "growingThreat"
+  | "poisonedTrail"
   | "forestAmbush"
   | "orcReinforcements"
+  | "spiritCamp"
   | "raiderPatrol"
   | "raiderWarband"
   | "darkMage"
@@ -56,7 +63,15 @@ export type StatUpgradeId =
   | "stone-affinity"
   | "gale-affinity";
 
-export type AbilityRewardChoiceId = `ability:${AbilityId}:1`;
+export type AbilityRewardChoiceId = `ability:${AbilityId}:${AbilityRank}`;
+
+export type GhostAbilityRewardChoiceId = `ghostAbility:${AbilityId}:1`;
+
+export type GhostUpgradeId = "heavyHaunt" | "closerToTheVeil";
+
+export type GhostUpgradeRewardChoiceId = `ghostUpgrade:${GhostUpgradeId}`;
+
+export type SpiritRewardChoiceId = `spirit:${SpiritId}`;
 
 export type PassiveId =
   | "bloodScent"
@@ -90,6 +105,8 @@ export type PassiveCategory =
 
 export type KnownPassives = Partial<Record<PassiveId, true>>;
 
+export type KnownGhostUpgrades = Partial<Record<GhostUpgradeId, true>>;
+
 export type PassiveRewardChoiceId = `passive:${PassiveId}`;
 
 export type RestChoiceId =
@@ -100,6 +117,9 @@ export type RestChoiceId =
 export type RewardChoiceId =
   | StatUpgradeId
   | AbilityRewardChoiceId
+  | GhostAbilityRewardChoiceId
+  | GhostUpgradeRewardChoiceId
+  | SpiritRewardChoiceId
   | PassiveRewardChoiceId
   | RestChoiceId;
 
@@ -136,10 +156,29 @@ export type StatRewardOffer = RewardOfferBase & {
 
 export type AbilityRewardOffer = RewardOfferBase & {
   id: AbilityRewardChoiceId;
-  type: "newAbility";
+  type: "newAbility" | "abilityRank";
+  abilityId: AbilityId;
+  rank: AbilityRank;
+  ppCost: number;
+  detailedDescription: string;
+  scalingDescription: string;
+};
+
+export type GhostAbilityRewardOffer = RewardOfferBase & {
+  id: GhostAbilityRewardChoiceId;
+  type: "newGhostAbility";
   abilityId: AbilityId;
   rank: 1;
   ppCost: number;
+  costLabel: string;
+  detailedDescription: string;
+  scalingDescription: string;
+};
+
+export type GhostUpgradeRewardOffer = RewardOfferBase & {
+  id: GhostUpgradeRewardChoiceId;
+  type: "ghostUpgrade";
+  upgradeId: GhostUpgradeId;
 };
 
 export type PassiveRewardOffer = RewardOfferBase & {
@@ -147,6 +186,16 @@ export type PassiveRewardOffer = RewardOfferBase & {
   type: "passive";
   passiveId: PassiveId;
   category: PassiveCategory;
+};
+
+export type SpiritRewardOffer = RewardOfferBase & {
+  id: SpiritRewardChoiceId;
+  type: "newSpirit";
+  spiritId: SpiritId;
+  passiveName: string;
+  passiveDescription: string;
+  activeName: string;
+  activeDescription: string;
 };
 
 export type RestRewardOffer = RewardOfferBase & {
@@ -166,6 +215,9 @@ export type RestRewardOffer = RewardOfferBase & {
 export type RewardOffer =
   | StatRewardOffer
   | AbilityRewardOffer
+  | GhostAbilityRewardOffer
+  | GhostUpgradeRewardOffer
+  | SpiritRewardOffer
   | PassiveRewardOffer
   | RestRewardOffer;
 
@@ -183,12 +235,26 @@ export type AbilityId =
   | "ghostStrike"
   | "ghostBolt"
   | "ghostHeal"
+  | "possession"
+  | "sacrificialStrike"
   | "fireball"
+  | "cinderCurse"
+  | "rootseed"
+  | "earthquake"
+  | "stonebreaker"
   | "crashingWave"
+  | "tidalDrain"
+  | "restoringCurrent"
+  | "magicBag"
   | "healingTide"
   | "stonebloom"
   | "whirlwind"
   | "windSlash"
+  | "razorGale"
+  | "greenSlimeStrongAttack"
+  | "greenSlimeBuff"
+  | "blueSlimePoisonAttack"
+  | "orcGruntMultiAttack"
   | "gangStrike"
   | "darkBolt"
   | "gatherDreadflame"
@@ -205,13 +271,19 @@ export type AbilityId =
   | "cinderburst"
   | "stoneback"
   | "swiftWing"
-  | "riverheart";
+  | "riverheart"
+  | "warhound"
+  | "bodyguard"
+  | "ironquill";
 
 export type SpiritId =
   | "embertail"
   | "stoneback"
   | "swiftWing"
-  | "riverheart";
+  | "riverheart"
+  | "warhound"
+  | "guardDog"
+  | "ironquill";
 
 export type AbilityTarget =
   | "singleEnemy"
@@ -220,7 +292,11 @@ export type AbilityTarget =
   | "singleAlly"
   | "self";
 
-export type AbilityCategory = "action" | "ability" | "spirit";
+export type AbilityCategory =
+  | "action"
+  | "ability"
+  | "ghostAbility"
+  | "spirit";
 
 export type AbilityRank = 1 | 2;
 
@@ -231,17 +307,24 @@ export type SpiritState = {
   activeUsesRemaining: number;
   passiveTriggeredThisEncounter: boolean;
   roundPriorityActive: boolean;
+  steelDartAbilityBonusStacks: number;
 };
 
 export type KnownSpirits = Partial<Record<SpiritId, SpiritState>>;
 
 export type StatusId =
   | "burn"
+  | "poison"
+  | "empowered"
+  | "cinderCurse"
+  | "rootseed"
+  | "abilityCharge"
   | "bleed"
   | "cracked"
   | "wet"
   | "exposed"
   | "weakened"
+  | "bodyguard"
   | "stunned"
   | "sleeping";
 
@@ -329,13 +412,20 @@ export type PassiveCombatState = {
   firstHealUsed: boolean;
 };
 
-export type StatusStackingRule = "refresh";
+export type StatusStackingRule =
+  | "refresh"
+  | "increaseTickPower"
+  | "increaseMagnitude";
 
 export type StatusDefinition = {
   id: StatusId;
   name: string;
   stackingRule: StatusStackingRule;
-  maxStacks: 1;
+  maxStacks: number;
+  tickPowerIncreasePerApplication?: number;
+  maxMagnitude?: number;
+  stackingScope?: "target" | "source";
+  persistsUntilCombatEnd?: boolean;
   durationRounds?: number;
   endOfRoundDamage?: {
     basePower: number;
@@ -349,7 +439,12 @@ export type StatusDefinition = {
     consumeOnTrigger: true;
   };
   outgoingDamageModifier?: {
-    consumeOnNextDamageAction: true;
+    operation: "increase" | "decrease";
+    consumeOnNextDamageAction: boolean;
+  };
+  defensiveStatReduction?: {
+    defense: number;
+    resistance: number;
   };
 };
 
@@ -361,6 +456,14 @@ export type ActiveStatus = {
   remainingRounds?: number;
   fullDurationRounds?: number;
   tickBasePower?: number;
+  healingReceivedMultiplier?: number;
+  ticksTriggered?: number;
+  sourceHealingPerTick?: number;
+  empowerAfterTicks?: number;
+  empoweredTickBasePower?: number;
+  empoweredSourceHealingPerTick?: number;
+  readiedAbilityId?: AbilityId;
+  readiedTargetId?: CombatantId;
 };
 
 export type PassiveDefinition = {
@@ -382,6 +485,7 @@ export type StatusChange =
       type: "removed";
       combatantId: CombatantId;
       statusId: StatusId;
+      sourceId?: CombatantId;
     };
 
 export type DamageEffect = {
@@ -401,6 +505,7 @@ export type DamageEffect = {
     statusId: StatusId;
     magnitude?: number;
     chance?: number;
+    durationRounds?: number;
   };
   statusOnHpDamage?: {
     statusId: StatusId;
@@ -410,6 +515,10 @@ export type DamageEffect = {
   spreadStatus?: {
     statusId: StatusId;
     maxAdditionalTargets: number;
+  };
+  healingFromDamage?: {
+    ratio: number;
+    target: "self" | "secondaryTarget";
   };
 };
 
@@ -425,9 +534,43 @@ export type HealingEffect = {
   elementalPowerScaling: number;
 };
 
+export type ApplyStatusEffect = {
+  type: "applyStatus";
+  statusId: StatusId;
+  tickBasePower: number;
+  elementalPowerScaling: number;
+  magnitude?: number;
+  healingReceivedMultiplier?: number;
+  sourceHealingPerTick?: number;
+  empowerAfterTicks?: number;
+  empoweredTickBasePower?: number;
+  empoweredSourceHealingPerTick?: number;
+};
+
 export type GhostHealingEffect = {
   type: "ghostHealing";
   amount: number;
+};
+
+export type GhostRecoveryOnHitEffect = {
+  type: "ghostRecoveryOnHit";
+  amount: number;
+  ppAmount?: number;
+};
+
+export type GhostHpCostEffect = {
+  type: "ghostHpCost";
+  amount: number;
+};
+
+export type SelfHpDamageEffect = {
+  type: "selfHpDamage";
+  amount: number;
+  timing: "afterDamage";
+};
+
+export type GrantAdditionalActionEffect = {
+  type: "grantAdditionalAction";
 };
 
 export type BarrierEffect = {
@@ -454,16 +597,35 @@ export type WaitEffect = {
   type: "wait";
 };
 
+export type GainRandomItemEffect = {
+  type: "gainRandomItem";
+  pool: "normal";
+  bonusDrawChance?: number;
+};
+
+export type CountAsItemUseEffect = {
+  type: "countAsItemUse";
+  itemId: ItemId;
+  count: number;
+};
+
 export type AbilityEffect =
   | DamageEffect
   | DefendEffect
   | HealingEffect
+  | ApplyStatusEffect
   | GhostHealingEffect
+  | GhostRecoveryOnHitEffect
+  | GhostHpCostEffect
+  | SelfHpDamageEffect
+  | GrantAdditionalActionEffect
   | BarrierEffect
   | CleanseEffect
   | ChargeEffect
   | WakeEnemyEffect
-  | WaitEffect;
+  | WaitEffect
+  | GainRandomItemEffect
+  | CountAsItemUseEffect;
 
 export type AbilityRankDefinition = {
   shortDescription: string;
@@ -481,7 +643,10 @@ export type AbilityDefinition = {
   name: string;
   category: AbilityCategory;
   resolutionPriority: number;
+  useTiming?: "action" | "quickAction";
+  turnOrderRule?: "alwaysLast";
   target: AbilityTarget;
+  secondaryTarget?: AbilityTarget;
   element: Element | null;
   aiTargeting?:
     | "randomLivingCharacter"
@@ -496,7 +661,7 @@ export type SpiritDefinition = {
   id: SpiritId;
   name: string;
   icon: string;
-  element: Element;
+  element: Element | null;
   passive: {
     name: string;
     description: string;
@@ -514,6 +679,14 @@ export type SpiritDefinition = {
     };
     allHealingReceived?: {
       flatIncrease: number;
+    };
+    firstAutoAttackEachRoundIsQuick?: true;
+    nonDamagingActionSpiritAttack?: {
+      basePower: number;
+      damageType: DamageType;
+    };
+    steelDartAbilityAmplifier?: {
+      damageBonusPerDart: number;
     };
   };
   activeAbilityId: AbilityId;
@@ -546,6 +719,12 @@ export type EnemyDefinition = {
   isBoss: boolean;
   stats: CombatStats;
   abilityRanks: KnownAbilities;
+  targetingPattern?: "splitThenAlternate";
+  randomActionPattern?: {
+    abilityIds: AbilityId[];
+    preventImmediateRepeat: boolean;
+    startsAfterRound?: number;
+  };
   actionPattern?: AbilityId[];
   openingActionPattern?: Array<AbilityId | null>;
   repeatingActionPattern?: Array<AbilityId | null>;
@@ -606,6 +785,8 @@ export type CharacterState = CharacterDraft & {
   barrier: number;
   stats: CombatStats;
   abilityRanks: KnownAbilities;
+  ghostAbilityRanks: KnownAbilities;
+  ghostUpgrades: KnownGhostUpgrades;
   passives: KnownPassives;
   passiveCombatState: PassiveCombatState;
   spirits: KnownSpirits;
@@ -626,6 +807,8 @@ export type AbilityCombatAction = {
   actorId: CombatantId;
   abilityId: AbilityId;
   targetId: CombatantId | null;
+  secondaryTargetId?: CombatantId | null;
+  isChargeRelease?: boolean;
 };
 
 export type ItemCombatAction = {
@@ -639,7 +822,8 @@ export type CombatAction = AbilityCombatAction | ItemCombatAction;
 
 export type CharacterRoundSelection = {
   action: CombatAction | null;
-  quickActions: ItemCombatAction[];
+  bonusAction: CombatAction | null;
+  quickActions: CombatAction[];
 };
 
 export type RoundSelections = Record<
@@ -672,6 +856,26 @@ export type DamageEvent = {
   statusChanges: StatusChange[];
   characterState?: CharacterEventState;
   reflectedDamage?: ReflectedDamage;
+  actorHealingAmount?: number;
+  actorPpRecoveryAmount?: number;
+  actorRemainingHp?: number;
+  actorCharacterState?: CharacterEventState;
+  linkedSupportImpact?: MultiTargetSupportImpact;
+  linkedSecondarySupportImpacts?: MultiTargetSupportImpact[];
+};
+
+export type SelfDamageEvent = {
+  type: "selfDamage";
+  actorId: CharacterInstanceId;
+  targetId: CharacterInstanceId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  amount: number;
+  remainingHp: number;
+  absorbedByBarrier: 0;
+  isCritical: false;
+  statusChanges: StatusChange[];
+  characterState: CharacterEventState;
 };
 
 export type ReflectedDamage = {
@@ -700,6 +904,7 @@ export type ChargeEvent = {
   abilityId: AbilityId;
   abilityRank: AbilityRank;
   readiedAbilityId: AbilityId;
+  statusChanges: StatusChange[];
 };
 
 export type WakeEvent = {
@@ -723,7 +928,7 @@ export type SkipTurnEvent = {
   type: "skipTurn";
   actorId: CombatantId;
   targetId: CombatantId;
-  reason: "stunned";
+  reason: "stunned" | "chargeTargetUnavailable";
   skippedAbilityId?: AbilityId;
   skippedItemId?: ItemId;
   statusChanges: StatusChange[];
@@ -760,6 +965,18 @@ export type StatusDamageEvent = {
   isCritical: false;
   statusChanges: StatusChange[];
   characterState?: CharacterEventState;
+  sourceHealingAmount?: number;
+  sourceRemainingHp?: number;
+  sourceCharacterState?: CharacterEventState;
+};
+
+export type StatusAppliedEvent = {
+  type: "statusApplied";
+  actorId: CombatantId;
+  targetId: CombatantId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  statusChanges: StatusChange[];
 };
 
 export type SpiritDamageEvent = {
@@ -767,7 +984,8 @@ export type SpiritDamageEvent = {
   sourceId: CharacterInstanceId;
   targetId: CombatantId;
   spiritId: SpiritId;
-  element: Element;
+  damageType: DamageType;
+  element: Element | null;
   amount: number;
   remainingHp: number;
   absorbedByBarrier: number;
@@ -790,7 +1008,12 @@ export type SupportEvent = {
   remainingPp?: number;
   statusChanges: StatusChange[];
   characterState?: CharacterEventState;
+  actorRemainingHp?: number;
+  actorCharacterState?: CharacterEventState;
   secondaryImpacts?: MultiTargetSupportImpact[];
+  gainedItemId?: ItemId;
+  gainedItemQuantity?: number;
+  gainedItemIds?: ItemId[];
 };
 
 export type MultiTargetSupportImpact = Omit<
@@ -826,6 +1049,8 @@ export type ItemUseEvent = {
   type: "itemUse";
   actorId: CharacterInstanceId;
   itemId: ItemId;
+  targetId: CombatantId | null;
+  visualPhase: "activation" | "impact";
   impacts: ItemUseImpact[];
   remainingQuantity: number;
   damageBonus: ItemDamageBonus | null;
@@ -833,8 +1058,10 @@ export type ItemUseEvent = {
 
 export type CombatEvent =
   | DamageEvent
+  | SelfDamageEvent
   | MultiTargetDamageEvent
   | StatusDamageEvent
+  | StatusAppliedEvent
   | SpiritDamageEvent
   | SupportEvent
   | MultiTargetSupportEvent

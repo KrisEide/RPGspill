@@ -66,7 +66,10 @@ export function resolveAbility(
     name: definition.name,
     category: definition.category,
     resolutionPriority: definition.resolutionPriority,
+    useTiming: definition.useTiming,
+    turnOrderRule: definition.turnOrderRule,
     target: definition.target,
+    secondaryTarget: definition.secondaryTarget,
     element: definition.element,
     aiTargeting: definition.aiTargeting,
     rank,
@@ -89,7 +92,11 @@ export function getAbilityScalingDescription(
   ability: ResolvedAbilityDefinition,
 ) {
   const scalingFormulas = ability.effects.flatMap((effect) => {
-    if (effect.type !== "damage" && effect.type !== "healing") {
+    if (
+      effect.type !== "damage" &&
+      effect.type !== "healing" &&
+      effect.type !== "applyStatus"
+    ) {
       return [];
     }
 

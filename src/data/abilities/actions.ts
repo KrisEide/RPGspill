@@ -60,17 +60,19 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "A weak spectral strike.",
-        description: "Deal 5 raw Physical damage to one enemy.",
+        shortDescription: "Physical damage and Ghost recovery.",
+        description:
+          "Deal 7 raw Physical damage to one enemy and restore 2 Ghost HP and 2 Ghost PP.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 5,
+            basePower: 7,
             attackScaling: 0,
             elementalPowerScaling: 0,
           },
+          { type: "ghostRecoveryOnHit", amount: 2, ppAmount: 2 },
         ],
       },
     },
@@ -78,23 +80,45 @@ export const ACTION_ABILITY_DEFINITIONS = {
   ghostBolt: {
     id: "ghostBolt",
     name: "Ghost Bolt",
-    category: "action",
+    category: "ghostAbility",
     resolutionPriority: 0,
     target: "singleEnemy",
     element: null,
     ranks: {
       1: {
-        shortDescription: "Dark damage to one enemy.",
-        description: "Deal 10 raw Magical damage to one enemy.",
+        shortDescription: "Dark damage and Ghost recovery.",
+        description:
+          "Deal 14 raw Magical damage to one enemy and restore 4 Ghost HP.",
         ppCost: 4,
         effects: [
           {
             type: "damage",
             damageType: "magical",
-            basePower: 10,
+            basePower: 14,
             attackScaling: 0,
             elementalPowerScaling: 0,
           },
+          { type: "ghostRecoveryOnHit", amount: 4 },
+        ],
+      },
+    },
+  },
+  possession: {
+    id: "possession",
+    name: "Possession",
+    category: "ghostAbility",
+    resolutionPriority: 1000,
+    target: "singleAlly",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Give your living ally another action.",
+        description:
+          "Lose 10 Ghost HP. Your living ally immediately gains 1 additional action. Uses your action.",
+        ppCost: 0,
+        effects: [
+          { type: "ghostHpCost", amount: 10 },
+          { type: "grantAdditionalAction" },
         ],
       },
     },
@@ -108,10 +132,111 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Restore 7 Ghost HP.",
-        description: "Restore 7 Ghost HP. This is fixed Ghost recovery.",
+        shortDescription: "Restore 12 Ghost HP.",
+        description: "Restore 12 Ghost HP. This is fixed Ghost recovery.",
         ppCost: 0,
-        effects: [{ type: "ghostHealing", amount: 7 }],
+        effects: [{ type: "ghostHealing", amount: 12 }],
+      },
+    },
+  },
+  greenSlimeStrongAttack: {
+    id: "greenSlimeStrongAttack",
+    name: "Strong Attack",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Lower Physical damage to both heroes.",
+        description: "Strike both heroes for lower Physical damage.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 6,
+            attackScaling: 0.25,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  greenSlimeBuff: {
+    id: "greenSlimeBuff",
+    name: "Buff",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Gain +25% damage, up to +100%.",
+        description:
+          "Gain +25% damage for the rest of combat, stacking up to +100%.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "applyStatus",
+            statusId: "empowered",
+            tickBasePower: 0,
+            elementalPowerScaling: 0,
+            magnitude: 0.25,
+          },
+        ],
+      },
+    },
+  },
+  blueSlimePoisonAttack: {
+    id: "blueSlimePoisonAttack",
+    name: "Poison Attack",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Damage and Poison both heroes.",
+        description:
+          "Deal light Magical damage to both heroes and apply Poison.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "magical",
+            basePower: 6,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            statusOnHit: {
+              statusId: "poison",
+            },
+          },
+        ],
+      },
+    },
+  },
+  orcGruntMultiAttack: {
+    id: "orcGruntMultiAttack",
+    name: "Multi Attack",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Physical damage to both heroes.",
+        description: "Slowly sweep across both heroes for Physical damage.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 10,
+            attackScaling: 0.25,
+            elementalPowerScaling: 0,
+          },
+        ],
       },
     },
   },
@@ -426,6 +551,11 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "ghostStrike"
   | "ghostBolt"
   | "ghostHeal"
+  | "possession"
+  | "greenSlimeStrongAttack"
+  | "greenSlimeBuff"
+  | "blueSlimePoisonAttack"
+  | "orcGruntMultiAttack"
   | "gangStrike"
   | "darkBolt"
   | "gatherDreadflame"

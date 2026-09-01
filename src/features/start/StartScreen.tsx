@@ -106,7 +106,7 @@ export default function StartScreen({
       return;
     }
 
-    onDevelopmentStart("forestAmbush");
+    onDevelopmentStart("slimeTrail");
   };
 
   const toggleDevelopmentPassive = (

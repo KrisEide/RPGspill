@@ -6,6 +6,7 @@ import { PHYSICAL_ABILITY_DEFINITIONS } from "./physical";
 import { WIND_ABILITY_DEFINITIONS } from "./wind";
 import { WATER_ABILITY_DEFINITIONS } from "./water";
 import { SPIRIT_ABILITY_DEFINITIONS } from "./spirits";
+import { UTILITY_ABILITY_DEFINITIONS } from "./utility";
 
 export const ABILITIES: Record<AbilityId, AbilityDefinition> = {
   ...ACTION_ABILITY_DEFINITIONS,
@@ -15,4 +16,5 @@ export const ABILITIES: Record<AbilityId, AbilityDefinition> = {
   ...WIND_ABILITY_DEFINITIONS,
   ...WATER_ABILITY_DEFINITIONS,
   ...SPIRIT_ABILITY_DEFINITIONS,
+  ...UTILITY_ABILITY_DEFINITIONS,
 };

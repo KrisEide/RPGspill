@@ -1,6 +1,103 @@
 import type { EnemyDefinition, EnemyId } from "../game/types";
 
 export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
+  smallSlime: {
+    id: "smallSlime",
+    name: "Small Slime",
+    level: 1,
+    isBoss: false,
+    stats: {
+      maxHp: 25,
+      maxPp: 0,
+      criticalChance: 0,
+      attack: 3,
+      defense: 2,
+      resistance: 2,
+      agility: 7,
+      elementalPower: {
+        fire: 0,
+        water: 0,
+        earth: 0,
+        wind: 0,
+      },
+    },
+    abilityRanks: {
+      autoAttack: 1,
+    },
+    targetingPattern: "splitThenAlternate",
+  },
+  greenSlime: {
+    id: "greenSlime",
+    name: "Green Slime",
+    level: 1,
+    isBoss: false,
+    stats: {
+      maxHp: 40,
+      maxPp: 0,
+      criticalChance: 0,
+      attack: 8,
+      defense: 5,
+      resistance: 5,
+      agility: 6,
+      elementalPower: {
+        fire: 0,
+        water: 0,
+        earth: 0,
+        wind: 0,
+      },
+    },
+    abilityRanks: {
+      autoAttack: 1,
+      greenSlimeStrongAttack: 1,
+      greenSlimeBuff: 1,
+    },
+    randomActionPattern: {
+      abilityIds: [
+        "autoAttack",
+        "greenSlimeStrongAttack",
+        "greenSlimeBuff",
+      ],
+      preventImmediateRepeat: true,
+    },
+  },
+  blueSlime: {
+    id: "blueSlime",
+    name: "Blue Slime",
+    level: 1,
+    isBoss: false,
+    stats: {
+      maxHp: 50,
+      maxPp: 0,
+      criticalChance: 0,
+      attack: 4,
+      defense: 5,
+      resistance: 7,
+      agility: 7,
+      elementalPower: {
+        fire: 0,
+        water: 0,
+        earth: 0,
+        wind: 0,
+      },
+    },
+    abilityRanks: {
+      autoAttack: 1,
+      blueSlimePoisonAttack: 1,
+    },
+    openingActionPattern: [
+      "blueSlimePoisonAttack",
+      "autoAttack",
+      "blueSlimePoisonAttack",
+      "autoAttack",
+      "blueSlimePoisonAttack",
+      "autoAttack",
+    ],
+    randomActionPattern: {
+      abilityIds: ["blueSlimePoisonAttack", "autoAttack"],
+      preventImmediateRepeat: false,
+      startsAfterRound: 6,
+    },
+  },
   level1Orc: {
     id: "level1Orc",
     name: "Orc Grunt",
@@ -23,7 +120,9 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     },
     abilityRanks: {
       autoAttack: 1,
+      orcGruntMultiAttack: 1,
     },
+    actionPattern: ["autoAttack", "orcGruntMultiAttack"],
   },
   orcRaider: {
     id: "orcRaider",

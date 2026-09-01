@@ -12,14 +12,46 @@ export const GHOST_MAX_PP = 20;
 export const GHOST_INCOMING_DAMAGE_MULTIPLIER = 0.5;
 export const GHOST_RECEIVED_HEALING_MULTIPLIER = 0.5;
 export const REFORM_LIVING_HP = 30;
-export const GHOST_ABILITY_IDS = [
+export const GHOST_UPGRADE_VALUES = {
+  heavyHauntDamageBonus: 4,
+  closerToTheVeilHpThreshold: 25,
+  closerToTheVeilDamageBonus: 0.5,
+} as const;
+export const BASELINE_GHOST_ABILITY_IDS = [
   "ghostStrike",
   "ghostBolt",
   "ghostHeal",
 ] as const satisfies readonly AbilityId[];
+export const GHOST_REWARD_ABILITY_IDS = [
+  "possession",
+] as const satisfies readonly AbilityId[];
+export const GHOST_ABILITY_IDS = [
+  ...BASELINE_GHOST_ABILITY_IDS,
+  ...GHOST_REWARD_ABILITY_IDS,
+] as const satisfies readonly AbilityId[];
 
 export function isGhostAbilityId(abilityId: AbilityId) {
   return (GHOST_ABILITY_IDS as readonly AbilityId[]).includes(abilityId);
+}
+
+export function canCharacterUseGhostAbility(
+  character: CharacterState,
+  abilityId: AbilityId,
+) {
+  return (
+    character.form === "ghost" &&
+    ((BASELINE_GHOST_ABILITY_IDS as readonly AbilityId[]).includes(
+      abilityId,
+    ) || character.ghostAbilityRanks[abilityId] !== undefined)
+  );
+}
+
+export function getKnownGhostAbilityIds(character: CharacterState) {
+  const learnedRewardAbilities = Object.keys(
+    character.ghostAbilityRanks,
+  ) as AbilityId[];
+
+  return ["ghostBolt" as const, ...learnedRewardAbilities];
 }
 
 export function applyCharacterHp(

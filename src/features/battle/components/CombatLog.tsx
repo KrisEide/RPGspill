@@ -1,12 +1,29 @@
 import { ITEM_DEFINITIONS } from "../../../data/items";
+import { STATUS_DEFINITIONS } from "../../../data/statuses";
+import { SPIRIT_DEFINITIONS } from "../../../data/spirits";
 import { resolveAbility } from "../../../game/abilities/abilityProgression";
 import { isCharacterInstanceId } from "../../../game/playerControl";
-import type { CombatantId, CombatEvent } from "../../../game/types";
+import type {
+  CombatantId,
+  CombatEvent,
+  StatusAppliedEvent,
+} from "../../../game/types";
 
 type Props = {
   events: CombatEvent[];
   getCombatantName: (combatantId: CombatantId) => string;
 };
+
+function getEmpoweredDamageBonus(event: StatusAppliedEvent) {
+  const empoweredChange = event.statusChanges.find(
+    (change) =>
+      change.type === "applied" && change.status.id === "empowered",
+  );
+
+  return empoweredChange?.type === "applied"
+    ? Math.round((empoweredChange.status.magnitude ?? 0) * 100)
+    : 0;
+}
 
 export default function CombatLog({ events, getCombatantName }: Props) {
   if (events.length === 0) {
@@ -30,9 +47,24 @@ export default function CombatLog({ events, getCombatantName }: Props) {
           }
         >
           {event.type === "skipTurn" ? (
-            <>
-              {getCombatantName(event.actorId)} was Stunned and lost the action.
-            </>
+            event.reason === "chargeTargetUnavailable" ? (
+              <>
+                {getCombatantName(event.actorId)} lost the {event.skippedAbilityId
+                  ? (resolveAbility(event.skippedAbilityId, 1)?.name ?? "charged ability")
+                  : "charged ability"} charge because its target was no longer available.
+              </>
+            ) : (
+              <>
+                {getCombatantName(event.actorId)} was Stunned and lost the action.
+                {event.statusChanges.some(
+                  (change) =>
+                    change.type === "removed" &&
+                    change.statusId === "abilityCharge",
+                )
+                  ? ` ${event.skippedAbilityId ? (resolveAbility(event.skippedAbilityId, 1)?.name ?? "The charged ability") : "The charged ability"} was interrupted.`
+                  : ""}
+              </>
+            )
           ) : event.type === "wake" ? (
             <>
               {getCombatantName(event.actorId)} woke{" "}
@@ -42,16 +74,52 @@ export default function CombatLog({ events, getCombatantName }: Props) {
             <>{getCombatantName(event.actorId)} caught their breath.</>
           ) : event.type === "defend" ? (
             <>{getCombatantName(event.actorId)} is defending.</>
+          ) : event.type === "selfDamage" ? (
+            <>
+              {getCombatantName(event.actorId)} lost {event.amount} HP to{" "}
+              {resolveAbility(event.abilityId, event.abilityRank)?.name}.
+              {event.characterState.form === "ghost"
+                ? ` ${getCombatantName(event.actorId)} entered Ghost Form.`
+                : ""}
+            </>
           ) : event.type === "charge" ? (
-            <>{getCombatantName(event.actorId)} gathered Dreadflame.</>
+            event.abilityId === "gatherDreadflame" ? (
+              <>{getCombatantName(event.actorId)} gathered Dreadflame.</>
+            ) : (
+              <>{getCombatantName(event.actorId)} began charging {resolveAbility(event.abilityId, event.abilityRank)?.name ?? "an ability"}.</>
+            )
           ) : event.type === "statusDamage" ? (
             <>
-              {event.statusId === "bleed" ? "Bleed" : "Burn"} dealt{" "}
+              {STATUS_DEFINITIONS[event.statusId].name} dealt{" "}
               {event.amount} damage to {getCombatantName(event.targetId)}.
+              {(event.sourceHealingAmount ?? 0) > 0
+                ? ` ${getCombatantName(event.sourceId)} restored ${event.sourceHealingAmount} HP.`
+                : ""}
             </>
+          ) : event.type === "statusApplied" ? (
+            event.abilityId === "greenSlimeBuff" ? (
+              <>
+                {getCombatantName(event.actorId)} increased its damage to +
+                {getEmpoweredDamageBonus(event)}%.
+              </>
+            ) : (
+              <>
+                {getCombatantName(event.actorId)} placed{" "}
+                {resolveAbility(event.abilityId, event.abilityRank)?.name ??
+                  "a status"}{" "}
+                on{" "}
+                {getCombatantName(event.targetId)}.
+              </>
+            )
           ) : event.type === "spiritDamage" ? (
             <>
-              Embertail dealt {event.amount} Spirit Fire damage to{" "}
+              {SPIRIT_DEFINITIONS[event.spiritId].name} dealt {event.amount}{" "}
+              Spirit {event.damageType === "physical"
+                ? "Physical "
+                : event.element
+                  ? `${event.element[0].toUpperCase()}${event.element.slice(1)} `
+                  : "Magical "}
+              damage to{" "}
               {getCombatantName(event.targetId)}
               {event.absorbedByBarrier > 0
                 ? `; Barrier absorbed ${event.absorbedByBarrier}`
@@ -64,20 +132,61 @@ export default function CombatLog({ events, getCombatantName }: Props) {
               {resolveAbility(event.abilityId, event.abilityRank)?.name} and hit{" "}
               {event.impacts.length}{" "}
               {isCharacterInstanceId(event.actorId) ? "enemies" : "heroes"}.
+              {event.impacts.some((impact) =>
+                impact.statusChanges.some(
+                  (change) =>
+                    change.type === "applied" &&
+                    change.status.id === "cracked",
+                ),
+              )
+                ? " Hit enemies became Cracked."
+                : ""}
+              {event.impacts.some((impact) =>
+                impact.statusChanges.some(
+                  (change) =>
+                    change.type === "removed" &&
+                    change.statusId === "bodyguard",
+                ),
+              )
+                ? ` Bodyguard protected ${event.impacts
+                    .filter((impact) =>
+                      impact.statusChanges.some(
+                        (change) =>
+                          change.type === "removed" &&
+                          change.statusId === "bodyguard",
+                      ),
+                    )
+                    .map((impact) => getCombatantName(impact.targetId))
+                    .join(" and ")}.`
+                : ""}
             </>
           ) : event.type === "support" ? (
-            <>
-              {getCombatantName(event.actorId)} used{" "}
-              {resolveAbility(event.abilityId, event.abilityRank)?.name} on{" "}
-              {getCombatantName(event.targetId)}
-              {event.healingAmount > 0
-                ? ` and restored ${event.healingAmount} HP`
-                : ""}
-              {event.barrierAmount > 0
-                ? ` and granted ${event.barrierAmount} Barrier`
-                : ""}
-              .
-            </>
+            event.abilityId === "magicBag" && event.gainedItemId ? (
+              <>
+                {getCombatantName(event.actorId)} found{
+                  " "
+                }{(event.gainedItemIds ?? [event.gainedItemId])
+                  .map((itemId) => ITEM_DEFINITIONS[itemId]?.name ?? "an item")
+                  .join(" and ")} in the Magic Bag.
+              </>
+            ) : event.abilityId === "possession" ? (
+              <>
+                {getCombatantName(event.actorId)} used Possession. {getCombatantName(event.targetId)} gained an additional action.
+              </>
+            ) : (
+              <>
+                {getCombatantName(event.actorId)} used{" "}
+                {resolveAbility(event.abilityId, event.abilityRank)?.name} on{" "}
+                {getCombatantName(event.targetId)}
+                {event.healingAmount > 0
+                  ? ` and restored ${event.healingAmount} HP`
+                  : ""}
+                {event.barrierAmount > 0
+                  ? ` and granted ${event.barrierAmount} Barrier`
+                  : ""}
+                .
+              </>
+            )
           ) : event.type === "multiTargetSupport" ? (
             <>
               {getCombatantName(event.actorId)} used{" "}
@@ -93,8 +202,15 @@ export default function CombatLog({ events, getCombatantName }: Props) {
             </>
           ) : event.type === "itemUse" ? (
             <>
-              {getCombatantName(event.actorId)} used{" "}
-              {ITEM_DEFINITIONS[event.itemId]?.name ?? "an item"}.
+              {event.itemId === "fuseDart" &&
+              event.visualPhase === "impact" ? (
+                <>Fuse Dart detonated.</>
+              ) : (
+                <>
+                  {getCombatantName(event.actorId)} used{" "}
+                  {ITEM_DEFINITIONS[event.itemId]?.name ?? "an item"}.
+                </>
+              )}
             </>
           ) : (
             <>
@@ -114,6 +230,22 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                   change.status.id === "stunned",
               )
                 ? ` ${getCombatantName(event.targetId)} was Stunned.`
+                : ""}
+              {event.statusChanges.some(
+                (change) =>
+                  change.type === "removed" &&
+                  change.statusId === "bodyguard",
+              )
+                ? ` Bodyguard protected ${getCombatantName(event.targetId)} from the attack.`
+                : ""}
+              {(event.actorHealingAmount ?? 0) > 0
+                ? ` ${getCombatantName(event.actorId)} restored ${event.actorHealingAmount} Ghost HP.`
+                : ""}
+              {(event.actorPpRecoveryAmount ?? 0) > 0
+                ? ` ${getCombatantName(event.actorId)} restored ${event.actorPpRecoveryAmount} Ghost PP.`
+                : ""}
+              {(event.linkedSupportImpact?.healingAmount ?? 0) > 0
+                ? ` ${getCombatantName(event.linkedSupportImpact!.targetId)} restored ${event.linkedSupportImpact!.healingAmount} HP.`
                 : ""}
             </>
           )}

@@ -4,7 +4,7 @@ import { createEmptyRoundSelections } from "../combat/playerActions";
 import { createEncounterEnemies } from "./encounterState";
 import { createKnownSpirits } from "../../data/spirits";
 import { createKnownPassives } from "../../data/passives";
-import { createForestRestOffers } from "../../data/restChoices";
+import { createRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
 import { prepareEnemyIntents } from "../combat/enemyIntents";
 import { applyCharacterHp } from "../ghost/ghostSystem";
@@ -61,6 +61,8 @@ function createCharacterState(
     abilityRanks: usesDevelopmentLoadout
       ? { ...preset.developmentAbilityRanks }
       : { ...RUN_STARTING_ABILITY_RANKS },
+    ghostAbilityRanks: {},
+    ghostUpgrades: {},
     passives: createKnownPassives(
       usesDevelopmentLoadout ? developmentPassiveIds : [],
     ),
@@ -83,7 +85,7 @@ function createCharacterState(
 }
 
 export function createInitialCombatState(setup: GameSetup): CombatState {
-  const encounterId = setup.startingEncounterId ?? "forestAmbush";
+  const encounterId = setup.startingEncounterId ?? "slimeTrail";
   const encounter = ENCOUNTER_DEFINITIONS[encounterId];
   const startingLevel =
     Object.values(ENCOUNTER_DEFINITIONS).filter(
@@ -130,8 +132,8 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
     restStage: isRest ? "choice" : null,
     rewardOffers: isRest
       ? {
-          "character-1": createForestRestOffers(),
-          "character-2": createForestRestOffers(),
+          "character-1": createRestOffers(encounterId),
+          "character-2": createRestOffers(encounterId),
         }
       : null,
     itemRewards: null,

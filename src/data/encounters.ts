@@ -8,6 +8,8 @@ export type EncounterEnemy = {
 export type EncounterDefinition = {
   id: EncounterId;
   kind: "combat" | "rest";
+  rewardType?: "openingAbilities" | "spirits";
+  skipRewardsBeforeRest?: boolean;
   number: number;
   title: string;
   enemies: EncounterEnemy[];
@@ -15,10 +17,45 @@ export type EncounterDefinition = {
 };
 
 export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
+  slimeTrail: {
+    id: "slimeTrail",
+    kind: "combat",
+    rewardType: "openingAbilities",
+    number: 1,
+    title: "Slime Trail",
+    nextEncounterId: "growingThreat",
+    enemies: [
+      { enemyId: "smallSlime", instanceId: "enemy-1" },
+      { enemyId: "smallSlime", instanceId: "enemy-2" },
+    ],
+  },
+  growingThreat: {
+    id: "growingThreat",
+    kind: "combat",
+    rewardType: "openingAbilities",
+    number: 2,
+    title: "Growing Threat",
+    nextEncounterId: "poisonedTrail",
+    enemies: [
+      { enemyId: "smallSlime", instanceId: "enemy-1" },
+      { enemyId: "greenSlime", instanceId: "enemy-2" },
+    ],
+  },
+  poisonedTrail: {
+    id: "poisonedTrail",
+    kind: "combat",
+    number: 3,
+    title: "Poisoned Trail",
+    nextEncounterId: "forestAmbush",
+    enemies: [
+      { enemyId: "greenSlime", instanceId: "enemy-1" },
+      { enemyId: "blueSlime", instanceId: "enemy-2" },
+    ],
+  },
   forestAmbush: {
     id: "forestAmbush",
     kind: "combat",
-    number: 1,
+    number: 4,
     title: "Forest Ambush",
     nextEncounterId: "orcReinforcements",
     enemies: [
@@ -31,9 +68,10 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   orcReinforcements: {
     id: "orcReinforcements",
     kind: "combat",
-    number: 2,
+    rewardType: "spirits",
+    number: 5,
     title: "Orc Reinforcements",
-    nextEncounterId: "raiderPatrol",
+    nextEncounterId: "spiritCamp",
     enemies: [
       {
         enemyId: "level1Orc",
@@ -45,10 +83,18 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
       },
     ],
   },
+  spiritCamp: {
+    id: "spiritCamp",
+    kind: "rest",
+    number: 6,
+    title: "Forest Camp",
+    nextEncounterId: "raiderPatrol",
+    enemies: [],
+  },
   raiderPatrol: {
     id: "raiderPatrol",
     kind: "combat",
-    number: 3,
+    number: 6,
     title: "Raider Patrol",
     nextEncounterId: "darkMage",
     enemies: [
@@ -60,7 +106,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   raiderWarband: {
     id: "raiderWarband",
     kind: "combat",
-    number: 5,
+    number: 8,
     title: "Raider Warband",
     nextEncounterId: "guardPatrol",
     enemies: [
@@ -73,7 +119,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   darkMage: {
     id: "darkMage",
     kind: "combat",
-    number: 4,
+    number: 7,
     title: "The Cursed Crossing",
     nextEncounterId: "raiderWarband",
     enemies: [
@@ -84,7 +130,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   dreadflameRitual: {
     id: "dreadflameRitual",
     kind: "combat",
-    number: 7,
+    number: 10,
     title: "A Dark Presence",
     nextEncounterId: "mightAndMending",
     enemies: [
@@ -95,7 +141,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   guardPatrol: {
     id: "guardPatrol",
     kind: "combat",
-    number: 6,
+    number: 9,
     title: "The Shield Line",
     nextEncounterId: "dreadflameRitual",
     enemies: [
@@ -107,8 +153,9 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   mightAndMending: {
     id: "mightAndMending",
     kind: "combat",
-    number: 8,
+    number: 11,
     title: "Might and Mending",
+    skipRewardsBeforeRest: true,
     nextEncounterId: "forestRest",
     enemies: [
       { enemyId: "orcHealer", instanceId: "enemy-1" },
@@ -118,7 +165,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   forestRest: {
     id: "forestRest",
     kind: "rest",
-    number: 9,
+    number: 12,
     title: "Forest Rest",
     nextEncounterId: "orcBrothers",
     enemies: [],
@@ -126,7 +173,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   orcBrothers: {
     id: "orcBrothers",
     kind: "combat",
-    number: 10,
+    number: 13,
     title: "The Orc Brothers",
     nextEncounterId: null,
     enemies: [

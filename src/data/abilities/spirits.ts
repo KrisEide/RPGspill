@@ -97,7 +97,95 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       },
     },
   },
+  warhound: {
+    id: "warhound",
+    name: "Warhound",
+    category: "spirit",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Deal heavy Spirit Physical damage.",
+        description:
+          "Deal 22 Spirit Physical damage to one enemy. Cannot critically hit.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 22,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  bodyguard: {
+    id: "bodyguard",
+    name: "Bodyguard",
+    category: "spirit",
+    resolutionPriority: 1000,
+    useTiming: "quickAction",
+    target: "singleAlly",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Negate the next enemy attack.",
+        description:
+          "Quick · Priority. Choose yourself or your ally. The next enemy attack that would damage them deals 0 damage instead.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "applyStatus",
+            statusId: "bodyguard",
+            tickBasePower: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  ironquill: {
+    id: "ironquill",
+    name: "Ironquill",
+    category: "spirit",
+    resolutionPriority: 0,
+    useTiming: "quickAction",
+    target: "singleEnemy",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Throw three spectral Steel Darts.",
+        description:
+          "Quick. Throw 3 spectral Steel Darts at one enemy. Each deals normal Steel Dart damage and grants one Ironquill stack. Does not consume items.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "countAsItemUse",
+            itemId: "steelDart",
+            count: 3,
+          },
+          ...Array.from({ length: 3 }, () => ({
+            type: "damage" as const,
+            damageType: "physical" as const,
+            basePower: 5,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            usesDamageVariance: false,
+          })),
+        ],
+      },
+    },
+  },
 } satisfies Record<
-  "cinderburst" | "stoneback" | "swiftWing" | "riverheart",
+  | "cinderburst"
+  | "stoneback"
+  | "swiftWing"
+  | "riverheart"
+  | "warhound"
+  | "bodyguard"
+  | "ironquill",
   AbilityDefinition
 >;

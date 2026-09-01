@@ -1,28 +1,37 @@
-import orcGruntSprite from "../../../assets/sprites/monsters/orcgrunt.png";
-import orcRaiderSprite from "../../../assets/sprites/monsters/orcraider.png";
-import orcRaiderAttackSprite from "../../../assets/sprites/monsters/orcraider_stab.png";
-import orcMageSprite from "../../../assets/sprites/monsters/orcmage.png";
-import orcMageDarkBoltSprite from "../../../assets/sprites/monsters/orcmage_darkbolt.png";
-import orcWizardIdleSprite from "../../../assets/sprites/monsters/orcwizard_idle.png";
-import orcWizardAttackOneSprite from "../../../assets/sprites/monsters/orcwizard_attack1.png";
-import orcHealerSprite from "../../../assets/sprites/monsters/orchealer.png";
-import orcHealerAttackSprite from "../../../assets/sprites/monsters/orchealer_attack.png";
-import orcHealerHealingSprite from "../../../assets/sprites/monsters/orchealer_healing.png";
-import orcMaulerSprite from "../../../assets/sprites/monsters/orcmauler.png";
-import orcMaulerAttackSprite from "../../../assets/sprites/monsters/orcmauler_attack.png";
-import orcGuardSprite from "../../../assets/sprites/monsters/orc_guard.png";
-import orcGuardAttackSprite from "../../../assets/sprites/monsters/orc_guard_attack.png";
-import orcGuardRallySprite from "../../../assets/sprites/monsters/orc_guard_rally.png";
-import gorakBossSprite from "../../../assets/sprites/monsters/orc_gorak_boss.png";
-import gorakAttackSprite from "../../../assets/sprites/monsters/orc_gorak_attack.png";
-import gorakChargeSprite from "../../../assets/sprites/monsters/orc_gorak_charge.png";
-import gorakWakeUpSprite from "../../../assets/sprites/monsters/orc_gorak_wakeup.png";
-import brakkBossSleepingSprite from "../../../assets/sprites/monsters/orc_brakk_boss_sleeping.png";
-import brakkIdleSprite from "../../../assets/sprites/monsters/orc_brakk_idle.png";
-import brakkBloodCleaveSprite from "../../../assets/sprites/monsters/orc_brakk_slashbleed.png";
-import brakkSmashSprite from "../../../assets/sprites/monsters/orc_brakk_smash.png";
-import brakkTiredSprite from "../../../assets/sprites/monsters/orc_brakk_tired.png";
-import level1OrcAutoAttackSprite from "../../../assets/sprites/monsters/level1orcattack.png";
+import orcGruntSprite from "../../../assets/sprites/monsters/orcs/orcgrunt.png";
+import orcRaiderSprite from "../../../assets/sprites/monsters/orcs/orcraider.png";
+import orcRaiderAttackSprite from "../../../assets/sprites/monsters/orcs/orcraider_stab.png";
+import orcMageSprite from "../../../assets/sprites/monsters/orcs/orcmage.png";
+import orcMageDarkBoltSprite from "../../../assets/sprites/monsters/orcs/orcmage_darkbolt.png";
+import orcWizardIdleSprite from "../../../assets/sprites/monsters/orcs/orcwizard_idle.png";
+import orcWizardAttackOneSprite from "../../../assets/sprites/monsters/orcs/orcwizard_attack1.png";
+import orcHealerSprite from "../../../assets/sprites/monsters/orcs/orchealer.png";
+import orcHealerAttackSprite from "../../../assets/sprites/monsters/orcs/orchealer_attack.png";
+import orcHealerHealingSprite from "../../../assets/sprites/monsters/orcs/orchealer_healing.png";
+import orcMaulerSprite from "../../../assets/sprites/monsters/orcs/orcmauler.png";
+import orcMaulerAttackSprite from "../../../assets/sprites/monsters/orcs/orcmauler_attack.png";
+import orcGuardSprite from "../../../assets/sprites/monsters/orcs/orc_guard.png";
+import orcGuardAttackSprite from "../../../assets/sprites/monsters/orcs/orc_guard_attack.png";
+import orcGuardRallySprite from "../../../assets/sprites/monsters/orcs/orc_guard_rally.png";
+import gorakBossSprite from "../../../assets/sprites/monsters/orcs/orc_gorak_boss.png";
+import gorakAttackSprite from "../../../assets/sprites/monsters/orcs/orc_gorak_attack.png";
+import gorakChargeSprite from "../../../assets/sprites/monsters/orcs/orc_gorak_charge.png";
+import gorakWakeUpSprite from "../../../assets/sprites/monsters/orcs/orc_gorak_wakeup.png";
+import brakkBossSleepingSprite from "../../../assets/sprites/monsters/orcs/orc_brakk_boss_sleeping.png";
+import brakkIdleSprite from "../../../assets/sprites/monsters/orcs/orc_brakk_idle.png";
+import brakkBloodCleaveSprite from "../../../assets/sprites/monsters/orcs/orc_brakk_slashbleed.png";
+import brakkSmashSprite from "../../../assets/sprites/monsters/orcs/orc_brakk_smash.png";
+import brakkTiredSprite from "../../../assets/sprites/monsters/orcs/orc_brakk_tired.png";
+import level1OrcAutoAttackSprite from "../../../assets/sprites/monsters/orcs/level1orcattack.png";
+import smallSlimeIdleSprite from "../../../assets/sprites/monsters/slimes/slime_small_idle.png";
+import smallSlimeAttackSprite from "../../../assets/sprites/monsters/slimes/slime_small_attack.png";
+import greenSlimeIdleSprite from "../../../assets/sprites/monsters/slimes/slime_green_idle.png";
+import greenSlimeAttackSprite from "../../../assets/sprites/monsters/slimes/slime_green_singelattack.png";
+import greenSlimeMultiAttackSprite from "../../../assets/sprites/monsters/slimes/slime_green_multiattack.png";
+import greenSlimeBuffSprite from "../../../assets/sprites/monsters/slimes/slime_green_buff.png";
+import blueSlimeIdleSprite from "../../../assets/sprites/monsters/slimes/slime_blue_idle.png";
+import blueSlimeAttackSprite from "../../../assets/sprites/monsters/slimes/slime_blue_attack.png";
+import blueSlimePoisonAttackSprite from "../../../assets/sprites/monsters/slimes/slime_blue_poisonattack.png";
 import type { AbilityId, EnemyId } from "../../../game/types";
 
 type EnemySpriteAdjustment = {
@@ -94,7 +103,12 @@ type EnemyVisualDefinition = {
     Record<
       AbilityId,
       {
-        variant: "dreadflame" | "healing" | "bossAction" | "charge";
+        variant:
+          | "dreadflame"
+          | "healing"
+          | "bossAction"
+          | "charge"
+          | "heavySweep";
         frames: Array<{
           spriteSrc: string;
           adjustment?: EnemySpriteAdjustment;
@@ -108,11 +122,123 @@ type EnemyVisualDefinition = {
 };
 
 export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
+  smallSlime: {
+    idleSpriteSrc: smallSlimeIdleSprite,
+    autoAttackSpriteSrc: smallSlimeAttackSprite,
+    attackAnimationVariant: "snappy",
+    attackAnimationDurationMs: 1750,
+    statusTop: "102px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 625, y: 900 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.42,
+    }),
+    attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 625, y: 840 },
+      targetAnchor: { x: 150, y: 375 },
+      displayScale: 0.42,
+    }),
+  },
+  greenSlime: {
+    idleSpriteSrc: greenSlimeIdleSprite,
+    autoAttackSpriteSrc: greenSlimeAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2300,
+    statusTop: "76px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 650, y: 960 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.42,
+    }),
+    attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 650, y: 920 },
+      targetAnchor: { x: 150, y: 375 },
+      displayScale: 0.42,
+    }),
+    abilitySpriteSequences: {
+      greenSlimeStrongAttack: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: greenSlimeMultiAttackSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1254, height: 1254 },
+              sourceAnchor: { x: 650, y: 920 },
+              targetAnchor: { x: 110, y: 395 },
+              displayScale: 0.5,
+            }),
+          },
+        ],
+      },
+      greenSlimeBuff: {
+        variant: "healing",
+        frames: [
+          {
+            spriteSrc: greenSlimeBuffSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1254, height: 1254 },
+              sourceAnchor: { x: 675, y: 1025 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.4,
+            }),
+          },
+        ],
+      },
+    },
+  },
+  blueSlime: {
+    idleSpriteSrc: blueSlimeIdleSprite,
+    autoAttackSpriteSrc: blueSlimeAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2300,
+    statusTop: "82px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 650, y: 900 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.43,
+    }),
+    attackSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1254, height: 1254 },
+      sourceAnchor: { x: 900, y: 900 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.43,
+    }),
+    abilitySpriteSequences: {
+      blueSlimePoisonAttack: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: blueSlimePoisonAttackSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1254, height: 1254 },
+              sourceAnchor: { x: 900, y: 900 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.43,
+            }),
+          },
+        ],
+      },
+    },
+  },
   level1Orc: {
     idleSpriteSrc: orcGruntSprite,
     autoAttackSpriteSrc: level1OrcAutoAttackSprite,
     attackAnimationVariant: "snappy",
     attackAnimationDurationMs: 1850,
+    abilitySpriteSequences: {
+      orcGruntMultiAttack: {
+        variant: "heavySweep",
+        frames: [
+          { spriteSrc: level1OrcAutoAttackSprite },
+          { spriteSrc: level1OrcAutoAttackSprite },
+        ],
+      },
+    },
   },
   orcRaider: {
     idleSpriteSrc: orcRaiderSprite,

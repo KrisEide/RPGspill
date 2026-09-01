@@ -15,7 +15,8 @@ import {
   getCharacterEventState,
   getCharacterMaxHp,
   getCharacterMaxPp,
-  isGhostAbilityId,
+  canCharacterUseGhostAbility,
+  GHOST_UPGRADE_VALUES,
   reviveGhost,
 } from "../ghost/ghostSystem";
 import {
@@ -31,7 +32,10 @@ import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { ITEM_DEFINITIONS } from "../../data/items";
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { generateRewardOffers } from "../rewards/rewardSystem";
-import { grantEncounterItemRewards } from "../items/itemSystem";
+import {
+  drawNormalItemReward,
+  grantEncounterItemRewards,
+} from "../items/itemSystem";
 import { startEncounter } from "../state/encounterState";
 import {
   createStatusFromSource,
@@ -62,6 +66,7 @@ import type {
   CombatEvent,
   CombatState,
   CharacterInstanceId,
+  ItemId,
   ItemCombatAction,
   ItemUseEvent,
   ItemUseImpact,
@@ -71,6 +76,7 @@ import type {
   RoundSelections,
   StatusChange,
   StatusDamageEvent,
+  StatusId,
   SpiritId,
 } from "../types";
 
@@ -103,7 +109,7 @@ function getCombatantAbility(
         )
       : null;
   const rank = isGhostActor
-    ? isGhostAbilityId(abilityId)
+    ? canCharacterUseGhostAbility(state.characters[actorId], abilityId)
       ? 1
       : null
     : knownRank ?? (activeSpirit ? 1 : null);
@@ -242,6 +248,27 @@ function updateStatuses(
   };
 }
 
+function isSameStatusInstance(
+  first: ActiveStatus,
+  second: ActiveStatus,
+) {
+  const definition = STATUS_DEFINITIONS[first.id];
+
+  return (
+    first.id === second.id &&
+    (definition.stackingScope !== "source" ||
+      first.sourceId === second.sourceId)
+  );
+}
+
+function getHealingReceivedMultiplier(statuses: ActiveStatus[]) {
+  return statuses.reduce(
+    (multiplier, status) =>
+      Math.min(multiplier, status.healingReceivedMultiplier ?? 1),
+    1,
+  );
+}
+
 function applyStatusToTarget(
   state: CombatState,
   targetId: CombatantId,
@@ -253,17 +280,38 @@ function applyStatusToTarget(
     return { state, status: null, wasAlreadyActive: false };
   }
 
-  const existingStatus = target.statuses.find(
-    (status) => status.id === incomingStatus.id,
+  const existingStatus = target.statuses.find((status) =>
+    isSameStatusInstance(status, incomingStatus),
   );
-  const status = refreshStatusWithoutDowngrade(
-    existingStatus,
-    incomingStatus,
-  );
+  const definition = STATUS_DEFINITIONS[incomingStatus.id];
+  const status = existingStatus && definition.stackingRule === "increaseTickPower"
+    ? {
+        ...existingStatus,
+        appliedRound: incomingStatus.appliedRound,
+        tickBasePower:
+          (existingStatus.tickBasePower ??
+            definition.endOfRoundDamage?.basePower ??
+            0) + (definition.tickPowerIncreasePerApplication ?? 0),
+      }
+    : existingStatus && definition.stackingRule === "increaseMagnitude"
+      ? {
+          ...existingStatus,
+          appliedRound: incomingStatus.appliedRound,
+          magnitude: Math.min(
+            definition.maxMagnitude ?? Number.POSITIVE_INFINITY,
+            (existingStatus.magnitude ?? 0) +
+              (incomingStatus.magnitude ?? 0),
+          ),
+        }
+      : incomingStatus.id === "rootseed" && existingStatus
+        ? existingStatus
+        : refreshStatusWithoutDowngrade(existingStatus, incomingStatus);
 
   return {
     state: updateStatuses(state, targetId, [
-      ...target.statuses.filter((candidate) => candidate.id !== status.id),
+      ...target.statuses.filter(
+        (candidate) => !isSameStatusInstance(candidate, status),
+      ),
       status,
     ]),
     status,
@@ -364,6 +412,69 @@ function consumeSpiritActiveUse(
   };
 }
 
+function addSteelDartAbilityBonusStacks(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  count: number,
+): CombatState {
+  const character = state.characters[characterId];
+  const ironquill = character.spirits.ironquill;
+  const amplifier = ironquill
+    ? SPIRIT_DEFINITIONS.ironquill.passive.steelDartAbilityAmplifier
+    : undefined;
+
+  if (character.form !== "living" || !ironquill || !amplifier || count <= 0) {
+    return state;
+  }
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        spirits: {
+          ...character.spirits,
+          ironquill: {
+            ...ironquill,
+            steelDartAbilityBonusStacks:
+              (ironquill.steelDartAbilityBonusStacks ?? 0) + count,
+          },
+        },
+      },
+    },
+  };
+}
+
+function clearSteelDartAbilityBonusStacks(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+): CombatState {
+  const character = state.characters[characterId];
+  const ironquill = character.spirits.ironquill;
+
+  if (!ironquill || (ironquill.steelDartAbilityBonusStacks ?? 0) === 0) {
+    return state;
+  }
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        spirits: {
+          ...character.spirits,
+          ironquill: {
+            ...ironquill,
+            steelDartAbilityBonusStacks: 0,
+          },
+        },
+      },
+    },
+  };
+}
+
 function markSpiritEncounterPassiveTriggered(
   state: CombatState,
   characterId: CharacterInstanceId,
@@ -390,6 +501,106 @@ function markSpiritEncounterPassiveTriggered(
           },
         },
       },
+    },
+  };
+}
+
+function actionCanTriggerGuardDog(
+  effects: Array<{ type: string; statusId?: StatusId }>,
+) {
+  return !effects.some(
+    (effect) =>
+      effect.type === "damage" ||
+      (effect.type === "applyStatus" &&
+        effect.statusId !== undefined &&
+        STATUS_DEFINITIONS[effect.statusId].endOfRoundDamage !== undefined),
+  );
+}
+
+function resolveGuardDogPassive(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  seed: number,
+): {
+  state: CombatState;
+  nextSeed: number;
+  event: CombatEvent | null;
+} {
+  const character = state.characters[characterId];
+  const spirit = character.spirits.guardDog;
+  const passive = spirit
+    ? SPIRIT_DEFINITIONS.guardDog.passive.nonDamagingActionSpiritAttack
+    : undefined;
+  const eligibleEnemies = state.enemies.filter(isEnemyTargetable);
+
+  if (
+    character.form !== "living" ||
+    !spirit ||
+    !passive ||
+    eligibleEnemies.length === 0
+  ) {
+    return { state, nextSeed: seed, event: null };
+  }
+
+  const targetRoll = nextRandom(seed);
+  const target =
+    eligibleEnemies[
+      Math.floor(targetRoll.value * eligibleEnemies.length)
+    ];
+  // Guard Dog deals true fixed damage: Defense and the normal damage
+  // variance must not reduce its small, reliable passive hit.
+  let amount = passive.basePower;
+
+  if (
+    characterHasPassive(character, "bloodScent") &&
+    target.statuses.some((status) => status.id === "bleed")
+  ) {
+    amount = Math.max(
+      1,
+      Math.round(amount * (1 + PASSIVE_VALUES.bloodScentDamageBonus)),
+    );
+  }
+
+  const barrierResult = absorbDirectDamage(target.barrier, amount);
+  const remainingHp = Math.max(0, target.hp - barrierResult.hpDamage);
+  let nextState = updateBarrier(
+    state,
+    target.instanceId,
+    barrierResult.remainingBarrier,
+  );
+  nextState = updateHp(nextState, target.instanceId, remainingHp);
+  let randomSeed = targetRoll.nextSeed;
+  const statusChanges: StatusChange[] = [];
+
+  if (remainingHp <= 0) {
+    const wildfire = spreadWildfireAfterEnemyDeath(
+      nextState,
+      target.instanceId,
+      randomSeed,
+    );
+    nextState = wildfire.state;
+    randomSeed = wildfire.nextSeed;
+    if (wildfire.statusChange) {
+      statusChanges.push(wildfire.statusChange);
+    }
+  }
+
+  return {
+    state: nextState,
+    nextSeed: randomSeed,
+    event: {
+      type: "spiritDamage",
+      sourceId: characterId,
+      targetId: target.instanceId,
+      spiritId: "guardDog",
+      damageType: passive.damageType,
+      element: null,
+      amount: barrierResult.hpDamage,
+      remainingHp,
+      absorbedByBarrier: barrierResult.absorbedByBarrier,
+      remainingBarrier: barrierResult.remainingBarrier,
+      isCritical: false,
+      statusChanges,
     },
   };
 }
@@ -492,6 +703,173 @@ function grantBarrierToTarget(
   };
 }
 
+function applyDamageLinkedAbilityHealing(
+  state: CombatState,
+  healerId: CharacterInstanceId,
+  targetId: CharacterInstanceId,
+  baseHealingPower: number,
+) {
+  let nextState = state;
+  const healer = nextState.characters[healerId];
+  const target = nextState.characters[targetId];
+  const secondaryImpacts: MultiTargetSupportImpact[] = [];
+
+  const recordSecondarySupport = (
+    supportTargetId: CharacterInstanceId,
+    values: { healingAmount?: number; barrierAmount?: number },
+  ) => {
+    const supportTarget = nextState.characters[supportTargetId];
+    const existing = secondaryImpacts.find(
+      (impact) => impact.targetId === supportTargetId,
+    );
+
+    if (existing) {
+      existing.healingAmount += values.healingAmount ?? 0;
+      existing.barrierAmount += values.barrierAmount ?? 0;
+      existing.remainingHp = supportTarget.hp;
+      existing.remainingBarrier = supportTarget.barrier;
+      existing.remainingPp = supportTarget.pp;
+      return;
+    }
+
+    secondaryImpacts.push({
+      targetId: supportTargetId,
+      healingAmount: values.healingAmount ?? 0,
+      remainingHp: supportTarget.hp,
+      barrierAmount: values.barrierAmount ?? 0,
+      remainingBarrier: supportTarget.barrier,
+      remainingPp: supportTarget.pp,
+      statusChanges: [],
+      characterState: getCharacterEventState(supportTarget),
+    });
+  };
+
+  let healingPower = Math.max(0, baseHealingPower);
+  let healingAmount = 0;
+  let barrierAmount = 0;
+
+  if (healingPower > 0 && target.hp < getCharacterMaxHp(target)) {
+    if (
+      characterHasPassive(healer, "shelteredRecovery") &&
+      target.barrier > 0
+    ) {
+      healingPower += PASSIVE_VALUES.shelteredRecoveryHealing;
+    }
+
+    if (
+      characterHasPassive(healer, "triage") &&
+      target.hp / getCharacterMaxHp(target) < PASSIVE_VALUES.triageThreshold
+    ) {
+      healingPower += PASSIVE_VALUES.triageHealing;
+    }
+
+    const lifeCurrentTriggers =
+      characterHasPassive(healer, "lifeCurrent") &&
+      !healer.passiveCombatState.firstHealUsed;
+
+    if (lifeCurrentTriggers) {
+      healingPower = Math.round(
+        healingPower * PASSIVE_VALUES.lifeCurrentMultiplier,
+      );
+    }
+
+    healingPower += getPartyHealingReceivedBonus(nextState);
+    healingPower = applyGhostReceivedHealing(target, healingPower);
+    healingPower = Math.round(
+      healingPower * getHealingReceivedMultiplier(target.statuses),
+    );
+
+    const remainingHp = Math.min(
+      getCharacterMaxHp(target),
+      target.hp + healingPower,
+    );
+    healingAmount = remainingHp - target.hp;
+    nextState = updateHp(nextState, targetId, remainingHp);
+
+    if (healingAmount > 0) {
+      if (lifeCurrentTriggers) {
+        nextState = {
+          ...nextState,
+          characters: {
+            ...nextState.characters,
+            [healerId]: {
+              ...nextState.characters[healerId],
+              passiveCombatState: { firstHealUsed: true },
+            },
+          },
+        };
+      }
+
+      if (targetId !== healerId) {
+        if (characterHasPassive(healer, "refreshingWaters")) {
+          const ally = nextState.characters[targetId];
+          nextState = updatePp(
+            nextState,
+            targetId,
+            Math.min(
+              getCharacterMaxPp(ally),
+              ally.pp + PASSIVE_VALUES.refreshingWatersPp,
+            ),
+          );
+        }
+
+        if (characterHasPassive(healer, "sharedRecovery")) {
+          const currentHealer = nextState.characters[healerId];
+          const selfHealingPower =
+            PASSIVE_VALUES.sharedRecoveryHealing +
+            getPartyHealingReceivedBonus(nextState);
+          const selfRemainingHp = Math.min(
+            getCharacterMaxHp(currentHealer),
+            currentHealer.hp + selfHealingPower,
+          );
+          const selfHealingAmount = selfRemainingHp - currentHealer.hp;
+          nextState = updateHp(nextState, healerId, selfRemainingHp);
+
+          if (selfHealingAmount > 0) {
+            recordSecondarySupport(healerId, {
+              healingAmount: selfHealingAmount,
+            });
+          }
+        }
+      }
+
+      if (characterHasPassive(healer, "lastingCare")) {
+        const barrierResult = grantBarrierToTarget(
+          nextState,
+          targetId,
+          PASSIVE_VALUES.lastingCareBarrier,
+          healerId,
+        );
+        nextState = barrierResult.state;
+        barrierAmount += barrierResult.grantedAmount;
+
+        if (barrierResult.sourceBarrierGranted > 0) {
+          recordSecondarySupport(healerId, {
+            barrierAmount: barrierResult.sourceBarrierGranted,
+          });
+        }
+      }
+    }
+  }
+
+  const healedTarget = nextState.characters[targetId];
+
+  return {
+    state: nextState,
+    impact: {
+      targetId,
+      healingAmount,
+      remainingHp: healedTarget.hp,
+      barrierAmount,
+      remainingBarrier: healedTarget.barrier,
+      remainingPp: healedTarget.pp,
+      statusChanges: [],
+      characterState: getCharacterEventState(healedTarget),
+    } satisfies MultiTargetSupportImpact,
+    secondaryImpacts,
+  };
+}
+
 function resolveEndOfRoundStatuses(
   state: CombatState,
   events: CombatEvent[],
@@ -520,13 +898,22 @@ function resolveEndOfRoundStatuses(
         break;
       }
 
-      const tickBasePower = status.tickBasePower ?? damage.basePower;
+      const ticksTriggered = status.ticksTriggered ?? 0;
+      const isEmpowered =
+        status.empowerAfterTicks !== undefined &&
+        ticksTriggered >= status.empowerAfterTicks;
+      const tickBasePower = isEmpowered
+        ? (status.empoweredTickBasePower ??
+          status.tickBasePower ??
+          damage.basePower)
+        : (status.tickBasePower ?? damage.basePower);
       let amount = damage.ignoresMitigation
         ? Math.max(1, Math.round(tickBasePower))
         : calculateFixedDamage({
             basePower: tickBasePower,
             damageType: damage.damageType,
             defender: currentCombatant.stats,
+            defenderStatuses: currentCombatant.statuses,
           });
       if (isCharacterInstanceId(combatantId)) {
         amount = applyGhostIncomingDamage(
@@ -538,7 +925,11 @@ function resolveEndOfRoundStatuses(
         0,
         currentCombatant.hp - amount,
       );
-      const remainingRounds = (status.remainingRounds ?? 1) - 1;
+      const persistsUntilCombatEnd =
+        definition.persistsUntilCombatEnd === true;
+      const remainingRounds = persistsUntilCombatEnd
+        ? undefined
+        : (status.remainingRounds ?? 1) - 1;
       const statusChanges: StatusChange[] = [];
       const previousCharacterForm = isCharacterInstanceId(combatantId)
         ? nextState.characters[combatantId].form
@@ -546,6 +937,35 @@ function resolveEndOfRoundStatuses(
 
       nextState = updateHp(nextState, combatantId, calculatedRemainingHp);
       const remainingHp = getCombatant(nextState, combatantId)?.hp ?? 0;
+      let sourceHealingAmount = 0;
+      let sourceRemainingHp: number | undefined;
+
+      if (
+        status.sourceHealingPerTick !== undefined &&
+        isCharacterInstanceId(status.sourceId)
+      ) {
+        const source = nextState.characters[status.sourceId];
+
+        if (source.form === "living" && source.hp > 0) {
+          const maxHp = getCharacterMaxHp(source);
+          const baseHealing = isEmpowered
+            ? (status.empoweredSourceHealingPerTick ??
+              status.sourceHealingPerTick)
+            : status.sourceHealingPerTick;
+          const healingWithRiverheart =
+            baseHealing + getPartyHealingReceivedBonus(nextState);
+          sourceRemainingHp = Math.min(maxHp, source.hp + healingWithRiverheart);
+          sourceHealingAmount = sourceRemainingHp - source.hp;
+
+          if (sourceHealingAmount > 0) {
+            nextState = updateHp(
+              nextState,
+              status.sourceId,
+              sourceRemainingHp,
+            );
+          }
+        }
+      }
       const characterChangedForm =
         isCharacterInstanceId(combatantId) &&
         nextState.characters[combatantId].form !== previousCharacterForm;
@@ -558,13 +978,36 @@ function resolveEndOfRoundStatuses(
             statusId: activeStatus.id,
           })),
         );
-      } else if (remainingRounds > 0 && remainingHp > 0) {
+      } else if (persistsUntilCombatEnd && remainingHp > 0) {
+        if (status.id === "rootseed") {
+          const refreshedStatus = {
+            ...status,
+            ticksTriggered: ticksTriggered + 1,
+          };
+          nextState = updateStatuses(
+            nextState,
+            combatantId,
+            currentCombatant.statuses.map((candidate) =>
+              isSameStatusInstance(candidate, status)
+                ? refreshedStatus
+                : candidate,
+            ),
+          );
+          statusChanges.push({
+            type: "applied",
+            combatantId,
+            status: refreshedStatus,
+          });
+        }
+      } else if ((remainingRounds ?? 0) > 0 && remainingHp > 0) {
         const refreshedStatus = { ...status, remainingRounds };
         nextState = updateStatuses(
           nextState,
           combatantId,
           currentCombatant.statuses.map((candidate) =>
-            candidate.id === status.id ? refreshedStatus : candidate,
+            isSameStatusInstance(candidate, status)
+              ? refreshedStatus
+              : candidate,
           ),
         );
         statusChanges.push({
@@ -577,13 +1020,14 @@ function resolveEndOfRoundStatuses(
           nextState,
           combatantId,
           currentCombatant.statuses.filter(
-            (candidate) => candidate.id !== status.id,
+            (candidate) => !isSameStatusInstance(candidate, status),
           ),
         );
         statusChanges.push({
           type: "removed",
           combatantId,
           statusId: status.id,
+          sourceId: status.sourceId,
         });
       }
 
@@ -612,6 +1056,12 @@ function resolveEndOfRoundStatuses(
         isCritical: false,
         statusChanges,
         characterState: getEventCharacterState(nextState, combatantId),
+        sourceHealingAmount,
+        sourceRemainingHp,
+        sourceCharacterState:
+          sourceRemainingHp !== undefined
+            ? getEventCharacterState(nextState, status.sourceId)
+            : undefined,
       });
 
       if (characterChangedForm) {
@@ -621,6 +1071,43 @@ function resolveEndOfRoundStatuses(
   }
 
   return { state: nextState, nextSeed: randomSeed };
+}
+
+function advanceTimedNonDamageStatuses(state: CombatState): CombatState {
+  const advanceStatuses = (statuses: ActiveStatus[]) =>
+    statuses.flatMap((status) => {
+      const definition = STATUS_DEFINITIONS[status.id];
+
+      if (
+        definition.durationRounds === undefined ||
+        definition.endOfRoundDamage
+      ) {
+        return [status];
+      }
+
+      const remainingRounds =
+        (status.remainingRounds ?? definition.durationRounds) - 1;
+
+      return remainingRounds > 0 ? [{ ...status, remainingRounds }] : [];
+    });
+
+  return {
+    ...state,
+    characters: {
+      "character-1": {
+        ...state.characters["character-1"],
+        statuses: advanceStatuses(state.characters["character-1"].statuses),
+      },
+      "character-2": {
+        ...state.characters["character-2"],
+        statuses: advanceStatuses(state.characters["character-2"].statuses),
+      },
+    },
+    enemies: state.enemies.map((enemy) => ({
+      ...enemy,
+      statuses: advanceStatuses(enemy.statuses),
+    })),
+  };
 }
 
 function isSourcePartner(
@@ -668,7 +1155,8 @@ function completeVictory(state: CombatState, seed: number): CombatState {
 
   if (
     nextEncounterId &&
-    ENCOUNTER_DEFINITIONS[nextEncounterId].kind === "rest"
+    ENCOUNTER_DEFINITIONS[nextEncounterId].kind === "rest" &&
+    ENCOUNTER_DEFINITIONS[state.encounterId].skipRewardsBeforeRest
   ) {
     const generatedItems = grantEncounterItemRewards(
       { ...state, randomSeed: seed },
@@ -735,8 +1223,12 @@ export function resolveImmediateItemUse(
   action: ItemCombatAction,
 ) {
   const definition = ITEM_DEFINITIONS[action.itemId];
+  const actor = state.characters[action.actorId];
 
-  if (definition?.resolutionTiming !== "preRound") {
+  if (
+    definition?.resolutionTiming !== "preRound" ||
+    actor.statuses.some((status) => status.id === "stunned")
+  ) {
     return null;
   }
 
@@ -839,6 +1331,7 @@ function resolveItemUse(
           basePower: effect.amount,
           damageType: effect.damageType,
           defender: currentTarget.stats,
+          defenderStatuses: currentTarget.statuses,
         });
         if (
           characterHasPassive(actor, "bloodScent") &&
@@ -923,12 +1416,16 @@ function resolveItemUse(
           ? getPartyHealingReceivedBonus(nextState)
           : 0;
         const baseHealing = effect.amount + receivedHealingBonus;
-        const receivedHealing = isCharacterInstanceId(targetId)
+        const healingAfterFormModifier = isCharacterInstanceId(targetId)
           ? applyGhostReceivedHealing(
               nextState.characters[targetId],
               baseHealing,
             )
           : baseHealing;
+        const receivedHealing = Math.round(
+          healingAfterFormModifier *
+            getHealingReceivedMultiplier(currentTarget.statuses),
+        );
         const maxHp = isCharacterInstanceId(targetId)
           ? getCharacterMaxHp(nextState.characters[targetId])
           : currentTarget.stats.maxHp;
@@ -1098,7 +1595,15 @@ function resolveItemUse(
     }
   }
 
-  const actorAfterItem = nextState.characters[action.actorId];
+  if (action.itemId === "steelDart") {
+    nextState = addSteelDartAbilityBonusStacks(
+      nextState,
+      action.actorId,
+      1,
+    );
+  }
+
+  const actorAfterTriggers = nextState.characters[action.actorId];
 
   return {
     nextState,
@@ -1107,22 +1612,83 @@ function resolveItemUse(
       type: "itemUse",
       actorId: action.actorId,
       itemId: action.itemId,
+      targetId: action.targetId,
+      visualPhase: "impact",
       impacts,
-      remainingQuantity: actorAfterItem.inventory[action.itemId] ?? 0,
-      damageBonus: actorAfterItem.itemDamageBonus,
+      remainingQuantity: actorAfterTriggers.inventory[action.itemId] ?? 0,
+      damageBonus: actorAfterTriggers.itemDamageBonus,
     },
   };
 }
 
-function getSelectedPlayerActions(selections: RoundSelections) {
-  const actions: CombatAction[] = [];
+function getSelectedPlayerActions(
+  state: CombatState,
+  selections: RoundSelections,
+) {
+  const actions: Array<{
+    action: CombatAction;
+    requiredPossessionSourceId: CharacterInstanceId | null;
+    isQuickAction: boolean;
+  }> = [];
 
   for (const characterId of CHARACTER_ORDER) {
     const selection = selections[characterId];
-    actions.push(...selection.quickActions);
+    actions.push(
+      ...selection.quickActions.map((action) => ({
+        action,
+        requiredPossessionSourceId: null,
+        isQuickAction: true,
+      })),
+    );
 
     if (selection.action) {
-      actions.push(selection.action);
+      actions.push({
+        action: selection.action,
+        requiredPossessionSourceId: null,
+        isQuickAction: false,
+      });
+    }
+
+    if (selection.bonusAction) {
+      const sourceEntry = CHARACTER_ORDER.map((sourceId) => ({
+        sourceId,
+        action: selections[sourceId].action,
+      })).find(
+        ({ action }) =>
+          action?.kind === "ability" &&
+          action.abilityId === "possession" &&
+          action.targetId === characterId,
+      );
+
+      if (sourceEntry) {
+        actions.push({
+          action: selection.bonusAction,
+          requiredPossessionSourceId: sourceEntry.sourceId,
+          isQuickAction: false,
+        });
+      }
+    }
+
+    const charge = state.characters[characterId].statuses.find(
+      (status) => status.id === "abilityCharge",
+    );
+
+    if (
+      state.characters[characterId].form === "living" &&
+      charge?.readiedAbilityId &&
+      charge.readiedTargetId
+    ) {
+      actions.push({
+        action: {
+          kind: "ability",
+          actorId: characterId,
+          abilityId: charge.readiedAbilityId,
+          targetId: charge.readiedTargetId,
+          isChargeRelease: true,
+        },
+        requiredPossessionSourceId: null,
+        isQuickAction: false,
+      });
     }
   }
 
@@ -1154,51 +1720,125 @@ export function resolveRound(
   };
 
   const actions = [
-    ...getSelectedPlayerActions(selections),
-    ...createEnemyActionsFromIntents(state),
-  ]
-    .map((action, originalOrder) => ({
+    ...getSelectedPlayerActions(state, selections),
+    ...createEnemyActionsFromIntents(state).map((action) => ({
       action,
-      originalOrder,
-      resolutionPriority:
-        action.kind === "ability"
-          ? Math.max(
-              getCombatantAbility(
+      requiredPossessionSourceId: null,
+      isQuickAction: false,
+    })),
+  ]
+    .map(
+      (
+        { action, requiredPossessionSourceId, isQuickAction },
+        originalOrder,
+      ) => {
+        const normalSelectedAction = isCharacterInstanceId(action.actorId)
+          ? selections[action.actorId].action
+          : null;
+        const normalActionPriority =
+          normalSelectedAction?.kind === "ability"
+            ? (getCombatantAbility(
+                state,
+                normalSelectedAction.actorId,
+                normalSelectedAction.abilityId,
+              )?.resolutionPriority ?? 0)
+            : 0;
+        const abilityPriority =
+          action.kind === "ability"
+            ? (getCombatantAbility(
                 state,
                 action.actorId,
                 action.abilityId,
-              )?.resolutionPriority ?? 0,
-              getSpiritTurnResolutionPriority(state, action.actorId),
-            )
-          : getSpiritTurnResolutionPriority(state, action.actorId),
-      agility: getCombatant(state, action.actorId)?.stats.agility ?? 0,
-    }))
-    .sort(
-      (first, second) =>
+              )?.resolutionPriority ?? 0)
+            : 0;
+
+        return {
+          action,
+          requiredPossessionSourceId,
+          originalOrder,
+          alwaysActsLast:
+            action.kind === "ability" &&
+            getCombatantAbility(state, action.actorId, action.abilityId)
+              ?.turnOrderRule === "alwaysLast",
+          resolutionPriority: Math.max(
+            abilityPriority,
+            isQuickAction &&
+              action.kind === "ability" &&
+              action.abilityId === "autoAttack"
+              ? normalActionPriority
+              : 0,
+            getSpiritTurnResolutionPriority(state, action.actorId),
+          ),
+          agility:
+            getCombatant(state, action.actorId)?.stats.agility ?? 0,
+        };
+      },
+    )
+    .sort((first, second) => {
+      const alwaysLastOrder =
+        Number(first.alwaysActsLast) - Number(second.alwaysActsLast);
+
+      if (alwaysLastOrder !== 0) {
+        return alwaysLastOrder;
+      }
+
+      if (first.alwaysActsLast && second.alwaysActsLast) {
+        return first.originalOrder - second.originalOrder;
+      }
+
+      return (
         second.resolutionPriority - first.resolutionPriority ||
         second.agility - first.agility ||
-        first.originalOrder - second.originalOrder,
-    );
+        first.originalOrder - second.originalOrder
+      );
+    });
 
   const events: CombatEvent[] = [];
   const delayedItemActions: ItemCombatAction[] = [];
   const activeDamageReductions = new Map<CombatantId, number[]>();
+  const resolvedPossessions = new Set<CharacterInstanceId>();
+  const stunnedActorIds = new Set<CombatantId>();
+  const resolvedStunnedActorIds = new Set<CombatantId>();
   let randomSeed = state.randomSeed;
 
-  for (const { action } of actions) {
+  for (const { action, requiredPossessionSourceId } of actions) {
+    if (
+      requiredPossessionSourceId &&
+      !resolvedPossessions.has(requiredPossessionSourceId)
+    ) {
+      continue;
+    }
+
     const actor = getCombatant(nextState, action.actorId);
-    const actionIsQuickItem =
-      action.kind === "item" &&
-      ITEM_DEFINITIONS[action.itemId]?.useTiming === "quickAction";
     const stunnedStatus = actor?.statuses.find(
       (status) => status.id === "stunned",
     );
 
-    if (actor && actor.hp > 0 && stunnedStatus && !actionIsQuickItem) {
+    if (stunnedStatus) {
+      stunnedActorIds.add(action.actorId);
+    }
+
+    if (
+      actor &&
+      actor.hp > 0 &&
+      stunnedActorIds.has(action.actorId)
+    ) {
+      if (resolvedStunnedActorIds.has(action.actorId)) {
+        continue;
+      }
+
+      resolvedStunnedActorIds.add(action.actorId);
+      const interruptedCharge = actor.statuses.find(
+        (status) => status.id === "abilityCharge",
+      );
       nextState = updateStatuses(
         nextState,
         action.actorId,
-        actor.statuses.filter((status) => status.id !== "stunned"),
+        actor.statuses.filter(
+          (status) =>
+            status.id !== "stunned" &&
+            (!interruptedCharge || status.id !== "abilityCharge"),
+        ),
       );
       events.push({
         type: "skipTurn",
@@ -1214,6 +1854,15 @@ export function resolveRound(
             combatantId: action.actorId,
             statusId: "stunned",
           },
+          ...(interruptedCharge
+            ? [
+                {
+                  type: "removed" as const,
+                  combatantId: action.actorId,
+                  statusId: "abilityCharge" as const,
+                },
+              ]
+            : []),
         ],
       });
       continue;
@@ -1236,6 +1885,18 @@ export function resolveRound(
       if (definition.resolutionTiming === "endOfRound") {
         nextState = consumeItem(nextState, action.actorId, action.itemId);
         delayedItemActions.push(action);
+        const actorAfterItem = nextState.characters[action.actorId];
+        events.push({
+          type: "itemUse",
+          actorId: action.actorId,
+          itemId: action.itemId,
+          targetId: action.targetId,
+          visualPhase: "activation",
+          impacts: [],
+          remainingQuantity:
+            actorAfterItem.inventory[action.itemId] ?? 0,
+          damageBonus: actorAfterItem.itemDamageBonus,
+        });
         continue;
       }
 
@@ -1245,6 +1906,22 @@ export function resolveRound(
         nextState = itemResult.nextState;
         randomSeed = itemResult.nextSeed;
         events.push(itemResult.event);
+
+        if (
+          isCharacterInstanceId(action.actorId) &&
+          actionCanTriggerGuardDog(definition.effects)
+        ) {
+          const guardDogResult = resolveGuardDogPassive(
+            nextState,
+            action.actorId,
+            randomSeed,
+          );
+          nextState = guardDogResult.state;
+          randomSeed = guardDogResult.nextSeed;
+          if (guardDogResult.event) {
+            events.push(guardDogResult.event);
+          }
+        }
       }
       continue;
     }
@@ -1321,6 +1998,34 @@ export function resolveRound(
           ? [resolvedTargetId]
           : [];
 
+    const chargeReleaseStatusChanges: StatusChange[] = [];
+
+    if (action.isChargeRelease && isCharacterInstanceId(action.actorId)) {
+      const chargingActor = nextState.characters[action.actorId];
+      const hasStoredCharge = chargingActor.statuses.some(
+        (status) =>
+          status.id === "abilityCharge" &&
+          status.readiedAbilityId === action.abilityId,
+      );
+
+      if (!hasStoredCharge || chargingActor.form !== "living") {
+        continue;
+      }
+
+      nextState = updateStatuses(
+        nextState,
+        action.actorId,
+        chargingActor.statuses.filter(
+          (status) => status.id !== "abilityCharge",
+        ),
+      );
+      chargeReleaseStatusChanges.push({
+        type: "removed",
+        combatantId: action.actorId,
+        statusId: "abilityCharge",
+      });
+    }
+
     if (
       isCharacterInstanceId(action.actorId) &&
       initialTargetIds.some((targetId) => {
@@ -1329,6 +2034,16 @@ export function resolveRound(
         return target && "enemyId" in target && !isEnemyTargetable(target);
       })
     ) {
+      if (action.isChargeRelease) {
+        events.push({
+          type: "skipTurn",
+          actorId: action.actorId,
+          targetId: action.actorId,
+          reason: "chargeTargetUnavailable",
+          skippedAbilityId: action.abilityId,
+          statusChanges: chargeReleaseStatusChanges,
+        });
+      }
       continue;
     }
 
@@ -1338,11 +2053,22 @@ export function resolveRound(
         (targetId) => (getCombatant(nextState, targetId)?.hp ?? 0) <= 0,
       )
     ) {
+      if (action.isChargeRelease) {
+        events.push({
+          type: "skipTurn",
+          actorId: action.actorId,
+          targetId: action.actorId,
+          reason: "chargeTargetUnavailable",
+          skippedAbilityId: action.abilityId,
+          statusChanges: chargeReleaseStatusChanges,
+        });
+      }
       continue;
     }
 
-    const abilityPpCost =
-      isCharacterInstanceId(action.actorId)
+    const abilityPpCost = action.isChargeRelease
+      ? 0
+      : isCharacterInstanceId(action.actorId)
         ? getEffectiveAbilityPpCost(
             nextState.characters[action.actorId],
             ability.category,
@@ -1380,7 +2106,142 @@ export function resolveRound(
       );
     }
 
+    const ghostHpCostEffect = ability.effects.find(
+      (effect) => effect.type === "ghostHpCost",
+    );
+    const additionalActionEffect = ability.effects.find(
+      (effect) => effect.type === "grantAdditionalAction",
+    );
+
+    if (ghostHpCostEffect || additionalActionEffect) {
+      if (
+        !characterActorId ||
+        !resolvedTargetId ||
+        !isCharacterInstanceId(resolvedTargetId)
+      ) {
+        continue;
+      }
+
+      const ghost = nextState.characters[characterActorId];
+      const livingAlly = nextState.characters[resolvedTargetId];
+      const hpCost = ghostHpCostEffect?.amount ?? 0;
+
+      if (
+        ghost.form !== "ghost" ||
+        livingAlly.form !== "living" ||
+        livingAlly.instanceId === characterActorId ||
+        ghost.hp < hpCost
+      ) {
+        continue;
+      }
+
+      nextState = updateHp(
+        nextState,
+        characterActorId,
+        ghost.hp - hpCost,
+      );
+      const ghostAfterCost = nextState.characters[characterActorId];
+      resolvedPossessions.add(characterActorId);
+      events.push({
+        type: "support",
+        actorId: characterActorId,
+        targetId: resolvedTargetId,
+        abilityId: action.abilityId,
+        abilityRank: ability.rank,
+        healingAmount: 0,
+        remainingHp: livingAlly.hp,
+        barrierAmount: 0,
+        remainingBarrier: livingAlly.barrier,
+        remainingPp: livingAlly.pp,
+        statusChanges: [],
+        characterState: getCharacterEventState(livingAlly),
+        actorRemainingHp: ghostAfterCost.hp,
+        actorCharacterState: getCharacterEventState(ghostAfterCost),
+      });
+      continue;
+    }
+
     nextState = spendPp(nextState, action.actorId, abilityPpCost);
+
+    if (characterActorId) {
+      for (const effect of ability.effects) {
+        if (effect.type === "countAsItemUse" && effect.itemId === "steelDart") {
+          nextState = addSteelDartAbilityBonusStacks(
+            nextState,
+            characterActorId,
+            effect.count,
+          );
+        }
+      }
+    }
+
+    const chargeEffect = ability.effects.find(
+      (effect) => effect.type === "charge",
+    );
+
+    if (chargeEffect && !action.isChargeRelease) {
+      if (characterActorId && resolvedTargetId !== null) {
+        const incomingStatus: ActiveStatus = {
+          ...createStatusFromSource(
+            nextState,
+            characterActorId,
+            "abilityCharge",
+          ),
+          readiedAbilityId: chargeEffect.readiesAbilityId,
+          readiedTargetId: resolvedTargetId,
+        };
+        const result = applyStatusToTarget(
+          nextState,
+          characterActorId,
+          incomingStatus,
+        );
+        nextState = result.state;
+        const statusChanges: StatusChange[] = result.status
+          ? [
+              {
+                type: "applied",
+                combatantId: characterActorId,
+                status: result.status,
+              },
+            ]
+          : [];
+
+        events.push({
+          type: "charge",
+          actorId: characterActorId,
+          targetId: resolvedTargetId,
+          abilityId: action.abilityId,
+          abilityRank: ability.rank,
+          readiedAbilityId: chargeEffect.readiesAbilityId,
+          statusChanges,
+        });
+      } else {
+        events.push({
+          type: "charge",
+          actorId: action.actorId,
+          targetId: resolvedTargetId ?? action.actorId,
+          abilityId: action.abilityId,
+          abilityRank: ability.rank,
+          readiedAbilityId: chargeEffect.readiesAbilityId,
+          statusChanges: [],
+        });
+      }
+
+      if (characterActorId) {
+        const guardDogResult = resolveGuardDogPassive(
+          nextState,
+          characterActorId,
+          randomSeed,
+        );
+        nextState = guardDogResult.state;
+        randomSeed = guardDogResult.nextSeed;
+        if (guardDogResult.event) {
+          events.push(guardDogResult.event);
+        }
+      }
+
+      continue;
+    }
 
     const ghostHealingEffect = ability.effects.find(
       (effect) => effect.type === "ghostHealing",
@@ -1420,7 +2281,15 @@ export function resolveRound(
       continue;
     }
 
-    if (ability.target === "singleAlly" || ability.target === "allAllies") {
+    const gainsRandomItem = ability.effects.some(
+      (effect) => effect.type === "gainRandomItem",
+    );
+
+    if (
+      ability.target === "singleAlly" ||
+      ability.target === "allAllies" ||
+      gainsRandomItem
+    ) {
       const supportTargetIds =
         ability.target === "allAllies"
           ? initialTargetIds
@@ -1463,7 +2332,12 @@ export function resolveRound(
       for (const supportTargetId of supportTargetIds) {
         let healingAmount = 0;
         let barrierAmount = 0;
-        const statusChanges: StatusChange[] = [];
+        let gainedItemId: ItemId | undefined;
+        let gainedItemQuantity: number | undefined;
+        const gainedItemIds: ItemId[] = [];
+        const statusChanges: StatusChange[] = [
+          ...chargeReleaseStatusChanges,
+        ];
 
         for (const effect of ability.effects) {
           const currentTarget = getCombatant(nextState, supportTargetId);
@@ -1525,6 +2399,10 @@ export function resolveRound(
                 healingPower,
               );
             }
+            healingPower = Math.round(
+              healingPower *
+                getHealingReceivedMultiplier(currentTarget.statuses),
+            );
             const targetMaxHp = isCharacterInstanceId(supportTargetId)
               ? getCharacterMaxHp(nextState.characters[supportTargetId])
               : currentTarget.stats.maxHp;
@@ -1656,6 +2534,87 @@ export function resolveRound(
                 statusId: effect.statusId,
               });
             }
+            continue;
+          }
+
+          if (effect.type === "applyStatus") {
+            const scaledElementalPower =
+              (ability.element
+                ? actor.stats.elementalPower[ability.element]
+                : 0) * effect.elementalPowerScaling;
+            const incomingStatus = {
+              ...createStatusFromSource(
+                nextState,
+                action.actorId,
+                effect.statusId,
+                {
+                  tickBasePower: Math.round(
+                    effect.tickBasePower + scaledElementalPower,
+                  ),
+                },
+              ),
+              healingReceivedMultiplier:
+                effect.healingReceivedMultiplier,
+              magnitude: effect.magnitude,
+            };
+            const result = applyStatusToTarget(
+              nextState,
+              supportTargetId,
+              incomingStatus,
+            );
+            nextState = result.state;
+            if (result.status) {
+              statusChanges.push({
+                type: "applied",
+                combatantId: supportTargetId,
+                status: result.status,
+              });
+            }
+            continue;
+          }
+
+          if (
+            effect.type === "gainRandomItem" &&
+            effect.pool === "normal" &&
+            isCharacterInstanceId(supportTargetId)
+          ) {
+            let drawCount = 1;
+
+            if (effect.bonusDrawChance !== undefined) {
+              const bonusRoll = nextRandom(randomSeed);
+              randomSeed = bonusRoll.nextSeed;
+              if (bonusRoll.value < effect.bonusDrawChance) {
+                drawCount += 1;
+              }
+            }
+
+            for (let drawIndex = 0; drawIndex < drawCount; drawIndex += 1) {
+              const draw = drawNormalItemReward(randomSeed);
+              randomSeed = draw.nextSeed;
+
+              if (!draw.itemId) {
+                continue;
+              }
+
+              const character = nextState.characters[supportTargetId];
+              gainedItemId = draw.itemId;
+              gainedItemIds.push(draw.itemId);
+              gainedItemQuantity =
+                (character.inventory[draw.itemId] ?? 0) + 1;
+              nextState = {
+                ...nextState,
+                characters: {
+                  ...nextState.characters,
+                  [supportTargetId]: {
+                    ...character,
+                    inventory: {
+                      ...character.inventory,
+                      [draw.itemId]: gainedItemQuantity,
+                    },
+                  },
+                },
+              };
+            }
           }
         }
 
@@ -1670,6 +2629,10 @@ export function resolveRound(
             remainingBarrier: targetAfterSupport.barrier,
             remainingPp: targetAfterSupport.pp,
             statusChanges,
+            ...(gainedItemId
+              ? { gainedItemId, gainedItemQuantity }
+              : {}),
+            ...(gainedItemIds.length > 0 ? { gainedItemIds } : {}),
             characterState: getEventCharacterState(
               nextState,
               supportTargetId,
@@ -1703,17 +2666,43 @@ export function resolveRound(
           secondaryImpacts,
         });
       }
+
+      if (
+        characterActorId &&
+        !action.isChargeRelease &&
+        actionCanTriggerGuardDog(ability.effects)
+      ) {
+        const guardDogResult = resolveGuardDogPassive(
+          nextState,
+          characterActorId,
+          randomSeed,
+        );
+        nextState = guardDogResult.state;
+        randomSeed = guardDogResult.nextSeed;
+        if (guardDogResult.event) {
+          events.push(guardDogResult.event);
+        }
+      }
       continue;
     }
 
-    const outgoingDamageStatus = actor.statuses.find(
+    const outgoingDamageStatuses = actor.statuses.filter(
       (status) =>
         STATUS_DEFINITIONS[status.id].outgoingDamageModifier !==
         undefined,
     );
-    const outgoingDamageMultiplier = outgoingDamageStatus
-      ? 1 - (outgoingDamageStatus.magnitude ?? 0)
-      : 1;
+    const outgoingDamageMultiplier = outgoingDamageStatuses.reduce(
+      (multiplier, status) => {
+        const modifier =
+          STATUS_DEFINITIONS[status.id].outgoingDamageModifier;
+        const magnitude = status.magnitude ?? 0;
+
+        return modifier?.operation === "increase"
+          ? multiplier * (1 + magnitude)
+          : multiplier * (1 - magnitude);
+      },
+      1,
+    );
     const itemDamageBonus =
       isCharacterInstanceId(action.actorId) &&
       ability.category === "ability" &&
@@ -1721,8 +2710,17 @@ export function resolveRound(
         state.round
         ? nextState.characters[action.actorId].itemDamageBonus
         : null;
+    const ironquillAbilityDamageBonus =
+      isCharacterInstanceId(action.actorId) &&
+      ability.category === "ability"
+        ? (nextState.characters[action.actorId].spirits.ironquill
+            ?.steelDartAbilityBonusStacks ?? 0) *
+          (SPIRIT_DEFINITIONS.ironquill.passive
+            .steelDartAbilityAmplifier?.damageBonusPerDart ?? 0)
+        : 0;
     let firstDamageStatusChanges: StatusChange[] | null = null;
     let actionDealtDamage = false;
+    const bodyguardProtectedTargetIds = new Set<CombatantId>();
 
     for (const effect of ability.effects) {
       if (effect.type === "wakeEnemy") {
@@ -1772,6 +2770,51 @@ export function resolveRound(
       }
 
       if (effect.type === "charge") {
+        if (action.isChargeRelease) {
+          continue;
+        }
+
+        if (
+          isCharacterInstanceId(action.actorId) &&
+          resolvedTargetId !== null
+        ) {
+          const incomingStatus: ActiveStatus = {
+            ...createStatusFromSource(
+              nextState,
+              action.actorId,
+              "abilityCharge",
+            ),
+            readiedAbilityId: effect.readiesAbilityId,
+            readiedTargetId: resolvedTargetId,
+          };
+          const result = applyStatusToTarget(
+            nextState,
+            action.actorId,
+            incomingStatus,
+          );
+          nextState = result.state;
+          const statusChanges: StatusChange[] = result.status
+            ? [
+                {
+                  type: "applied",
+                  combatantId: action.actorId,
+                  status: result.status,
+                },
+              ]
+            : [];
+
+          events.push({
+            type: "charge",
+            actorId: action.actorId,
+            targetId: resolvedTargetId,
+            abilityId: action.abilityId,
+            abilityRank: ability.rank,
+            readiedAbilityId: effect.readiesAbilityId,
+            statusChanges,
+          });
+          break;
+        }
+
         events.push({
           type: "charge",
           actorId: action.actorId,
@@ -1779,7 +2822,73 @@ export function resolveRound(
           abilityId: action.abilityId,
           abilityRank: ability.rank,
           readiedAbilityId: effect.readiesAbilityId,
+          statusChanges: [],
         });
+        continue;
+      }
+
+      if (effect.type === "applyStatus") {
+        for (const targetId of initialTargetIds) {
+          const target = getCombatant(nextState, targetId);
+
+          if (!target || target.hp <= 0) {
+            continue;
+          }
+
+          const scaledElementalPower =
+            (ability.element
+              ? actor.stats.elementalPower[ability.element]
+              : 0) * effect.elementalPowerScaling;
+          const tickBasePower = Math.round(
+            effect.tickBasePower + scaledElementalPower,
+          );
+          const incomingStatus = {
+            ...createStatusFromSource(
+              nextState,
+              action.actorId,
+              effect.statusId,
+              { tickBasePower },
+            ),
+            healingReceivedMultiplier:
+              effect.healingReceivedMultiplier,
+            magnitude: effect.magnitude,
+            ticksTriggered:
+              effect.empowerAfterTicks !== undefined ? 0 : undefined,
+            sourceHealingPerTick: effect.sourceHealingPerTick,
+            empowerAfterTicks: effect.empowerAfterTicks,
+            empoweredTickBasePower:
+              effect.empoweredTickBasePower === undefined
+                ? undefined
+                : Math.round(
+                    effect.empoweredTickBasePower + scaledElementalPower,
+                  ),
+            empoweredSourceHealingPerTick:
+              effect.empoweredSourceHealingPerTick,
+          };
+          const result = applyStatusToTarget(
+            nextState,
+            targetId,
+            incomingStatus,
+          );
+          nextState = result.state;
+
+          if (result.status) {
+            events.push({
+              type: "statusApplied",
+              actorId: action.actorId,
+              targetId,
+              abilityId: action.abilityId,
+              abilityRank: ability.rank,
+              statusChanges: [
+                {
+                  type: "applied",
+                  combatantId: targetId,
+                  status: result.status,
+                },
+              ],
+            });
+          }
+        }
         continue;
       }
 
@@ -1856,6 +2965,10 @@ export function resolveRound(
         : undefined;
       const impacts = [];
       const followUpStatusEvents: StatusDamageEvent[] = [];
+      let linkedSupportImpact: MultiTargetSupportImpact | undefined;
+      let linkedSecondarySupportImpacts:
+        | MultiTargetSupportImpact[]
+        | undefined;
 
       for (const targetId of targetIds) {
         const currentTarget = getCombatant(nextState, targetId);
@@ -1868,19 +2981,32 @@ export function resolveRound(
         const hasLivingAllyBonus =
           effect.damagePerOtherLivingSameEnemy !== undefined &&
           !isCharacterInstanceId(action.actorId);
+        const characterActor = isCharacterInstanceId(action.actorId)
+          ? nextState.characters[action.actorId]
+          : null;
+        const ghostStrikeDamageBonus =
+          characterActor?.form === "ghost" &&
+          action.abilityId === "ghostStrike" &&
+          characterActor.ghostUpgrades.heavyHaunt
+            ? GHOST_UPGRADE_VALUES.heavyHauntDamageBonus
+            : 0;
+        const effectiveDamageEffect = ghostStrikeDamageBonus
+          ? {
+              ...effect,
+              basePower: effect.basePower + ghostStrikeDamageBonus,
+            }
+          : effect;
         const normalDamage = calculateDamage({
           attacker: actor.stats,
           defender: currentTarget.stats,
+          defenderStatuses: currentTarget.statuses,
           element: ability.element,
-          effect,
+          effect: effectiveDamageEffect,
           additionalDamageReductions:
             hasLivingAllyBonus ? [] : damageReductions,
         });
         let isCritical = false;
         let amount = normalDamage;
-        const characterActor = isCharacterInstanceId(action.actorId)
-          ? nextState.characters[action.actorId]
-          : null;
         const bloodScentBonus =
           characterActor &&
           characterHasPassive(characterActor, "bloodScent") &&
@@ -1893,6 +3019,15 @@ export function resolveRound(
           characterActor.abilityDamageBonus &&
           characterActor.abilityDamageBonus.expiresAfterRound >= state.round
             ? characterActor.abilityDamageBonus.amount
+            : 0;
+        const closerToTheVeilDamageBonus =
+          characterActor?.form === "ghost" &&
+          characterActor.hp <
+            GHOST_UPGRADE_VALUES.closerToTheVeilHpThreshold &&
+          characterActor.ghostUpgrades.closerToTheVeil &&
+          (action.abilityId === "ghostStrike" ||
+            action.abilityId === "ghostBolt")
+            ? GHOST_UPGRADE_VALUES.closerToTheVeilDamageBonus
             : 0;
 
         if (effect.usesDamageVariance !== false) {
@@ -1951,7 +3086,9 @@ export function resolveRound(
               outgoingDamageMultiplier *
               (1 + (itemDamageBonus?.amount ?? 0)) *
               (1 + bloodScentBonus) *
-              (1 + passiveAbilityDamageBonus),
+              (1 + passiveAbilityDamageBonus) *
+              (1 + ironquillAbilityDamageBonus) *
+              (1 + closerToTheVeilDamageBonus),
           ),
         );
 
@@ -1996,6 +3133,39 @@ export function resolveRound(
                 statusId: incomingDamageStatus.id,
               });
             }
+          }
+        }
+
+        const bodyguardStatus = currentTarget.statuses.find(
+          (status) => status.id === "bodyguard",
+        );
+        const bodyguardBlocksThisAttack =
+          !isCharacterInstanceId(action.actorId) &&
+          isCharacterInstanceId(targetId) &&
+          amount > 0 &&
+          (bodyguardProtectedTargetIds.has(targetId) ||
+            bodyguardStatus !== undefined);
+
+        if (bodyguardBlocksThisAttack) {
+          amount = 0;
+
+          if (bodyguardStatus) {
+            bodyguardProtectedTargetIds.add(targetId);
+            const protectedTarget = getCombatant(nextState, targetId);
+            if (protectedTarget) {
+              nextState = updateStatuses(
+                nextState,
+                targetId,
+                protectedTarget.statuses.filter(
+                  (status) => status.id !== "bodyguard",
+                ),
+              );
+            }
+            statusChanges.push({
+              type: "removed",
+              combatantId: targetId,
+              statusId: "bodyguard",
+            });
           }
         }
 
@@ -2045,7 +3215,10 @@ export function resolveRound(
               nextState,
               action.actorId,
               effect.statusOnHit.statusId,
-              { magnitude: effect.statusOnHit.magnitude },
+              {
+                magnitude: effect.statusOnHit.magnitude,
+                durationRounds: effect.statusOnHit.durationRounds,
+              },
             );
             const result = applyStatusToTarget(nextState, targetId, newStatus);
             nextState = result.state;
@@ -2126,6 +3299,10 @@ export function resolveRound(
           currentTarget.barrier,
           amount,
         );
+        const actualHpDamage = Math.min(
+          currentTarget.hp,
+          barrierResult.hpDamage,
+        );
         const calculatedRemainingHp = Math.max(
           0,
           currentTarget.hp - barrierResult.hpDamage,
@@ -2192,6 +3369,7 @@ export function resolveRound(
               basePower: PASSIVE_VALUES.thornsDamage,
               damageType: "physical",
               defender: reflectedTarget.stats,
+              defenderStatuses: reflectedTarget.statuses,
             });
             const reflectedBarrierResult = absorbDirectDamage(
               reflectedTarget.barrier,
@@ -2260,6 +3438,7 @@ export function resolveRound(
                 flashpointStatus.tickBasePower ?? burnDamage.basePower,
               damageType: burnDamage.damageType,
               defender: targetAfterDirectDamage.stats,
+              defenderStatuses: targetAfterDirectDamage.statuses,
             });
             const flashpointRemainingHp = Math.max(
               0,
@@ -2297,6 +3476,33 @@ export function resolveRound(
               statusChanges: flashpointStatusChanges,
             });
           }
+        }
+
+        const healingFromDamageTargetId =
+          effect.healingFromDamage?.target === "self"
+            ? characterActorId
+            : effect.healingFromDamage?.target === "secondaryTarget" &&
+                action.secondaryTargetId &&
+                isCharacterInstanceId(action.secondaryTargetId)
+              ? action.secondaryTargetId
+              : null;
+
+        if (
+          effect.healingFromDamage &&
+          characterActorId &&
+          healingFromDamageTargetId &&
+          nextState.characters[healingFromDamageTargetId].form !==
+            "permanentlyDead"
+        ) {
+          const healingResult = applyDamageLinkedAbilityHealing(
+            nextState,
+            characterActorId,
+            healingFromDamageTargetId,
+            Math.round(actualHpDamage * effect.healingFromDamage.ratio),
+          );
+          nextState = healingResult.state;
+          linkedSupportImpact = healingResult.impact;
+          linkedSecondarySupportImpacts = healingResult.secondaryImpacts;
         }
         actionDealtDamage = true;
         firstDamageStatusChanges ??= statusChanges;
@@ -2368,6 +3574,44 @@ export function resolveRound(
         }
       }
 
+      const ghostRecoveryEffect = ability.effects.find(
+        (candidate) => candidate.type === "ghostRecoveryOnHit",
+      );
+      let ghostRecovery:
+        | {
+            actorHealingAmount: number;
+            actorPpRecoveryAmount: number;
+            actorRemainingHp: number;
+            actorCharacterState: ReturnType<typeof getCharacterEventState>;
+          }
+        | undefined;
+
+      if (ghostRecoveryEffect && characterActorId) {
+        const ghost = nextState.characters[characterActorId];
+
+        if (ghost.form === "ghost") {
+          const remainingHp = Math.min(
+            getCharacterMaxHp(ghost),
+            ghost.hp + ghostRecoveryEffect.amount,
+          );
+          const healingAmount = remainingHp - ghost.hp;
+          nextState = updateHp(nextState, characterActorId, remainingHp);
+          const remainingPp = Math.min(
+            getCharacterMaxPp(ghost),
+            ghost.pp + (ghostRecoveryEffect.ppAmount ?? 0),
+          );
+          const ppRecoveryAmount = remainingPp - ghost.pp;
+          nextState = updatePp(nextState, characterActorId, remainingPp);
+          const healedGhost = nextState.characters[characterActorId];
+          ghostRecovery = {
+            actorHealingAmount: healingAmount,
+            actorPpRecoveryAmount: ppRecoveryAmount,
+            actorRemainingHp: healedGhost.hp,
+            actorCharacterState: getCharacterEventState(healedGhost),
+          };
+        }
+      }
+
       if (ability.target === "allEnemies") {
         events.push({
           type: "multiTargetDamage",
@@ -2383,31 +3627,67 @@ export function resolveRound(
           abilityId: action.abilityId,
           abilityRank: ability.rank,
           ...impacts[0],
+          ...ghostRecovery,
+          ...(linkedSupportImpact ? { linkedSupportImpact } : {}),
+          ...(linkedSecondarySupportImpacts?.length
+            ? { linkedSecondarySupportImpacts }
+            : {}),
         });
       }
       events.push(...followUpStatusEvents);
     }
 
     if (
+      isCharacterInstanceId(action.actorId) &&
+      actionCanTriggerGuardDog(ability.effects)
+    ) {
+      const guardDogResult = resolveGuardDogPassive(
+        nextState,
+        action.actorId,
+        randomSeed,
+      );
+      nextState = guardDogResult.state;
+      randomSeed = guardDogResult.nextSeed;
+      if (guardDogResult.event) {
+        events.push(guardDogResult.event);
+      }
+    }
+
+    if (
       actionDealtDamage &&
-      outgoingDamageStatus &&
+      outgoingDamageStatuses.some(
+        (status) =>
+          STATUS_DEFINITIONS[status.id].outgoingDamageModifier
+            ?.consumeOnNextDamageAction,
+      ) &&
       firstDamageStatusChanges
     ) {
       const actorAfterAction = getCombatant(nextState, action.actorId);
 
       if (actorAfterAction) {
+        const consumedStatusIds = new Set(
+          outgoingDamageStatuses
+            .filter(
+              (status) =>
+                STATUS_DEFINITIONS[status.id].outgoingDamageModifier
+                  ?.consumeOnNextDamageAction,
+            )
+            .map((status) => status.id),
+        );
         nextState = updateStatuses(
           nextState,
           action.actorId,
           actorAfterAction.statuses.filter(
-            (status) => status.id !== outgoingDamageStatus.id,
+            (status) => !consumedStatusIds.has(status.id),
           ),
         );
-        firstDamageStatusChanges.push({
-          type: "removed",
-          combatantId: action.actorId,
-          statusId: outgoingDamageStatus.id,
-        });
+        firstDamageStatusChanges.push(
+          ...[...consumedStatusIds].map((statusId) => ({
+            type: "removed" as const,
+            combatantId: action.actorId,
+            statusId,
+          })),
+        );
       }
     }
 
@@ -2427,6 +3707,18 @@ export function resolveRound(
           },
         },
       };
+    }
+
+    if (
+      actionDealtDamage &&
+      isCharacterInstanceId(action.actorId) &&
+      ability.category === "ability" &&
+      ironquillAbilityDamageBonus > 0
+    ) {
+      nextState = clearSteelDartAbilityBonusStacks(
+        nextState,
+        action.actorId,
+      );
     }
 
     if (
@@ -2502,6 +3794,7 @@ export function resolveRound(
               basePower: passive.basePower,
               damageType: passive.damageType,
               defender: passiveTarget.stats,
+              defenderStatuses: passiveTarget.statuses,
             });
             if (
               characterHasPassive(characterAfterAction, "bloodScent") &&
@@ -2548,6 +3841,7 @@ export function resolveRound(
               sourceId: action.actorId,
               targetId: passiveTargetId,
               spiritId: passiveSpirit.id,
+              damageType: passive.damageType,
               element: passive.element,
               amount: barrierResult.hpDamage,
               remainingHp,
@@ -2558,6 +3852,41 @@ export function resolveRound(
             });
           }
         }
+      }
+    }
+
+    const selfHpDamageEffect = ability.effects.find(
+      (effect) => effect.type === "selfHpDamage",
+    );
+
+    if (
+      actionDealtDamage &&
+      selfHpDamageEffect &&
+      isCharacterInstanceId(action.actorId)
+    ) {
+      const characterBeforeCost = nextState.characters[action.actorId];
+
+      if (characterBeforeCost.form === "living") {
+        nextState = updateHp(
+          nextState,
+          action.actorId,
+          characterBeforeCost.hp - selfHpDamageEffect.amount,
+        );
+        const characterAfterCost = nextState.characters[action.actorId];
+
+        events.push({
+          type: "selfDamage",
+          actorId: action.actorId,
+          targetId: action.actorId,
+          abilityId: action.abilityId,
+          abilityRank: ability.rank,
+          amount: selfHpDamageEffect.amount,
+          remainingHp: characterAfterCost.hp,
+          absorbedByBarrier: 0,
+          isCritical: false,
+          statusChanges: [],
+          characterState: getCharacterEventState(characterAfterCost),
+        });
       }
     }
   }
@@ -2618,6 +3947,7 @@ export function resolveRound(
   );
   nextState = statusResult.state;
   randomSeed = statusResult.nextSeed;
+  nextState = advanceTimedNonDamageStatuses(nextState);
 
   nextState = {
     ...nextState,

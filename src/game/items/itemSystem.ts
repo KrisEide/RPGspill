@@ -36,6 +36,15 @@ export function createEmptyInventory(): Inventory {
   return {};
 }
 
+export function drawNormalItemReward(seed: number) {
+  const draw = drawWeightedItem(ITEM_REWARD_POOL, seed);
+
+  return {
+    itemId: draw.itemId,
+    nextSeed: draw.nextSeed,
+  };
+}
+
 export function getInventoryEntries(inventory: Inventory): InventoryEntry[] {
   return Object.entries(inventory).flatMap(([itemId, quantity]) => {
     const definition = ITEM_DEFINITIONS[itemId];

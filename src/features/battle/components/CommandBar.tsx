@@ -6,12 +6,17 @@ import defendIcon from "../../../assets/icons/defend_icon.png";
 import magicIcon from "../../../assets/icons/magicicon.png";
 import itemsIcon from "../../../assets/icons/inventoryicon.png";
 import spiritIcon from "../../../assets/icons/spirit.png";
+import ghostAttackIcon from "../../../assets/icons/ghost_attack.png";
+import ghostBoltIcon from "../../../assets/icons/ghost_ghostbolt.png";
+import ghostHealIcon from "../../../assets/icons/ghost_ghostheal.png";
+import ghostReformIcon from "../../../assets/icons/ghost_reform.png";
 import portrait from "../../../assets/portraits/character1_1.png";
 import type {
   AbilityId,
   AbilityRank,
   SpiritId,
 } from "../../../game/types";
+import { useShiftHeld } from "../hooks/useShiftHeld";
 
 type CommandId =
   | "attack"
@@ -20,7 +25,6 @@ type CommandId =
   | "spirit"
   | "items"
   | "ghostStrike"
-  | "ghostBolt"
   | "ghostHeal"
   | "reform";
 type CommandPanelId = "abilities" | "spirit" | "items";
@@ -58,7 +62,7 @@ type Props = {
   abilitiesAvailable?: boolean;
   spiritAvailable?: boolean;
   ghostMode?: boolean;
-  ghostBoltAvailable?: boolean;
+  ghostStrikeDamage: number;
   canReform?: boolean;
   abilities: {
     id: AbilityId;
@@ -99,7 +103,6 @@ type Props = {
   onItemSelect: (itemId: string) => void;
   onDefendSelect: () => void;
   onGhostStrikeSelect: () => void;
-  onGhostBoltSelect: () => void;
   onGhostHealSelect: () => void;
   onReform: () => void;
 };
@@ -110,7 +113,7 @@ export default function CommandBar({
   abilitiesAvailable = false,
   spiritAvailable = false,
   ghostMode = false,
-  ghostBoltAvailable = false,
+  ghostStrikeDamage,
   canReform = false,
   abilities,
   spirits,
@@ -122,7 +125,6 @@ export default function CommandBar({
   onItemSelect,
   onDefendSelect,
   onGhostStrikeSelect,
-  onGhostBoltSelect,
   onGhostHealSelect,
   onReform,
 }: Props) {
@@ -130,6 +132,7 @@ export default function CommandBar({
   const [hovered, setHovered] = useState<CommandId | null>(null);
   const [openPanel, setOpenPanel] = useState<CommandPanelId | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const shiftHeld = useShiftHeld();
 
   const commands = useMemo<CommandDefinition[]>(
     () => ghostMode
@@ -137,25 +140,22 @@ export default function CommandBar({
           {
             id: "ghostStrike",
             title: "Ghost Strike",
-            desc: "Deal weak Physical damage to one enemy.",
-            icon: attackIcon,
-            glyph: "👻",
+            desc: `Deal ${ghostStrikeDamage} raw Physical damage and restore 2 Ghost HP and 2 Ghost PP.`,
+            icon: ghostAttackIcon,
             panelId: null,
           },
           {
-            id: "ghostBolt",
-            title: "Ghost Bolt",
-            desc: "Deal Dark damage to one enemy. Costs 4 Ghost PP.",
-            icon: magicIcon,
-            glyph: "🔮",
-            panelId: null,
+            id: "abilities",
+            title: "Ghost Abilities",
+            desc: "Use your Ghost abilities.",
+            icon: ghostBoltIcon,
+            panelId: "abilities",
           },
           {
             id: "ghostHeal",
             title: "Ghost Heal",
-            desc: "Restore 7 Ghost HP.",
-            icon: spiritIcon,
-            glyph: "💠",
+            desc: "Restore 12 Ghost HP.",
+            icon: ghostHealIcon,
             panelId: null,
           },
           {
@@ -164,8 +164,7 @@ export default function CommandBar({
             desc: canReform
               ? "Return to Living Form with 30 HP."
               : "Requires 100 Ghost HP.",
-            icon: defendIcon,
-            glyph: "✨",
+            icon: ghostReformIcon,
             panelId: null,
           },
         ]
@@ -206,7 +205,7 @@ export default function CommandBar({
         panelId: "items",
       },
     ],
-    [canReform, ghostMode],
+    [canReform, ghostMode, ghostStrikeDamage],
   );
 
   const activeId = hovered ?? selected;
@@ -293,8 +292,12 @@ export default function CommandBar({
                           <div className="cmdbar__abilityTooltipTitle">
                             {ability.name} · Rank {ability.rank}
                           </div>
-                          <div>{ability.description}</div>
-                          {ability.scalingDescription && (
+                          <div>
+                            {shiftHeld
+                              ? ability.description
+                              : ability.shortDescription}
+                          </div>
+                          {shiftHeld && ability.scalingDescription && (
                             <div className="cmdbar__abilityTooltipScaling">
                               Scaling: {ability.scalingDescription}
                             </div>
@@ -302,6 +305,11 @@ export default function CommandBar({
                           <div className="cmdbar__abilityTooltipMeta">
                             Cost: {ability.ppCost} PP
                           </div>
+                          {!shiftHeld && (
+                            <div className="cmdbar__abilityTooltipHint">
+                              Hold Shift for more info
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -399,7 +407,7 @@ export default function CommandBar({
                           }}
                         >
                           <span className="cmdbar__abilityIcon" aria-hidden="true">
-                            {item.icon}
+                            <img src={item.icon} alt="" />
                           </span>
                           <span className="cmdbar__abilityDetails">
                             <span className="cmdbar__abilityName">
@@ -447,13 +455,11 @@ export default function CommandBar({
                 const isLocked =
                   (c.id === "abilities" && !abilitiesAvailable) ||
                   (c.id === "spirit" && !spiritAvailable) ||
-                  (c.id === "ghostBolt" && !ghostBoltAvailable) ||
                   (c.id === "reform" && !canReform);
                 const isActionUnavailable =
                   (c.id === "attack" ||
                     c.id === "defend" ||
                     c.id === "ghostStrike" ||
-                    c.id === "ghostBolt" ||
                     c.id === "ghostHeal" ||
                     c.id === "reform") &&
                   actionsDisabled;
@@ -485,11 +491,6 @@ export default function CommandBar({
 
                       if (c.id === "ghostStrike") {
                         onGhostStrikeSelect();
-                        return;
-                      }
-
-                      if (c.id === "ghostBolt") {
-                        onGhostBoltSelect();
                         return;
                       }
 

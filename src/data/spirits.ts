@@ -71,6 +71,53 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     activeAbilityId: "riverheart",
     activeUsesPerEncounter: 1,
   },
+  warhound: {
+    id: "warhound",
+    name: "Warhound",
+    icon: "🐺",
+    element: null,
+    passive: {
+      name: "Warhound",
+      description:
+        "Your first Auto Attack each round is Quick and does not consume your action.",
+      firstAutoAttackEachRoundIsQuick: true,
+    },
+    activeAbilityId: "warhound",
+    activeUsesPerEncounter: 1,
+  },
+  guardDog: {
+    id: "guardDog",
+    name: "Guard Dog",
+    icon: "🐕",
+    element: null,
+    passive: {
+      name: "Guard Dog",
+      description:
+        "Whenever you use a non-damaging action, the Spirit attacks one random enemy for 3 Spirit Physical damage.",
+      nonDamagingActionSpiritAttack: {
+        basePower: 3,
+        damageType: "physical",
+      },
+    },
+    activeAbilityId: "bodyguard",
+    activeUsesPerEncounter: 1,
+  },
+  ironquill: {
+    id: "ironquill",
+    name: "Ironquill",
+    icon: "🪶",
+    element: null,
+    passive: {
+      name: "Ironquill",
+      description:
+        "Whenever you use a Steel Dart, your next damaging ability deals 10% more damage. This stacks for every Steel Dart and is consumed by the ability.",
+      steelDartAbilityAmplifier: {
+        damageBonusPerDart: 0.1,
+      },
+    },
+    activeAbilityId: "ironquill",
+    activeUsesPerEncounter: 1,
+  },
 };
 
 export function createSpiritState(spiritId: SpiritId) {
@@ -81,6 +128,7 @@ export function createSpiritState(spiritId: SpiritId) {
     activeUsesRemaining: definition.activeUsesPerEncounter,
     passiveTriggeredThisEncounter: false,
     roundPriorityActive: false,
+    steelDartAbilityBonusStacks: 0,
   };
 }
 

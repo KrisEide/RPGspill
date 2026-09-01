@@ -1,7 +1,7 @@
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { refreshSpiritActiveUses } from "../../data/spirits";
-import { createForestRestOffers } from "../../data/restChoices";
+import { createRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
 import { prepareEnemyIntents } from "../combat/enemyIntents";
 import type {
@@ -62,7 +62,7 @@ export function startEncounter(
 ): CombatState {
   const encounter = ENCOUNTER_DEFINITIONS[encounterId];
   const isRest = encounter.kind === "rest";
-  const restOffers = createForestRestOffers();
+  const restOffers = isRest ? createRestOffers(encounterId) : [];
   const levelIncrease =
     ENCOUNTER_DEFINITIONS[currentState.encounterId].kind === "combat"
       ? 1
@@ -112,7 +112,7 @@ export function startEncounter(
             currentState.characters["character-2"].form ===
             "permanentlyDead"
               ? []
-              : createForestRestOffers(),
+              : createRestOffers(encounterId),
         }
       : null,
     itemRewards: null,

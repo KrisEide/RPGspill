@@ -14,11 +14,35 @@ export const ENCOUNTER_VISUALS: Record<
   EncounterId,
   EncounterVisualDefinition
 > = {
+  slimeTrail: {
+    backgroundImageSrc: forestBackground,
+    enemyFormation: [
+      { xPercent: 61, yPercent: 39, scale: 0.84, zIndex: 9 },
+      { xPercent: 78, yPercent: 39, scale: 0.84, zIndex: 9 },
+    ],
+  },
+  growingThreat: {
+    backgroundImageSrc: forestBackground,
+    enemyFormation: [
+      { xPercent: 61, yPercent: 39, scale: 0.84, zIndex: 9 },
+      { xPercent: 78, yPercent: 39, scale: 0.88, zIndex: 9 },
+    ],
+  },
+  poisonedTrail: {
+    backgroundImageSrc: forestBackground,
+    enemyFormation: [
+      { xPercent: 61, yPercent: 39, scale: 0.88, zIndex: 9 },
+      { xPercent: 79, yPercent: 39, scale: 0.88, zIndex: 9 },
+    ],
+  },
   forestAmbush: {
     backgroundImageSrc: forestBackground,
   },
   orcReinforcements: {
     backgroundImageSrc: forestBackground,
+  },
+  spiritCamp: {
+    backgroundImageSrc: forestCampBackground,
   },
   raiderPatrol: {
     backgroundImageSrc: forestBackground,
