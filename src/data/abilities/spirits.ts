@@ -12,15 +12,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Damage and Burn all enemies.",
         description:
-          "Deal 3 Spirit Fire damage to all enemies and apply Burn.",
+          "Deal 1 + 20% of Fire Power as Spirit Fire damage to all enemies and apply Burn.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 3,
+            basePower: 1,
             attackScaling: 0,
-            elementalPowerScaling: 0,
+            elementalPowerScaling: 0.2,
             statusOnHit: {
               statusId: "burn",
             },
@@ -39,12 +39,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
     ranks: {
       1: {
         shortDescription: "Grant Barrier to both heroes.",
-        description: "Grant 13 Barrier to both heroes.",
+        description:
+          "Grant 10 + 30% of Earth Power as Barrier to both heroes.",
         ppCost: 0,
         effects: [
           {
             type: "barrier",
-            amount: 13,
+            amount: 10,
+            elementalPowerScaling: 0.3,
           },
         ],
       },
@@ -61,15 +63,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Act first and damage one enemy.",
         description:
-          "Act first this round and deal 20 Spirit Wind damage to one enemy.",
+          "Act first this round and deal 16 + 40% of Wind Power as Spirit Wind damage to one enemy.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 20,
+            basePower: 16,
             attackScaling: 0,
-            elementalPowerScaling: 0,
+            elementalPowerScaling: 0.4,
           },
         ],
       },
@@ -85,13 +87,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
     ranks: {
       1: {
         shortDescription: "Restore HP to one hero.",
-        description: "Restore 25 HP to one hero.",
+        description:
+          "Restore 20 + 50% of Water Power as HP to one hero.",
         ppCost: 0,
         effects: [
           {
             type: "healing",
-            basePower: 25,
-            elementalPowerScaling: 0,
+            basePower: 20,
+            elementalPowerScaling: 0.5,
           },
         ],
       },
@@ -108,14 +111,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Deal heavy Spirit Physical damage.",
         description:
-          "Deal 22 Spirit Physical damage to one enemy. Cannot critically hit.",
+          "Deal 16 + 60% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 22,
-            attackScaling: 0,
+            basePower: 16,
+            attackScaling: 0.6,
             elementalPowerScaling: 0,
           },
         ],

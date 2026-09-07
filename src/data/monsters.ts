@@ -227,7 +227,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       autoAttack: 1,
       mendWounds: 1,
     },
-    actionPattern: ["autoAttack", "mendWounds"],
+    actionPattern: ["autoAttack", "mendWounds", "autoAttack"],
   },
   orcMauler: {
     id: "orcMauler",
@@ -280,16 +280,8 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     actionPattern: [
       "guardRally",
       "guardShieldCharge",
-      "guardRally",
       "guardShieldCharge",
       "guardShieldCharge",
-      "guardRally",
-      "guardShieldCharge",
-      "guardRally",
-      "guardShieldCharge",
-      "guardShieldCharge",
-      "guardShieldCharge",
-      "guardRally",
     ],
   },
   brakkBoss: {

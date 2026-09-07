@@ -630,6 +630,7 @@ export default function BattleScreen(props: Props) {
     (effect) => effect.type === "damage",
   );
   const ghostStrikeBaseDamage = ghostStrikeDamageEffect?.basePower ?? 7;
+  const ghostHealPpCost = resolveAbility("ghostHeal", 1)?.ppCost ?? 4;
   const knownAbilities = commandCharacter
     ? (commandCharacter.form === "ghost"
         ? getKnownGhostAbilityIds(commandCharacter)
@@ -2701,6 +2702,11 @@ export default function BattleScreen(props: Props) {
           (commandCharacter?.ghostUpgrades.heavyHaunt
             ? GHOST_UPGRADE_VALUES.heavyHauntDamageBonus
             : 0)
+        }
+        ghostHealPpCost={ghostHealPpCost}
+        ghostHealAvailable={
+          commandCharacter?.form === "ghost" &&
+          commandCharacter.pp >= ghostHealPpCost
         }
         canReform={
           commandCharacter?.form === "ghost" &&

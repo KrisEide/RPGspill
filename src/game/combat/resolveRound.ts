@@ -517,6 +517,12 @@ function actionCanTriggerGuardDog(
   );
 }
 
+function physicalSpiritHitCanTriggerJaggedStrikes(abilityId: AbilityId) {
+  // Ironquill's spectral projectiles explicitly count as Steel Darts, which
+  // are excluded from Jagged Strikes just like inventory Steel Darts.
+  return abilityId !== "ironquill";
+}
+
 function resolveGuardDogPassive(
   state: CombatState,
   characterId: CharacterInstanceId,
@@ -571,6 +577,35 @@ function resolveGuardDogPassive(
   nextState = updateHp(nextState, target.instanceId, remainingHp);
   let randomSeed = targetRoll.nextSeed;
   const statusChanges: StatusChange[] = [];
+
+  if (
+    remainingHp > 0 &&
+    passive.damageType === "physical" &&
+    characterHasPassive(character, "jaggedStrikes")
+  ) {
+    const jaggedRoll = nextRandom(randomSeed);
+    randomSeed = jaggedRoll.nextSeed;
+
+    if (jaggedRoll.value < PASSIVE_VALUES.jaggedStrikesChance) {
+      const result = applyStatusToTarget(
+        nextState,
+        target.instanceId,
+        createStatusFromSource(
+          nextState,
+          characterId,
+          "bleed",
+        ),
+      );
+      nextState = result.state;
+      if (result.status) {
+        statusChanges.push({
+          type: "applied",
+          combatantId: target.instanceId,
+          status: result.status,
+        });
+      }
+    }
+  }
 
   if (remainingHp <= 0) {
     const wildfire = spreadWildfireAfterEnemyDeath(
@@ -1149,17 +1184,52 @@ function spendPp(
   };
 }
 
+const POST_COMBAT_PP_RECOVERY = 5;
+
+function restoreLivingCharactersPpAfterCombat(
+  state: CombatState,
+): CombatState {
+  return {
+    ...state,
+    characters: {
+      "character-1": {
+        ...state.characters["character-1"],
+        pp:
+          state.characters["character-1"].form === "living"
+            ? Math.min(
+                state.characters["character-1"].stats.maxPp,
+                state.characters["character-1"].pp +
+                  POST_COMBAT_PP_RECOVERY,
+              )
+            : state.characters["character-1"].pp,
+      },
+      "character-2": {
+        ...state.characters["character-2"],
+        pp:
+          state.characters["character-2"].form === "living"
+            ? Math.min(
+                state.characters["character-2"].stats.maxPp,
+                state.characters["character-2"].pp +
+                  POST_COMBAT_PP_RECOVERY,
+              )
+            : state.characters["character-2"].pp,
+      },
+    },
+  };
+}
+
 function completeVictory(state: CombatState, seed: number): CombatState {
+  const recoveredState = restoreLivingCharactersPpAfterCombat(state);
   const nextEncounterId =
-    ENCOUNTER_DEFINITIONS[state.encounterId].nextEncounterId;
+    ENCOUNTER_DEFINITIONS[recoveredState.encounterId].nextEncounterId;
 
   if (
     nextEncounterId &&
     ENCOUNTER_DEFINITIONS[nextEncounterId].kind === "rest" &&
-    ENCOUNTER_DEFINITIONS[state.encounterId].skipRewardsBeforeRest
+    ENCOUNTER_DEFINITIONS[recoveredState.encounterId].skipRewardsBeforeRest
   ) {
     const generatedItems = grantEncounterItemRewards(
-      { ...state, randomSeed: seed },
+      { ...recoveredState, randomSeed: seed },
       seed,
     );
     const restState = startEncounter(
@@ -1177,28 +1247,28 @@ function completeVictory(state: CombatState, seed: number): CombatState {
   }
 
   let randomSeed = seed;
-  let rewardOffers = state.rewardOffers;
+  let rewardOffers = recoveredState.rewardOffers;
 
   if (!rewardOffers) {
-    const generatedRewards = generateRewardOffers(state, randomSeed);
+    const generatedRewards = generateRewardOffers(recoveredState, randomSeed);
     rewardOffers = generatedRewards.offers;
     randomSeed = generatedRewards.nextSeed;
   }
 
   let nextState: CombatState = {
-    ...state,
+    ...recoveredState,
     phase: "victory",
     randomSeed,
     rewardOffers,
     characters: {
       "character-1": {
-        ...state.characters["character-1"],
+        ...recoveredState.characters["character-1"],
         barrier: 0,
         itemDamageBonus: null,
         abilityDamageBonus: null,
       },
       "character-2": {
-        ...state.characters["character-2"],
+        ...recoveredState.characters["character-2"],
         barrier: 0,
         itemDamageBonus: null,
         abilityDamageBonus: null,
@@ -2496,10 +2566,17 @@ export function resolveRound(
           }
 
           if (effect.type === "barrier") {
+            const scaledBarrierAmount = Math.round(
+              effect.amount +
+                (ability.element
+                  ? actor.stats.elementalPower[ability.element]
+                  : 0) *
+                  (effect.elementalPowerScaling ?? 0),
+            );
             const result = grantBarrierToTarget(
               nextState,
               supportTargetId,
-              effect.amount,
+              scaledBarrierAmount,
               action.actorId,
             );
             nextState = result.state;
@@ -3268,7 +3345,8 @@ export function resolveRound(
         if (
           characterActor &&
           effect.damageType === "physical" &&
-          ability.category !== "spirit" &&
+          (ability.category !== "spirit" ||
+            physicalSpiritHitCanTriggerJaggedStrikes(ability.id)) &&
           characterHasPassive(characterActor, "jaggedStrikes")
         ) {
           const jaggedRoll = nextRandom(randomSeed);
@@ -3790,8 +3868,15 @@ export function resolveRound(
           const passiveTarget = getCombatant(nextState, passiveTargetId);
 
           if (passiveTarget && passiveTarget.hp > 0) {
+            const passiveRawPower = Math.round(
+              passive.basePower +
+                characterAfterAction.stats.elementalPower[
+                  passive.element
+                ] *
+                  passive.elementalPowerScaling,
+            );
             let amount = calculateFixedDamage({
-              basePower: passive.basePower,
+              basePower: passiveRawPower,
               damageType: passive.damageType,
               defender: passiveTarget.stats,
               defenderStatuses: passiveTarget.statuses,

@@ -62,7 +62,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Physical damage and Ghost recovery.",
         description:
-          "Deal 7 raw Physical damage to one enemy and restore 2 Ghost HP and 2 Ghost PP.",
+          "Deal 7 raw Physical damage to one enemy and restore 1 Ghost HP and 2 Ghost PP.",
         ppCost: 0,
         effects: [
           {
@@ -72,7 +72,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
             attackScaling: 0,
             elementalPowerScaling: 0,
           },
-          { type: "ghostRecoveryOnHit", amount: 2, ppAmount: 2 },
+          { type: "ghostRecoveryOnHit", amount: 1, ppAmount: 2 },
         ],
       },
     },
@@ -88,7 +88,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Dark damage and Ghost recovery.",
         description:
-          "Deal 14 raw Magical damage to one enemy and restore 4 Ghost HP.",
+          "Deal 14 raw Magical damage to one enemy and restore 3 Ghost HP.",
         ppCost: 4,
         effects: [
           {
@@ -98,7 +98,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
             attackScaling: 0,
             elementalPowerScaling: 0,
           },
-          { type: "ghostRecoveryOnHit", amount: 4 },
+          { type: "ghostRecoveryOnHit", amount: 3 },
         ],
       },
     },
@@ -132,10 +132,11 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Restore 12 Ghost HP.",
-        description: "Restore 12 Ghost HP. This is fixed Ghost recovery.",
-        ppCost: 0,
-        effects: [{ type: "ghostHealing", amount: 12 }],
+        shortDescription: "Restore 8 Ghost HP.",
+        description:
+          "Restore 8 Ghost HP. Costs 4 Ghost PP. This is fixed Ghost recovery.",
+        ppCost: 4,
+        effects: [{ type: "ghostHealing", amount: 8 }],
       },
     },
   },
@@ -232,7 +233,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
           {
             type: "damage",
             damageType: "physical",
-            basePower: 10,
+            basePower: 9,
             attackScaling: 0.25,
             elementalPowerScaling: 0,
           },

@@ -63,6 +63,8 @@ type Props = {
   spiritAvailable?: boolean;
   ghostMode?: boolean;
   ghostStrikeDamage: number;
+  ghostHealPpCost: number;
+  ghostHealAvailable: boolean;
   canReform?: boolean;
   abilities: {
     id: AbilityId;
@@ -114,6 +116,8 @@ export default function CommandBar({
   spiritAvailable = false,
   ghostMode = false,
   ghostStrikeDamage,
+  ghostHealPpCost,
+  ghostHealAvailable,
   canReform = false,
   abilities,
   spirits,
@@ -140,7 +144,7 @@ export default function CommandBar({
           {
             id: "ghostStrike",
             title: "Ghost Strike",
-            desc: `Deal ${ghostStrikeDamage} raw Physical damage and restore 2 Ghost HP and 2 Ghost PP.`,
+            desc: `Deal ${ghostStrikeDamage} raw Physical damage and restore 1 Ghost HP and 2 Ghost PP.`,
             icon: ghostAttackIcon,
             panelId: null,
           },
@@ -154,7 +158,7 @@ export default function CommandBar({
           {
             id: "ghostHeal",
             title: "Ghost Heal",
-            desc: "Restore 12 Ghost HP.",
+            desc: `Restore 8 Ghost HP. Costs ${ghostHealPpCost} Ghost PP.`,
             icon: ghostHealIcon,
             panelId: null,
           },
@@ -205,7 +209,12 @@ export default function CommandBar({
         panelId: "items",
       },
     ],
-    [canReform, ghostMode, ghostStrikeDamage],
+    [
+      canReform,
+      ghostHealPpCost,
+      ghostMode,
+      ghostStrikeDamage,
+    ],
   );
 
   const activeId = hovered ?? selected;
@@ -455,6 +464,7 @@ export default function CommandBar({
                 const isLocked =
                   (c.id === "abilities" && !abilitiesAvailable) ||
                   (c.id === "spirit" && !spiritAvailable) ||
+                  (c.id === "ghostHeal" && !ghostHealAvailable) ||
                   (c.id === "reform" && !canReform);
                 const isActionUnavailable =
                   (c.id === "attack" ||

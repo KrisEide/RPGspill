@@ -13,11 +13,12 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     passive: {
       name: "Embertail",
       description:
-        "Your first attack each encounter deals 9 additional Spirit Fire damage to one enemy hit.",
+        "Your first attack each encounter deals 7 + 20% of Fire Power as additional Spirit Fire damage to one enemy hit.",
       firstDamageActionEachEncounter: {
-        basePower: 9,
+        basePower: 7,
         damageType: "elemental",
         element: "fire",
+        elementalPowerScaling: 0.2,
       },
     },
     activeAbilityId: "cinderburst",

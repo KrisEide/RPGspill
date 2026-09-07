@@ -103,7 +103,7 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     icon: "🏕️",
     category: "barrier",
     description:
-      "Your healing abilities restore 5 additional HP to targets with Barrier.",
+      "Your healing abilities and Spirits restore 5 additional HP to targets with Barrier.",
     unique: true,
   },
   triage: {
@@ -112,7 +112,7 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     icon: "❤️‍🩹",
     category: "healing",
     description:
-      "Your healing abilities restore 6 additional HP to targets below 30% HP.",
+      "Your healing abilities and Spirits restore 6 additional HP to targets below 30% HP.",
     unique: true,
   },
   sharedRecovery: {
@@ -121,7 +121,7 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     icon: "🤝",
     category: "healing",
     description:
-      "When your healing ability restores HP to your ally, you also restore 5 HP.",
+      "When your healing ability or Spirit restores HP to your ally, you also restore 5 HP.",
     unique: true,
   },
   refreshingWaters: {
@@ -130,7 +130,7 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     icon: "💧",
     category: "healing",
     description:
-      "When your healing ability restores HP to your ally, they restore 3 PP.",
+      "When your healing ability or Spirit restores HP to your ally, they restore 3 PP.",
     unique: true,
   },
   lifeCurrent: {
@@ -138,7 +138,8 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     name: "Life Current",
     icon: "🌊",
     category: "healing",
-    description: "Your first successful heal each combat restores 30% more HP.",
+    description:
+      "Your first successful ability or Spirit heal each combat restores 30% more HP.",
     unique: true,
   },
   lastingCare: {
@@ -147,7 +148,7 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     icon: "🫶",
     category: "healing",
     description:
-      "Whenever your healing ability restores HP, grant the target 3 Barrier.",
+      "Whenever your healing ability or Spirit restores HP, grant the target 3 Barrier.",
     unique: true,
   },
   shieldmate: {

@@ -576,6 +576,7 @@ export type GrantAdditionalActionEffect = {
 export type BarrierEffect = {
   type: "barrier";
   amount: number;
+  elementalPowerScaling?: number;
 };
 
 export type CleanseEffect = {
@@ -669,6 +670,7 @@ export type SpiritDefinition = {
       basePower: number;
       damageType: DamageType;
       element: Element;
+      elementalPowerScaling: number;
     };
     firstBarrierGainEachEncounter?: {
       additionalBarrier: number;

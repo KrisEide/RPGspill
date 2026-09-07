@@ -95,7 +95,8 @@ export function getAbilityScalingDescription(
     if (
       effect.type !== "damage" &&
       effect.type !== "healing" &&
-      effect.type !== "applyStatus"
+      effect.type !== "applyStatus" &&
+      effect.type !== "barrier"
     ) {
       return [];
     }
@@ -108,9 +109,9 @@ export function getAbilityScalingDescription(
       );
     }
 
-    if (effect.elementalPowerScaling > 0 && ability.element) {
+    if ((effect.elementalPowerScaling ?? 0) > 0 && ability.element) {
       scalingParts.push(
-        `${formatScalingPercent(effect.elementalPowerScaling)} ${formatElementName(ability.element)}`,
+        `${formatScalingPercent(effect.elementalPowerScaling ?? 0)} ${formatElementName(ability.element)}`,
       );
     }
 
