@@ -23,6 +23,7 @@ import type {
 } from "../types";
 import { getEffectiveAbilityPpCost } from "../passives/passiveSystem";
 import { isEnemyTargetable } from "./targeting";
+import { getActiveBloodpactRoles } from "./bloodpact";
 import { canCharacterUseGhostAbility } from "../ghost/ghostSystem";
 
 type PlayerActionRequest = {
@@ -232,6 +233,7 @@ export function selectPlayerAction(
     (selection.action !== null &&
       (!isBonusAction || selection.bonusAction !== null)) ||
     !ability ||
+    (request.abilityId === "bloodpact" && !getActiveBloodpactRoles(state, characterId)) ||
     (ability.category === "spirit" &&
       (!activeSpirit || activeSpirit.activeUsesRemaining <= 0)) ||
     (isQuickAbility &&

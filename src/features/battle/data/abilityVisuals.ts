@@ -383,6 +383,16 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "dark",
   },
+  shatterWard: {
+    icon: "✦",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 5000,
+      impactDelayMs: 3200,
+      eventDurationMs: 5600,
+    },
+    impact: "dark",
+  },
   gatherDreadflame: {
     icon: "♠",
     animation: "cast",

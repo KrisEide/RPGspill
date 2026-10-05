@@ -59,6 +59,7 @@ export const CHARACTER_PRESETS = {
       "warhound",
       "guardDog",
       "ironquill",
+      "bloodpact",
     ],
   },
   char2: {
@@ -90,6 +91,7 @@ export const CHARACTER_PRESETS = {
       "warhound",
       "guardDog",
       "ironquill",
+      "bloodpact",
     ],
   },
 } satisfies Record<CharacterPresetId, CharacterPreset>;

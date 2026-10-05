@@ -7,6 +7,7 @@ import { combineDamageReductions } from "./damageMitigation";
 import { absorbDirectDamage, addBarrier } from "./barrier";
 import { getPartyHealingReceivedBonus } from "./healing";
 import { nextRandom } from "./random";
+import { getActiveBloodpactRoles } from "./bloodpact";
 import { isEnemySleeping, isEnemyTargetable } from "./targeting";
 import {
   applyCharacterHp,
@@ -736,6 +737,70 @@ function grantBarrierToTarget(
     grantedAmount: remainingBarrier - target.barrier,
     sourceBarrierGranted,
   };
+}
+
+function resolveBloodpact(
+  state: CombatState,
+  ownerId: CharacterInstanceId,
+  hpCost: number,
+  barrierAmount: number,
+  active: boolean,
+  events: CombatEvent[],
+): CombatState {
+  const roles = getActiveBloodpactRoles(state, ownerId);
+  if (!roles) return state;
+
+  const sacrifice = state.characters[roles.sacrificeId];
+  let nextState = updateHp(state, roles.sacrificeId, sacrifice.hp - hpCost);
+  const afterCost = nextState.characters[roles.sacrificeId];
+  events.push({
+    type: "bloodpact",
+    actorId: ownerId,
+    targetId: roles.sacrificeId,
+    abilityId: "bloodpact",
+    abilityRank: 1,
+    stage: "sacrifice",
+    active,
+    hpLoss: Math.min(sacrifice.hp, hpCost),
+    barrierAmount: 0,
+    remainingHp: afterCost.hp,
+    remainingBarrier: afterCost.barrier,
+    characterState: getCharacterEventState(afterCost),
+  });
+
+  // Finish this payment even if it sent Sacrifice into Ghost Form.
+  const barrierResult = grantBarrierToTarget(
+    nextState, roles.protectedId, barrierAmount, ownerId,
+  );
+  nextState = barrierResult.state;
+  const protectedCharacter = nextState.characters[roles.protectedId];
+  const source = nextState.characters[ownerId];
+  events.push({
+    type: "bloodpact",
+    actorId: ownerId,
+    targetId: roles.protectedId,
+    abilityId: "bloodpact",
+    abilityRank: 1,
+    stage: "protected",
+    active,
+    hpLoss: 0,
+    barrierAmount: barrierResult.grantedAmount,
+    remainingHp: protectedCharacter.hp,
+    remainingBarrier: protectedCharacter.barrier,
+    characterState: getCharacterEventState(protectedCharacter),
+    secondaryImpacts: barrierResult.sourceBarrierGranted > 0
+      ? [{
+          targetId: ownerId,
+          healingAmount: 0,
+          remainingHp: source.hp,
+          barrierAmount: barrierResult.sourceBarrierGranted,
+          remainingBarrier: source.barrier,
+          statusChanges: [],
+          characterState: getCharacterEventState(source),
+        }]
+      : [],
+  });
+  return nextState;
 }
 
 function applyDamageLinkedAbilityHealing(
@@ -1769,6 +1834,9 @@ export function resolveRound(
   state: CombatState,
   selections: RoundSelections,
 ): RoundResult {
+  if (state.phase !== "selectingActions") {
+    return { nextState: state, events: [] };
+  }
   let nextState: CombatState = {
     ...state,
     characters: {
@@ -1789,7 +1857,8 @@ export function resolveRound(
     })),
   };
 
-  const actions = [
+  let randomSeed = state.randomSeed;
+  const orderedActions = [
     ...getSelectedPlayerActions(state, selections),
     ...createEnemyActionsFromIntents(state).map((action) => ({
       action,
@@ -1853,7 +1922,10 @@ export function resolveRound(
       }
 
       if (first.alwaysActsLast && second.alwaysActsLast) {
-        return first.originalOrder - second.originalOrder;
+        return (
+          second.agility - first.agility ||
+          first.originalOrder - second.originalOrder
+        );
       }
 
       return (
@@ -1863,13 +1935,55 @@ export function resolveRound(
       );
     });
 
+  const actions = [...orderedActions];
+  let tieStartIndex = 0;
+
+  while (tieStartIndex < actions.length) {
+    const first = actions[tieStartIndex];
+    let tieEndIndex = tieStartIndex + 1;
+
+    while (tieEndIndex < actions.length) {
+      const candidate = actions[tieEndIndex];
+      const sameTurnOrder =
+        candidate.alwaysActsLast === first.alwaysActsLast &&
+        candidate.agility === first.agility &&
+        (first.alwaysActsLast ||
+          candidate.resolutionPriority === first.resolutionPriority);
+
+      if (!sameTurnOrder) {
+        break;
+      }
+
+      tieEndIndex += 1;
+    }
+
+    for (let index = tieEndIndex - 1; index > tieStartIndex; index -= 1) {
+      const roll = nextRandom(randomSeed);
+      randomSeed = roll.nextSeed;
+      const swapIndex =
+        tieStartIndex + Math.floor(roll.value * (index - tieStartIndex + 1));
+      [actions[index], actions[swapIndex]] = [
+        actions[swapIndex],
+        actions[index],
+      ];
+    }
+
+    tieStartIndex = tieEndIndex;
+  }
+
   const events: CombatEvent[] = [];
   const delayedItemActions: ItemCombatAction[] = [];
   const activeDamageReductions = new Map<CombatantId, number[]>();
   const resolvedPossessions = new Set<CharacterInstanceId>();
   const stunnedActorIds = new Set<CombatantId>();
   const resolvedStunnedActorIds = new Set<CombatantId>();
-  let randomSeed = state.randomSeed;
+  const bloodpactPassive = SPIRIT_DEFINITIONS.bloodpact.passive.roundStartBloodpact!;
+  for (const ownerId of CHARACTER_ORDER) {
+    nextState = resolveBloodpact(
+      nextState, ownerId,
+      bloodpactPassive.hpCost, bloodpactPassive.barrierAmount, false, events,
+    );
+  }
 
   for (const { action, requiredPossessionSourceId } of actions) {
     if (
@@ -2169,6 +2283,14 @@ export function resolveRound(
         continue;
       }
 
+      if (
+        ability.id === "bloodpact" &&
+        (action.targetId !== characterActorId ||
+          !getActiveBloodpactRoles(nextState, characterActorId))
+      ) {
+        continue;
+      }
+
       nextState = consumeSpiritActiveUse(
         nextState,
         characterActorId,
@@ -2232,6 +2354,84 @@ export function resolveRound(
     }
 
     nextState = spendPp(nextState, action.actorId, abilityPpCost);
+
+    if (!isCharacterInstanceId(action.actorId)) {
+      const enemyActor = nextState.enemies.find(
+        (enemy) => enemy.instanceId === action.actorId,
+      );
+
+      if (enemyActor?.enemyId === "orcMage") {
+        nextState = {
+          ...nextState,
+          enemies: nextState.enemies.map((enemy) =>
+            enemy.instanceId === action.actorId
+              ? {
+                  ...enemy,
+                  orcMageDarkBoltsSinceShatter:
+                    action.abilityId === "shatterWard"
+                      ? 0
+                      : action.abilityId === "darkBolt"
+                        ? Math.min(
+                            2,
+                            (enemy.orcMageDarkBoltsSinceShatter ?? 0) + 1,
+                          )
+                        : enemy.orcMageDarkBoltsSinceShatter,
+                }
+              : enemy,
+          ),
+        };
+      }
+    }
+
+    const removeBarrierEffect = ability.effects.find(
+      (effect) => effect.type === "removeBarrier",
+    );
+    if (removeBarrierEffect) {
+      const impacts = CHARACTER_ORDER.map((characterId) => ({
+        targetId: characterId,
+        barrierRemoved: nextState.characters[characterId].barrier,
+        remainingBarrier: 0 as const,
+      }));
+
+      nextState = {
+        ...nextState,
+        characters: {
+          "character-1": {
+            ...nextState.characters["character-1"],
+            barrier: 0,
+          },
+          "character-2": {
+            ...nextState.characters["character-2"],
+            barrier: 0,
+          },
+        },
+      };
+      events.push({
+        type: "barrierRemoved",
+        actorId: action.actorId,
+        abilityId: action.abilityId,
+        abilityRank: ability.rank,
+        impacts,
+      });
+      continue;
+    }
+
+    const bloodpactEffect = ability.effects.find(
+      (effect) => effect.type === "bloodpact",
+    );
+    if (bloodpactEffect && characterActorId) {
+      nextState = resolveBloodpact(
+        nextState, characterActorId,
+        bloodpactEffect.hpCost, bloodpactEffect.barrierAmount, true, events,
+      );
+      const guardDogResult = resolveGuardDogPassive(
+        nextState, characterActorId, randomSeed,
+      );
+      nextState = guardDogResult.state;
+      randomSeed = guardDogResult.nextSeed;
+      if (guardDogResult.event) events.push(guardDogResult.event);
+      continue;
+    }
 
     if (characterActorId) {
       for (const effect of ability.effects) {

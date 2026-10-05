@@ -293,6 +293,22 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  shatterWard: {
+    id: "shatterWard",
+    name: "Shatter Ward",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Remove all Barrier from both heroes.",
+        description: "Shatter every hero's Barrier.",
+        ppCost: 0,
+        effects: [{ type: "removeBarrier" }],
+      },
+    },
+  },
   gatherDreadflame: {
     id: "gatherDreadflame",
     name: "Gather Dreadflame",
@@ -559,6 +575,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "orcGruntMultiAttack"
   | "gangStrike"
   | "darkBolt"
+  | "shatterWard"
   | "gatherDreadflame"
   | "dreadflame"
   | "mendWounds"

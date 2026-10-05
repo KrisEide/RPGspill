@@ -46,7 +46,26 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                     : `${event.actorId}-${event.abilityId}-${index}`
           }
         >
-          {event.type === "skipTurn" ? (
+          {event.type === "bloodpact" ? (
+            <>
+              Bloodpact{event.active ? " active" : ""}: {getCombatantName(event.targetId)}
+              {event.stage === "sacrifice"
+                ? ` lost ${event.hpLoss} HP as Sacrifice.`
+                : ` gained ${event.barrierAmount} Barrier as Protected.`}
+              {event.stage === "sacrifice" && event.characterState.form === "ghost"
+                ? " Entered Ghost Form. The pact is paused."
+                : ""}
+            </>
+          ) : event.type === "barrierRemoved" ? (
+            <>
+              {getCombatantName(event.actorId)} used Shatter Ward and removed{" "}
+              {event.impacts.reduce(
+                (total, impact) => total + impact.barrierRemoved,
+                0,
+              )}{" "}
+              Barrier from the heroes.
+            </>
+          ) : event.type === "skipTurn" ? (
             event.reason === "chargeTargetUnavailable" ? (
               <>
                 {getCombatantName(event.actorId)} lost the {event.skippedAbilityId

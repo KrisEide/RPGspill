@@ -44,6 +44,8 @@ import {
   ITEM_PROJECTILE_VISUALS,
 } from "./data/itemVisuals";
 import { resolveImmediateItemUse } from "../../game/combat/resolveRound";
+import { getActiveBloodpactRoles, getPendingBloodpactOwners } from "../../game/combat/bloodpact";
+import BloodpactSelection from "./components/BloodpactSelection";
 import {
   areAllLivingPlayersReady,
   doesCharacterNeedAction,
@@ -74,6 +76,8 @@ import { getPortraitSource } from "../characterSelect/data/characterOptions";
 import {
   resolveMultiplayerAutomaticRound,
   submitMultiplayerAction,
+  submitMultiplayerBloodpact,
+  subscribeToBloodpact,
   submitMultiplayerItem,
   submitMultiplayerReform,
   submitMultiplayerUpgrade,
@@ -127,6 +131,10 @@ const ENEMY_DEATH_NEXT_ACTION_PAUSE_MS = 400;
 const BACKGROUND_REVEAL_DURATION_MS = 600;
 const ENCOUNTER_ANNOUNCEMENT_DURATION_MS = 3600;
 const COMBAT_ENTRANCE_DURATION_MS = 2600;
+const BLOODPACT_PASSIVE_EVENT_DURATION_MS = 2600;
+const BLOODPACT_ACTIVE_EVENT_DURATION_MS = 3600;
+const BLOODPACT_PASSIVE_IMPACT_DELAY_MS = 650;
+const BLOODPACT_ACTIVE_IMPACT_DELAY_MS = 900;
 
 type EncounterIntroPhase =
   | "background"
@@ -163,6 +171,11 @@ function getDamageImpactForTarget(
   event: CombatEvent | null,
   targetId: CombatantId,
 ) {
+  if (event?.type === "bloodpact") {
+    return event.stage === "sacrifice" && event.targetId === targetId
+      ? { ...event, amount: event.hpLoss, isCritical: false, statusChanges: [] }
+      : null;
+  }
   if (event?.type === "damage") {
     if (event.targetId === targetId) return event;
     return event.reflectedDamage?.targetId === targetId
@@ -261,6 +274,12 @@ function getSupportImpactForTarget(
   event: CombatEvent | null,
   targetId: CombatantId,
 ) {
+  if (event?.type === "bloodpact") {
+    if (event.stage === "protected" && event.targetId === targetId) {
+      return { ...event, healingAmount: 0, statusChanges: [] };
+    }
+    return event.secondaryImpacts?.find((impact) => impact.targetId === targetId) ?? null;
+  }
   if (event?.type === "damage") {
     const linkedImpact =
       event.linkedSupportImpact?.targetId === targetId
@@ -461,6 +480,8 @@ function resolveCharacterAction(
 }
 
 export default function BattleScreen(props: Props) {
+  const [bloodpactSubmitting, setBloodpactSubmitting] = useState(false);
+  const [bloodpactError, setBloodpactError] = useState<string | null>(null);
   const [gameState, dispatch] = useReducer(
     gameReducer,
     props,
@@ -514,6 +535,7 @@ export default function BattleScreen(props: Props) {
   const isMultiplayer = "localPlayerId" in props;
   const localPlayerId = isMultiplayer ? props.localPlayerId : null;
   const combatState = gameState.combat;
+  const pendingBloodpactOwnerId = getPendingBloodpactOwners(combatState)[0] ?? null;
   const encounterIntroPhase =
     encounterIntroState.encounterId === combatState.encounterId
       ? encounterIntroState.phase
@@ -710,6 +732,7 @@ export default function BattleScreen(props: Props) {
                 activeShortDescription: active.shortDescription,
                 activeDescription: active.description,
                 usesRemaining: spirit.activeUsesRemaining,
+                available: spirit.id !== "bloodpact" || Boolean(getActiveBloodpactRoles(combatState, commandCharacter.instanceId)),
               },
             ]
           : [];
@@ -752,6 +775,7 @@ export default function BattleScreen(props: Props) {
   const currentAbilityVisuals =
     currentCombatEvent?.type === "damage" ||
     currentCombatEvent?.type === "multiTargetDamage" ||
+    currentCombatEvent?.type === "barrierRemoved" ||
     currentCombatEvent?.type === "support" ||
     currentCombatEvent?.type === "multiTargetSupport" ||
     currentCombatEvent?.type === "statusApplied" ||
@@ -1174,7 +1198,11 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "itemUse"
         ? getItemProjectileVisual(currentCombatEvent)
         : null;
-    const impactDelay = isDefendEvent
+    const impactDelay = currentCombatEvent.type === "bloodpact"
+      ? currentCombatEvent.active
+        ? BLOODPACT_ACTIVE_IMPACT_DELAY_MS
+        : BLOODPACT_PASSIVE_IMPACT_DELAY_MS
+      : isDefendEvent
       ? DEFEND_EFFECT_DELAY_MS
       : isSelfDamageEvent
         ? 250
@@ -1188,7 +1216,11 @@ export default function BattleScreen(props: Props) {
             : 300
         : (currentAbilityVisuals?.timing?.impactDelayMs ??
           COMBAT_IMPACT_DELAY_MS);
-    const baseEventDuration = isDefendEvent
+    const baseEventDuration = currentCombatEvent.type === "bloodpact"
+      ? currentCombatEvent.active
+        ? BLOODPACT_ACTIVE_EVENT_DURATION_MS
+        : BLOODPACT_PASSIVE_EVENT_DURATION_MS
+      : isDefendEvent
       ? DEFEND_EVENT_DURATION_MS
       : isSelfDamageEvent
         ? 1400
@@ -1239,6 +1271,10 @@ export default function BattleScreen(props: Props) {
     const unsubscribeFromReadiness = subscribeToPlayerReadiness(
       setPlayerReadiness,
     );
+    const unsubscribeFromBloodpact = subscribeToBloodpact((combatState) => {
+      setBloodpactError(null);
+      dispatch({ type: "syncCombatState", combatState });
+    });
     const unsubscribeFromRound = subscribeToRoundResolved((result) => {
       setPlayerReadiness(null);
       setMultiplayerQuickAutoAttackRound(null);
@@ -1295,6 +1331,7 @@ export default function BattleScreen(props: Props) {
 
     return () => {
       unsubscribeFromReadiness();
+      unsubscribeFromBloodpact();
       unsubscribeFromRound();
       unsubscribeFromImmediateItem();
       unsubscribeFromGhostReformed();
@@ -1739,6 +1776,10 @@ export default function BattleScreen(props: Props) {
             ? currentCombatEvent.reason === "chargeTargetUnavailable"
               ? `${getCombatantName(currentCombatEvent.actorId)} loses the Stonebreaker charge...`
               : `${getCombatantName(currentCombatEvent.actorId)} is Stunned and loses the action...`
+          : currentCombatEvent?.type === "bloodpact"
+            ? `Bloodpact${currentCombatEvent.active ? " active" : ""} · ${getCombatantName(currentCombatEvent.targetId)} ${currentCombatEvent.stage === "sacrifice" ? `sacrifices ${currentCombatEvent.hpLoss} HP` : `gains ${currentCombatEvent.barrierAmount} Barrier`}…`
+          : currentCombatEvent?.type === "barrierRemoved"
+            ? `${getCombatantName(currentCombatEvent.actorId)} uses Shatter Ward...`
           : currentCombatEvent?.type === "wake"
             ? `${getCombatantName(currentCombatEvent.actorId)} wakes ${getCombatantName(currentCombatEvent.targetId)}...`
           : currentCombatEvent?.type === "wait"
@@ -1800,6 +1841,35 @@ export default function BattleScreen(props: Props) {
     >
       <div className="battleScene__overlay" />
 
+      {encounterIntroComplete && gameState.phase === "selectingBloodpact" && pendingBloodpactOwnerId && (
+        <BloodpactSelection
+          key={`${combatState.encounterId}:${pendingBloodpactOwnerId}`}
+          state={combatState}
+          ownerId={pendingBloodpactOwnerId}
+          canChoose={!isMultiplayer || localCharacterId === pendingBloodpactOwnerId}
+          submitting={bloodpactSubmitting}
+          error={bloodpactError}
+          onChoose={async (sacrificeId) => {
+            if (bloodpactSubmitting) return;
+            const playerId = combatState.characters[pendingBloodpactOwnerId].ownerId;
+            if (!isMultiplayer) {
+              dispatch({ type: "selectBloodpactRoles", playerId, sacrificeId });
+              return;
+            }
+            setBloodpactSubmitting(true);
+            setBloodpactError(null);
+            try {
+              const accepted = await submitMultiplayerBloodpact({ encounterId: combatState.encounterId, sacrificeId });
+              if (!accepted) setBloodpactError("The pact could not be selected. Please try again.");
+            } catch (error) {
+              setBloodpactError(error instanceof Error ? error.message : "Could not select Bloodpact.");
+            } finally {
+              setBloodpactSubmitting(false);
+            }
+          }}
+        />
+      )}
+
       {encounterIntroPhase === "announcement" && (
         <div
           className="encounterAnnouncement"
@@ -1847,6 +1917,8 @@ export default function BattleScreen(props: Props) {
         const characterId =
           combatState.players[playerId].controlledCharacterId;
         const character = combatState.characters[characterId];
+        const bloodpactEvent = currentCombatEvent?.type === "bloodpact" &&
+          currentCombatEvent.targetId === characterId ? currentCombatEvent : null;
         const visuals = CHARACTER_VISUALS[character.presetId];
         const idleSpriteSrc =
           character.form === "living"
@@ -1855,6 +1927,7 @@ export default function BattleScreen(props: Props) {
         const isAttacking =
           (currentCombatEvent?.type === "damage" ||
             currentCombatEvent?.type === "multiTargetDamage" ||
+            currentCombatEvent?.type === "barrierRemoved" ||
             currentCombatEvent?.type === "support" ||
             currentCombatEvent?.type === "multiTargetSupport" ||
             currentCombatEvent?.type === "statusApplied" ||
@@ -1982,7 +2055,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(characterId);
               }
             }}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""}`}
             style={
               activeAbilityVisuals?.timing
                 ? ({
@@ -1996,7 +2069,15 @@ export default function BattleScreen(props: Props) {
             }
           >
             <img
-              className="battleScene__playerSprite battleScene__playerSprite--idle"
+              key={bloodpactEvent ? `bloodpact-${combatState.round}-${gameState.pendingRound?.nextEventIndex}` : "idle"}
+              className={`battleScene__playerSprite battleScene__playerSprite--idle${bloodpactEvent ? ` bloodpactGlow bloodpactGlow--${bloodpactEvent.stage}${bloodpactEvent.active ? " bloodpactGlow--active" : ""}` : ""}`}
+              style={bloodpactEvent ? {
+                "--bloodpact-duration": `${
+                  bloodpactEvent.active
+                    ? BLOODPACT_ACTIVE_EVENT_DURATION_MS
+                    : BLOODPACT_PASSIVE_EVENT_DURATION_MS
+                }ms`,
+              } as CSSProperties : undefined}
               src={idleSpriteSrc}
               alt=""
             />
@@ -2192,7 +2273,8 @@ export default function BattleScreen(props: Props) {
           enemyIntent &&
           gameState.phase === "selectingActions" &&
           enemyIntentAbility?.effects.some(
-            (effect) => effect.type === "damage",
+            (effect) =>
+              effect.type === "damage" || effect.type === "removeBarrier",
           )
             ? enemyIntent.targetIds.filter(isCharacterInstanceId)
             : [];
@@ -2261,7 +2343,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(enemy.instanceId);
               }
             }}
-            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${selectedPrimaryTargetId === enemy.instanceId ? "battleScene__enemyUnit--selectedTarget" : ""} ${sleeping ? "battleScene__enemyUnit--sleeping" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? "battleScene__enemyUnit--attacking" : ""} ${visuals.attackAnimationVariant ? `battleScene__enemyUnit--attack-${visuals.attackAnimationVariant}` : ""} ${activeEnemySpriteSequence ? `battleScene__enemyUnit--sequence-${activeEnemySpriteSequence.variant}` : ""} ${isProjectileCasting ? "battleScene__enemyUnit--projectile-casting" : ""} ${projectileVariant ? `battleScene__enemyUnit--projectile-${projectileVariant}` : ""} ${isFireImpact ? "battleScene__enemyUnit--fireImpact" : ""} ${isWindImpact ? "battleScene__enemyUnit--windImpact" : ""} ${isWaterImpact ? "battleScene__enemyUnit--waterImpact" : ""} ${isBurnImpact ? "battleScene__enemyUnit--burnImpact" : ""} ${supportImpact ? `battleScene__enemyUnit--supportImpact battleScene__enemyUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "earth") : "earth"}` : ""}`}
+            className={`battleScene__enemyUnit ${unitEntranceClass} ${canTarget ? "battleScene__enemyUnit--selectable" : ""} ${selectedPrimaryTargetId === enemy.instanceId ? "battleScene__enemyUnit--selectedTarget" : ""} ${sleeping ? "battleScene__enemyUnit--sleeping" : ""} ${enemy.hp <= 0 ? "battleScene__enemyUnit--defeated" : ""} ${isAttacking ? `battleScene__enemyUnit--attacking battleScene__enemyUnit--ability-${currentCombatEvent.abilityId}` : ""} ${visuals.attackAnimationVariant ? `battleScene__enemyUnit--attack-${visuals.attackAnimationVariant}` : ""} ${activeEnemySpriteSequence ? `battleScene__enemyUnit--sequence-${activeEnemySpriteSequence.variant}` : ""} ${isProjectileCasting ? "battleScene__enemyUnit--projectile-casting" : ""} ${projectileVariant ? `battleScene__enemyUnit--projectile-${projectileVariant}` : ""} ${isFireImpact ? "battleScene__enemyUnit--fireImpact" : ""} ${isWindImpact ? "battleScene__enemyUnit--windImpact" : ""} ${isWaterImpact ? "battleScene__enemyUnit--waterImpact" : ""} ${isBurnImpact ? "battleScene__enemyUnit--burnImpact" : ""} ${supportImpact ? `battleScene__enemyUnit--supportImpact battleScene__enemyUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "earth") : "earth"}` : ""}`}
             style={
               {
                 left: `${formationPosition.xPercent}%`,
@@ -2761,6 +2843,11 @@ export default function BattleScreen(props: Props) {
           setSelectedItemId(null);
           setSelectedPrimaryTargetId(null);
           const ability = resolveAbility(abilityId, 1);
+
+          if (ability?.target === "self" && activeCharacterId) {
+            void submitPlayerAction(abilityId, activeCharacterId);
+            return;
+          }
 
           if (
             ability?.target === "singleEnemy" ||

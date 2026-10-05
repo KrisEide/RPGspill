@@ -175,6 +175,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     },
     abilityRanks: {
       darkBolt: 1,
+      shatterWard: 1,
     },
   },
   orcWizard: {

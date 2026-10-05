@@ -1,4 +1,5 @@
 import { resolveRound } from "../combat/resolveRound";
+import { selectBloodpactRoles } from "../combat/bloodpact";
 import {
   areAllLivingPlayersReady,
   createEmptyRoundSelections,
@@ -8,6 +9,7 @@ import {
 import { isCharacterInstanceId } from "../playerControl";
 import type {
   AbilityId,
+  CharacterInstanceId,
   ClientBattleState,
   CombatState,
   CombatantId,
@@ -24,6 +26,11 @@ import type {
 } from "../types";
 
 export type GameAction =
+  | {
+      type: "selectBloodpactRoles";
+      playerId: PlayerId;
+      sacrificeId: CharacterInstanceId;
+    }
   | {
       type: "resolveAutomaticRound";
     }
@@ -63,6 +70,14 @@ export function gameReducer(
   state: ClientBattleState,
   action: GameAction,
 ): ClientBattleState {
+  if (action.type === "selectBloodpactRoles") {
+    const combat = selectBloodpactRoles(
+      state.combat,
+      action.playerId,
+      action.sacrificeId,
+    );
+    return combat ? { ...state, combat, phase: combat.phase } : state;
+  }
   if (action.type === "applyCurrentCombatEvent") {
     return applyCurrentCombatEvent(state);
   }
@@ -462,7 +477,34 @@ function applyCurrentCombatEvent(
   }
 
   let combatAfterEvent =
-    event.type === "damage" ||
+    event.type === "barrierRemoved"
+      ? {
+          ...state.combat,
+          characters: event.impacts.reduce(
+            (characters, impact) => ({
+              ...characters,
+              [impact.targetId]: {
+                ...characters[impact.targetId],
+                barrier: impact.remainingBarrier,
+              },
+            }),
+            state.combat.characters,
+          ),
+        }
+      : event.type === "bloodpact"
+      ? {
+          ...state.combat,
+          characters: {
+            ...state.combat.characters,
+            [event.targetId]: {
+              ...state.combat.characters[event.targetId],
+              hp: event.remainingHp,
+              barrier: event.remainingBarrier,
+              ...event.characterState,
+            },
+          },
+        }
+      : event.type === "damage" ||
     event.type === "selfDamage" ||
     event.type === "statusDamage" ||
     event.type === "spiritDamage"
@@ -506,7 +548,7 @@ function applyCurrentCombatEvent(
   }
 
   if (
-    (event.type === "support" || event.type === "multiTargetSupport") &&
+    (event.type === "support" || event.type === "multiTargetSupport" || event.type === "bloodpact") &&
     event.secondaryImpacts
   ) {
     combatAfterEvent = event.secondaryImpacts.reduce(

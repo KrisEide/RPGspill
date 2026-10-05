@@ -69,6 +69,20 @@ function getPlannedAbility(
   return ability;
 }
 
+function getOrcMageAbility(state: CombatState, enemy: EnemyState) {
+  const darkBoltsSinceShatter =
+    enemy.orcMageDarkBoltsSinceShatter ?? 0;
+  const anyHeroHasBarrier = CHARACTER_ORDER.some(
+    (characterId) => state.characters[characterId].barrier > 0,
+  );
+  const abilityId =
+    darkBoltsSinceShatter >= 2 && anyHeroHasBarrier
+      ? "shatterWard"
+      : "darkBolt";
+
+  return getEnemyAbility(enemy, abilityId);
+}
+
 function getLowestHpLivingEnemy(state: CombatState) {
   return state.enemies
     .filter((enemy) => enemy.hp > 0 && enemy.hp < enemy.stats.maxHp)
@@ -158,9 +172,12 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
       randomSeed,
     );
     const hasRandomPattern = randomPatternResult.isActive;
-    const ability = hasRandomPattern
-      ? randomPatternResult.ability
-      : getPlannedAbility(state, enemy);
+    const ability =
+      enemy.enemyId === "orcMage"
+        ? getOrcMageAbility(state, enemy)
+        : hasRandomPattern
+          ? randomPatternResult.ability
+          : getPlannedAbility(state, enemy);
     if (hasRandomPattern) {
       randomSeed = randomPatternResult.nextSeed;
     }

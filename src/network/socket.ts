@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import type {
   AutomaticRoundRequest,
+  BloodpactSelectionRequest,
   CharacterReadinessState,
   ClientToServerEvents,
   LobbyState,
@@ -63,6 +64,21 @@ function connect() {
   });
 
   return connectionPromise;
+}
+
+export async function submitMultiplayerBloodpact(request: BloodpactSelectionRequest) {
+  await connect();
+  return new Promise<boolean>((resolve, reject) => {
+    socket.timeout(10000).emit("selectBloodpact", request, (error, accepted) => {
+      if (error) reject(new Error("Bloodpact selection timed out. Please try again."));
+      else resolve(accepted);
+    });
+  });
+}
+
+export function subscribeToBloodpact(handleUpdated: (state: CombatState) => void) {
+  socket.on("bloodpactUpdated", handleUpdated);
+  return () => { socket.off("bloodpactUpdated", handleUpdated); };
 }
 
 export async function createMultiplayerRoom() {

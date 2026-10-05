@@ -89,6 +89,7 @@ type Props = {
     activeShortDescription: string;
     activeDescription: string;
     usesRemaining: number;
+    available?: boolean;
   }[];
   items: {
     id: string;
@@ -338,7 +339,7 @@ export default function CommandBar({
                           type="button"
                           className="cmdbar__abilityButton"
                           disabled={
-                            spirit.usesRemaining <= 0 || actionsDisabled
+                            spirit.usesRemaining <= 0 || spirit.available === false || actionsDisabled
                           }
                           aria-describedby={tooltipId}
                           onClick={() => {

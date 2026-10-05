@@ -4,6 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:bloodpact": "node --import tsx --test tests/bloodpact.test.ts",
+    "test:orc-mage": "node --import tsx --test tests/orcMage.test.ts",
+    "test:turn-order": "node --import tsx --test tests/turnOrder.test.ts",
     "dev": "vite",
     "dev:server": "tsx watch server/src/server.ts",
     "start:server": "tsx server/src/server.ts",

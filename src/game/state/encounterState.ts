@@ -4,6 +4,7 @@ import { refreshSpiritActiveUses } from "../../data/spirits";
 import { createRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
 import { prepareEnemyIntents } from "../combat/enemyIntents";
+import { prepareBloodpactSelection } from "../combat/bloodpact";
 import type {
   CombatState,
   CombatStats,
@@ -38,6 +39,9 @@ function createEnemyState(
     barrier: 0,
     stats,
     abilityRanks: { ...definition.abilityRanks },
+    ...(enemyId === "orcMage"
+      ? { orcMageDarkBoltsSinceShatter: 0 }
+      : {}),
     statuses: definition.startsSleeping
       ? [
           {
@@ -120,5 +124,5 @@ export function startEncounter(
 
   return isRest
     ? nextState
-    : prepareEnemyIntents(prepareRoundTurnPriorities(nextState));
+    : prepareBloodpactSelection(prepareEnemyIntents(prepareRoundTurnPriorities(nextState)));
 }

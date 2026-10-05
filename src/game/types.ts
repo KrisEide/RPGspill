@@ -257,6 +257,7 @@ export type AbilityId =
   | "orcGruntMultiAttack"
   | "gangStrike"
   | "darkBolt"
+  | "shatterWard"
   | "gatherDreadflame"
   | "dreadflame"
   | "mendWounds"
@@ -274,6 +275,7 @@ export type AbilityId =
   | "riverheart"
   | "warhound"
   | "bodyguard"
+  | "bloodpact"
   | "ironquill";
 
 export type SpiritId =
@@ -283,6 +285,7 @@ export type SpiritId =
   | "riverheart"
   | "warhound"
   | "guardDog"
+  | "bloodpact"
   | "ironquill";
 
 export type AbilityTarget =
@@ -308,6 +311,10 @@ export type SpiritState = {
   passiveTriggeredThisEncounter: boolean;
   roundPriorityActive: boolean;
   steelDartAbilityBonusStacks: number;
+  bloodpactRoles?: {
+    sacrificeId: CharacterInstanceId;
+    protectedId: CharacterInstanceId;
+  } | null;
 };
 
 export type KnownSpirits = Partial<Record<SpiritId, SpiritState>>;
@@ -579,6 +586,10 @@ export type BarrierEffect = {
   elementalPowerScaling?: number;
 };
 
+export type RemoveBarrierEffect = {
+  type: "removeBarrier";
+};
+
 export type CleanseEffect = {
   type: "cleanse";
   statusId: StatusId;
@@ -611,6 +622,7 @@ export type CountAsItemUseEffect = {
 };
 
 export type AbilityEffect =
+  | { type: "bloodpact"; hpCost: number; barrierAmount: number }
   | DamageEffect
   | DefendEffect
   | HealingEffect
@@ -621,6 +633,7 @@ export type AbilityEffect =
   | SelfHpDamageEffect
   | GrantAdditionalActionEffect
   | BarrierEffect
+  | RemoveBarrierEffect
   | CleanseEffect
   | ChargeEffect
   | WakeEnemyEffect
@@ -690,6 +703,7 @@ export type SpiritDefinition = {
     steelDartAbilityAmplifier?: {
       damageBonusPerDart: number;
     };
+    roundStartBloodpact?: { hpCost: number; barrierAmount: number };
   };
   activeAbilityId: AbilityId;
   activeUsesPerEncounter: number;
@@ -750,6 +764,7 @@ export type EnemyState = {
   stats: CombatStats;
   abilityRanks: KnownAbilities;
   statuses: ActiveStatus[];
+  orcMageDarkBoltsSinceShatter?: number;
 };
 
 export type CharacterDraft = {
@@ -956,6 +971,18 @@ export type MultiTargetDamageEvent = {
   impacts: MultiTargetDamageImpact[];
 };
 
+export type BarrierRemovedEvent = {
+  type: "barrierRemoved";
+  actorId: CombatantId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  impacts: Array<{
+    targetId: CharacterInstanceId;
+    barrierRemoved: number;
+    remainingBarrier: 0;
+  }>;
+};
+
 export type StatusDamageEvent = {
   type: "statusDamage";
   sourceId: CombatantId;
@@ -1058,7 +1085,25 @@ export type ItemUseEvent = {
   damageBonus: ItemDamageBonus | null;
 };
 
+export type BloodpactEvent = {
+  type: "bloodpact";
+  actorId: CharacterInstanceId;
+  targetId: CharacterInstanceId;
+  abilityId: "bloodpact";
+  abilityRank: 1;
+  stage: "sacrifice" | "protected";
+  active: boolean;
+  hpLoss: number;
+  barrierAmount: number;
+  remainingHp: number;
+  remainingBarrier: number;
+  characterState: CharacterEventState;
+  secondaryImpacts?: MultiTargetSupportImpact[];
+};
+
 export type CombatEvent =
+  | BloodpactEvent
+  | BarrierRemovedEvent
   | DamageEvent
   | SelfDamageEvent
   | MultiTargetDamageEvent
@@ -1075,6 +1120,7 @@ export type CombatEvent =
   | SkipTurnEvent;
 
 export type RoundOutcomePhase =
+  | "selectingBloodpact"
   | "selectingActions"
   | "victory"
   | "defeat"

@@ -1,6 +1,24 @@
 import type { AbilityDefinition } from "../../game/types";
 
 export const SPIRIT_ABILITY_DEFINITIONS = {
+  bloodpact: {
+    id: "bloodpact",
+    name: "Bloodpact",
+    category: "spirit",
+    resolutionPriority: 0,
+    useTiming: "action",
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Sacrifice loses 10 HP. Protected gains 30 Barrier.",
+        description:
+          "0 PP · Once per encounter · Uses Action. The locked Sacrifice loses 10 HP, ignoring Barrier, then the locked Protected gains 30 Barrier. HP loss can cause Ghost Form. Requires both heroes to be living.",
+        ppCost: 0,
+        effects: [{ type: "bloodpact", hpCost: 10, barrierAmount: 30 }],
+      },
+    },
+  },
   cinderburst: {
     id: "cinderburst",
     name: "Embertail",
@@ -189,6 +207,7 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
   | "riverheart"
   | "warhound"
   | "bodyguard"
+  | "bloodpact"
   | "ironquill",
   AbilityDefinition
 >;

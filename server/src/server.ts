@@ -21,6 +21,7 @@ import {
 } from "../../src/game/combat/resolveRound";
 import { ITEM_DEFINITIONS } from "../../src/data/items";
 import { createInitialCombatState } from "../../src/game/state/initialState";
+import { selectBloodpactRoles } from "../../src/game/combat/bloodpact";
 import { startEncounter } from "../../src/game/state/encounterState";
 import { reformGhost } from "../../src/game/ghost/ghostSystem";
 import {
@@ -253,6 +254,24 @@ function startBattleIfReady(room: GameRoom) {
 }
 
 io.on("connection", (socket) => {
+  socket.on("selectBloodpact", (request, respond) => {
+    const roomCode = socket.data.roomCode;
+    const playerId = socket.data.playerId;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+    if (!room?.combatState || !playerId ||
+      request?.encounterId !== room.combatState.encounterId) {
+      respond(false);
+      return;
+    }
+    const nextState = selectBloodpactRoles(room.combatState, playerId, request.sacrificeId);
+    if (!nextState) {
+      respond(false);
+      return;
+    }
+    room.combatState = nextState;
+    respond(true);
+    io.to(room.code).emit("bloodpactUpdated", nextState);
+  });
   socket.on("createRoom", async (respond) => {
     const roomCode = createRoomCode();
     const room: GameRoom = {

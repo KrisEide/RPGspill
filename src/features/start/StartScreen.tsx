@@ -142,6 +142,10 @@ export default function StartScreen({
       {/* mørk overlay så tekst blir lesbar */}
       <div className="absolute inset-0 bg-black/40 pointer-events-none" />
 
+      <p className="absolute left-5 top-5 z-20 text-xl font-semibold text-white/90 drop-shadow-md sm:left-8 sm:top-8 sm:text-2xl">
+        Laget av Kristoffer Eide
+      </p>
+
       <svg
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-20 h-full w-full"

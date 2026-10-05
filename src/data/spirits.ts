@@ -5,6 +5,20 @@ import type {
 } from "../game/types";
 
 export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
+  bloodpact: {
+    id: "bloodpact",
+    name: "Bloodpact",
+    icon: "🩸",
+    element: null,
+    passive: {
+      name: "Bloodpact",
+      description:
+        "At encounter start, choose Sacrifice and Protected. Roles stay locked. At the start of each round, Sacrifice loses 1 HP, ignoring Barrier, then Protected gains 2 Barrier. Pauses while either hero is not living.",
+      roundStartBloodpact: { hpCost: 1, barrierAmount: 2 },
+    },
+    activeAbilityId: "bloodpact",
+    activeUsesPerEncounter: 1,
+  },
   embertail: {
     id: "embertail",
     name: "Embertail",
@@ -130,6 +144,7 @@ export function createSpiritState(spiritId: SpiritId) {
     passiveTriggeredThisEncounter: false,
     roundPriorityActive: false,
     steelDartAbilityBonusStacks: 0,
+    ...(spiritId === "bloodpact" ? { bloodpactRoles: null } : {}),
   };
 }
 
