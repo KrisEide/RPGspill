@@ -67,6 +67,7 @@ function createSpiritRewardOffer(
     activeDescription,
     activeDetailedDescription:
       activeAbility?.description ?? activeDescription,
+    automaticActive: definition.automaticActive,
   };
 }
 

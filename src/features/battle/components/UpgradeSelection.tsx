@@ -183,7 +183,7 @@ export default function UpgradeSelection({
                       {choice.passiveShortDescription}
                     </span>
                     <span>
-                      <strong>Active</strong>
+                      <strong>{choice.automaticActive ? "Automatic" : "Active"}</strong>
                       {choice.activeDescription}
                     </span>
                   </span>
@@ -228,11 +228,11 @@ export default function UpgradeSelection({
                       {choice.passiveDescription}
                     </span>
                     <span>
-                      <strong>Active — {choice.activeName}</strong>
+                      <strong>{choice.automaticActive ? "Automatic" : "Active"} — {choice.activeName}</strong>
                       {choice.activeDetailedDescription}
                     </span>
                     <span className="cmdbar__abilityTooltipMeta">
-                      Once per encounter
+                      {choice.automaticActive ? "Once per run" : "Once per encounter"}
                     </span>
                   </span>
                 )}

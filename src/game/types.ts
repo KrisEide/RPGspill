@@ -93,6 +93,9 @@ export type PassiveId =
   | "lastingCare"
   | "shieldmate"
   | "leaveItToMe"
+  | "battleRhythm"
+  | "brace"
+  | "counterguard"
   | "luckyHaul";
 
 export type PassiveCategory =
@@ -100,6 +103,7 @@ export type PassiveCategory =
   | "burn"
   | "barrier"
   | "healing"
+  | "physical"
   | "coop"
   | "items";
 
@@ -244,6 +248,7 @@ export type SpiritRewardOffer = RewardOfferBase & {
   activeName: string;
   activeDescription: string;
   activeDetailedDescription: string;
+  automaticActive?: boolean;
 };
 
 export type RestRewardOffer = RewardOfferBase & {
@@ -293,6 +298,8 @@ export type AbilityId =
   | "rootseed"
   | "earthquake"
   | "stonebreaker"
+  | "stoneguard"
+  | "fortify"
   | "crashingWave"
   | "tidalDrain"
   | "restoringCurrent"
@@ -330,7 +337,8 @@ export type AbilityId =
   | "warhound"
   | "bodyguard"
   | "bloodpact"
-  | "ironquill";
+  | "ironquill"
+  | "phoenixRebirth";
 
 export type SpiritId =
   | "embertail"
@@ -340,7 +348,8 @@ export type SpiritId =
   | "warhound"
   | "guardDog"
   | "bloodpact"
-  | "ironquill";
+  | "ironquill"
+  | "phoenix";
 
 export type AbilityTarget =
   | "singleEnemy"
@@ -683,6 +692,7 @@ export type BarrierEffect = {
   type: "barrier";
   amount: number;
   elementalPowerScaling?: number;
+  bonusIfNoBarrier?: number;
 };
 
 export type RemoveBarrierEffect = {
@@ -805,9 +815,12 @@ export type SpiritDefinition = {
       damageBonusPerDart: number;
     };
     roundStartBloodpact?: { hpCost: number; barrierAmount: number };
+    roundStartHealing?: { amount: number };
+    phoenixTonicReviveBonus?: { amount: number };
   };
   activeAbilityId: AbilityId;
   activeUsesPerEncounter: number;
+  automaticActive?: true;
 };
 
 export type ResolvedAbilityDefinition = Omit<
@@ -1013,7 +1026,7 @@ export type SelfDamageEvent = {
 export type ReflectedDamage = {
   sourceId: CharacterInstanceId;
   targetId: CombatantId;
-  passiveId: "thorns";
+  passiveIds: Array<"thorns" | "counterguard">;
   amount: number;
   remainingHp: number;
   absorbedByBarrier: number;
@@ -1027,6 +1040,8 @@ export type DefendEvent = {
   targetId: CombatantId;
   abilityId: AbilityId;
   abilityRank: AbilityRank;
+  barrierAmount: number;
+  remainingBarrier: number;
 };
 
 export type ChargeEvent = {
@@ -1228,9 +1243,19 @@ export type SoulTransferEvent = {
   targetCharacterState: CharacterEventState;
 };
 
+export type PhoenixRebirthEvent = {
+  type: "phoenixRebirth";
+  targetId: CharacterInstanceId;
+  remainingHp: number;
+  remainingBarrier: number;
+  phoenixActiveUsesRemaining: number;
+  characterState: CharacterEventState;
+};
+
 export type CombatEvent =
   | BloodpactEvent
   | SoulTransferEvent
+  | PhoenixRebirthEvent
   | BarrierRemovedEvent
   | DamageEvent
   | SelfDamageEvent

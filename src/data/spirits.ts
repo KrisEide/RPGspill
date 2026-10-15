@@ -155,6 +155,24 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     activeAbilityId: "ironquill",
     activeUsesPerEncounter: 1,
   },
+  phoenix: {
+    id: "phoenix",
+    name: "Phoenix",
+    icon: "🐦‍🔥",
+    element: "fire",
+    tags: ["spirit", "fire", "healing", "revive", "low_hp"],
+    passive: {
+      name: "Warm Embers",
+      shortDescription: "Restore 2 HP at the start of each round.",
+      description:
+        "At the start of each round, restore 2 HP while living. Phoenix Tonics used by this hero revive with 10 additional HP.",
+      roundStartHealing: { amount: 2 },
+      phoenixTonicReviveBonus: { amount: 10 },
+    },
+    activeAbilityId: "phoenixRebirth",
+    activeUsesPerEncounter: 1,
+    automaticActive: true,
+  },
 };
 
 export function createSpiritState(spiritId: SpiritId) {
@@ -178,10 +196,20 @@ export function createKnownSpirits(spiritIds: SpiritId[]): KnownSpirits {
 
 export function refreshSpiritActiveUses(spirits: KnownSpirits): KnownSpirits {
   return Object.fromEntries(
-    Object.keys(spirits).map((spiritId) => [
-      spiritId,
-      createSpiritState(spiritId as SpiritId),
-    ]),
+    Object.keys(spirits).map((spiritId) => {
+      const typedSpiritId = spiritId as SpiritId;
+      const spirit = spirits[typedSpiritId];
+
+      return [
+        spiritId,
+        SPIRIT_DEFINITIONS[typedSpiritId].automaticActive && spirit
+          ? {
+              ...createSpiritState(typedSpiritId),
+              activeUsesRemaining: spirit.activeUsesRemaining,
+            }
+          : createSpiritState(typedSpiritId),
+      ];
+    }),
   );
 }
 
@@ -192,6 +220,7 @@ export function getSpiritForActiveAbility(
   return Object.values(spirits).find(
     (spirit) =>
       spirit &&
+      !SPIRIT_DEFINITIONS[spirit.id].automaticActive &&
       SPIRIT_DEFINITIONS[spirit.id].activeAbilityId === abilityId,
   );
 }

@@ -18,6 +18,7 @@ import {
   getCharacterMaxPp,
   canCharacterUseGhostAbility,
   GHOST_UPGRADE_VALUES,
+  hasAvailablePhoenixRebirth,
   reviveGhost,
 } from "../ghost/ghostSystem";
 import {
@@ -74,6 +75,7 @@ import type {
   ItemUseEvent,
   ItemUseImpact,
   MultiTargetSupportImpact,
+  PhoenixRebirthEvent,
   RoundResult,
   RoundOutcomePhase,
   RoundSelections,
@@ -151,6 +153,11 @@ function resolveSoulTransfer(
   incomingHpDamage: number,
 ): { state: CombatState; event: SoulTransferEvent } | null {
   const target = state.characters[targetId];
+
+  if (hasAvailablePhoenixRebirth(target)) {
+    return null;
+  }
+
   const ghostId = CHARACTER_ORDER.find(
     (characterId) =>
       characterId !== targetId &&
@@ -208,6 +215,32 @@ function getEventCharacterState(
   return isCharacterInstanceId(id)
     ? getCharacterEventState(state.characters[id])
     : undefined;
+}
+
+function getPhoenixRebirthEvent(
+  before: CombatState["characters"][CharacterInstanceId],
+  after: CombatState["characters"][CharacterInstanceId],
+): PhoenixRebirthEvent | null {
+  const usesBefore = before.spirits.phoenix?.activeUsesRemaining ?? 0;
+  const usesAfter = after.spirits.phoenix?.activeUsesRemaining ?? 0;
+
+  if (
+    before.form !== "living" ||
+    after.form !== "living" ||
+    usesBefore <= 0 ||
+    usesAfter !== 0
+  ) {
+    return null;
+  }
+
+  return {
+    type: "phoenixRebirth",
+    targetId: after.instanceId,
+    remainingHp: after.hp,
+    remainingBarrier: after.barrier,
+    phoenixActiveUsesRemaining: usesAfter,
+    characterState: getCharacterEventState(after),
+  };
 }
 
 function updateBarrier(
@@ -1138,6 +1171,9 @@ function resolveEndOfRoundStatuses(
       const previousCharacterForm = isCharacterInstanceId(combatantId)
         ? nextState.characters[combatantId].form
         : null;
+      const characterBeforeLethalStatus = isCharacterInstanceId(combatantId)
+        ? nextState.characters[combatantId]
+        : null;
       const soulTransfer =
         calculatedRemainingHp <= 0 &&
         !isCharacterInstanceId(status.sourceId) &&
@@ -1150,7 +1186,14 @@ function resolveEndOfRoundStatuses(
       } else {
         nextState = updateHp(nextState, combatantId, calculatedRemainingHp);
       }
-      const remainingHp = soulTransfer
+      const phoenixRebirth =
+        characterBeforeLethalStatus && isCharacterInstanceId(combatantId)
+          ? getPhoenixRebirthEvent(
+              characterBeforeLethalStatus,
+              nextState.characters[combatantId],
+            )
+          : null;
+      const remainingHp = soulTransfer || phoenixRebirth
         ? 0
         : (getCombatant(nextState, combatantId)?.hp ?? 0);
       const actualRemainingHp =
@@ -1187,8 +1230,9 @@ function resolveEndOfRoundStatuses(
       const characterChangedForm =
         isCharacterInstanceId(combatantId) &&
         nextState.characters[combatantId].form !== previousCharacterForm;
+      const characterEndedStatusCycle = characterChangedForm || phoenixRebirth !== null;
 
-      if (characterChangedForm) {
+      if (characterEndedStatusCycle) {
         statusChanges.push(
           ...currentCombatant.statuses.map((activeStatus) => ({
             type: "removed" as const,
@@ -1273,7 +1317,9 @@ function resolveEndOfRoundStatuses(
         remainingHp,
         isCritical: false,
         statusChanges,
-        characterState: getEventCharacterState(nextState, combatantId),
+        characterState: phoenixRebirth && characterBeforeLethalStatus
+          ? getCharacterEventState(characterBeforeLethalStatus)
+          : getEventCharacterState(nextState, combatantId),
         sourceHealingAmount,
         sourceRemainingHp,
         sourceCharacterState:
@@ -1281,6 +1327,10 @@ function resolveEndOfRoundStatuses(
             ? getEventCharacterState(nextState, status.sourceId)
             : undefined,
       });
+
+      if (phoenixRebirth) {
+        events.push(phoenixRebirth);
+      }
 
       if (soulTransfer) {
         events.push({
@@ -1294,7 +1344,7 @@ function resolveEndOfRoundStatuses(
         });
       }
 
-      if (characterChangedForm) {
+      if (characterEndedStatusCycle) {
         break;
       }
     }
@@ -1528,6 +1578,7 @@ function resolveItemUse(
 ): {
   nextState: CombatState;
   event: ItemUseEvent;
+  followUpEvents: PhoenixRebirthEvent[];
   nextSeed: number;
 } | null {
   const definition = ITEM_DEFINITIONS[action.itemId];
@@ -1575,6 +1626,8 @@ function resolveItemUse(
     ? state
     : consumeItem(state, action.actorId, action.itemId);
   const impacts: ItemUseImpact[] = [];
+  const phoenixRebirthEvents: PhoenixRebirthEvent[] = [];
+  const characterBeforeRebirth = new Map<CharacterInstanceId, CombatState["characters"][CharacterInstanceId]>();
   let randomSeed = seed;
 
   for (const targetId of targetIds) {
@@ -1740,9 +1793,18 @@ function resolveItemUse(
           continue;
         }
 
+        const characterBeforeHpLoss = nextState.characters[targetId];
         const hpLoss = Math.min(effect.amount, currentTarget.hp);
         damageAmount += hpLoss;
         nextState = updateHp(nextState, targetId, currentTarget.hp - hpLoss);
+        const phoenixRebirth = getPhoenixRebirthEvent(
+          characterBeforeHpLoss,
+          nextState.characters[targetId],
+        );
+        if (phoenixRebirth) {
+          phoenixRebirthEvents.push(phoenixRebirth);
+          characterBeforeRebirth.set(targetId, characterBeforeHpLoss);
+        }
         continue;
       }
 
@@ -1873,7 +1935,16 @@ function resolveItemUse(
           continue;
         }
 
-        const revivedState = reviveGhost(nextState, targetId, effect.hp);
+        const phoenixTonicBonus =
+          actor.spirits.phoenix
+            ? (SPIRIT_DEFINITIONS.phoenix.passive.phoenixTonicReviveBonus
+                ?.amount ?? 0)
+            : 0;
+        const revivedState = reviveGhost(
+          nextState,
+          targetId,
+          effect.hp + phoenixTonicBonus,
+        );
         if (!revivedState) {
           continue;
         }
@@ -1884,6 +1955,9 @@ function resolveItemUse(
     }
 
     const targetAfterItem = getCombatant(nextState, targetId);
+    const rebirthBeforeState = isCharacterInstanceId(targetId)
+      ? characterBeforeRebirth.get(targetId)
+      : undefined;
 
     if (targetAfterItem) {
       impacts.push({
@@ -1893,12 +1967,16 @@ function resolveItemUse(
         healingAmount,
         ppRestored,
         barrierAmount,
-        remainingHp: targetAfterItem.hp,
+        remainingHp: rebirthBeforeState ? 0 : targetAfterItem.hp,
         remainingPp: targetAfterItem.pp,
-        remainingBarrier: targetAfterItem.barrier,
+        remainingBarrier: rebirthBeforeState
+          ? rebirthBeforeState.barrier
+          : targetAfterItem.barrier,
         revived,
         statusChanges,
-        characterState: getEventCharacterState(nextState, targetId),
+        characterState: rebirthBeforeState
+          ? getCharacterEventState(rebirthBeforeState)
+          : getEventCharacterState(nextState, targetId),
       });
     }
   }
@@ -1916,6 +1994,7 @@ function resolveItemUse(
   return {
     nextState,
     nextSeed: randomSeed,
+    followUpEvents: phoenixRebirthEvents,
     event: {
       type: "itemUse",
       actorId: action.actorId,
@@ -2279,6 +2358,41 @@ export function resolveRound(
         events,
       );
     }
+
+    const phoenixHealing =
+      SPIRIT_DEFINITIONS.phoenix.passive.roundStartHealing!.amount;
+    for (const ownerId of CHARACTER_ORDER) {
+      const owner = nextState.characters[ownerId];
+
+      if (
+        owner.form !== "living" ||
+        !owner.spirits.phoenix ||
+        owner.hp >= owner.stats.maxHp
+      ) {
+        continue;
+      }
+
+      const remainingHp = Math.min(
+        owner.stats.maxHp,
+        owner.hp + phoenixHealing,
+      );
+      nextState = updateHp(nextState, ownerId, remainingHp);
+      const healedOwner = nextState.characters[ownerId];
+      events.push({
+        type: "support",
+        actorId: ownerId,
+        targetId: ownerId,
+        abilityId: "phoenixRebirth",
+        abilityRank: 1,
+        healingAmount: remainingHp - owner.hp,
+        remainingHp,
+        barrierAmount: 0,
+        remainingBarrier: healedOwner.barrier,
+        remainingPp: healedOwner.pp,
+        statusChanges: [],
+        characterState: getCharacterEventState(healedOwner),
+      });
+    }
   }
 
   for (const { action, requiredPossessionSourceId } of actions) {
@@ -2394,6 +2508,7 @@ export function resolveRound(
         nextState = itemResult.nextState;
         randomSeed = itemResult.nextSeed;
         events.push(itemResult.event);
+        events.push(...itemResult.followUpEvents);
 
         if (
           isCharacterInstanceId(action.actorId) &&
@@ -3115,6 +3230,9 @@ export function resolveRound(
           if (effect.type === "barrier") {
             const scaledBarrierAmount = Math.round(
               effect.amount +
+                (currentTarget.barrier <= 0
+                  ? (effect.bonusIfNoBarrier ?? 0)
+                  : 0) +
                 (ability.element
                   ? actor.stats.elementalPower[ability.element]
                   : 0) *
@@ -3563,12 +3681,31 @@ export function resolveRound(
           ...currentReductions,
           effect.damageReduction,
         ]);
+        let barrierAmount = 0;
+        let remainingBarrier = actor.barrier;
+
+        if (
+          isCharacterInstanceId(action.actorId) &&
+          characterHasPassive(nextState.characters[action.actorId], "brace")
+        ) {
+          const barrierResult = grantBarrierToTarget(
+            nextState,
+            action.actorId,
+            PASSIVE_VALUES.braceBarrier,
+            action.actorId,
+          );
+          nextState = barrierResult.state;
+          barrierAmount = barrierResult.grantedAmount;
+          remainingBarrier = nextState.characters[action.actorId].barrier;
+        }
         events.push({
           type: "defend",
           actorId: action.actorId,
           targetId: action.actorId,
           abilityId: action.abilityId,
           abilityRank: ability.rank,
+          barrierAmount,
+          remainingBarrier,
         });
 
         if (
@@ -3728,6 +3865,7 @@ export function resolveRound(
       const impacts = [];
       const followUpStatusEvents: StatusDamageEvent[] = [];
       const soulTransferEvents: SoulTransferEvent[] = [];
+      const phoenixRebirthEvents: PhoenixRebirthEvent[] = [];
       let linkedSupportImpact: MultiTargetSupportImpact | undefined;
       let linkedSecondarySupportImpacts:
         | MultiTargetSupportImpact[]
@@ -4109,6 +4247,9 @@ export function resolveRound(
           targetId,
           barrierResult.remainingBarrier,
         );
+        const characterBeforeLethalDamage = isCharacterInstanceId(targetId)
+          ? nextState.characters[targetId]
+          : null;
         const soulTransfer =
           calculatedRemainingHp <= 0 &&
           !isCharacterInstanceId(action.actorId) &&
@@ -4133,9 +4274,25 @@ export function resolveRound(
             targetId,
             calculatedRemainingHp,
           );
-          damageCharacterState = getEventCharacterState(nextState, targetId);
+          const phoenixRebirth = characterBeforeLethalDamage && isCharacterInstanceId(targetId)
+            ? getPhoenixRebirthEvent(
+                characterBeforeLethalDamage,
+                nextState.characters[targetId],
+              )
+            : null;
+          if (phoenixRebirth && characterBeforeLethalDamage) {
+            phoenixRebirthEvents.push(phoenixRebirth);
+            damageCharacterState = getCharacterEventState(
+              characterBeforeLethalDamage,
+            );
+          } else {
+            damageCharacterState = getEventCharacterState(nextState, targetId);
+          }
         }
-        const remainingHp = soulTransfer
+        const phoenixRebirthTriggered = phoenixRebirthEvents.some(
+          (event) => event.targetId === targetId,
+        );
+        const remainingHp = soulTransfer || phoenixRebirthTriggered
           ? 0
           : (getCombatant(nextState, targetId)?.hp ?? 0);
 
@@ -4178,22 +4335,44 @@ export function resolveRound(
 
         if (
           !isCharacterInstanceId(action.actorId) &&
-          isCharacterInstanceId(targetId) &&
-          currentTarget.barrier > 0 &&
-          characterHasPassive(nextState.characters[targetId], "thorns")
+          isCharacterInstanceId(targetId)
         ) {
+          const defendingCharacter = state.characters[targetId];
+          const passiveIds: Array<"thorns" | "counterguard"> = [];
+
+          if (
+            currentTarget.barrier > 0 &&
+            characterHasPassive(defendingCharacter, "thorns")
+          ) {
+            passiveIds.push("thorns");
+          }
+          if (
+            damageReductions.length > 0 &&
+            characterHasPassive(defendingCharacter, "counterguard")
+          ) {
+            passiveIds.push("counterguard");
+          }
+
           const reflectedTarget = getCombatant(nextState, action.actorId);
 
-          if (reflectedTarget && reflectedTarget.hp > 0) {
-            const thornsDamage = calculateFixedDamage({
-              basePower: PASSIVE_VALUES.thornsDamage,
-              damageType: "physical",
-              defender: reflectedTarget.stats,
-              defenderStatuses: reflectedTarget.statuses,
-            });
+          if (reflectedTarget && reflectedTarget.hp > 0 && passiveIds.length > 0) {
+            const totalReflectedDamage = passiveIds.reduce(
+              (total, passiveId) =>
+                total +
+                calculateFixedDamage({
+                  basePower:
+                    passiveId === "thorns"
+                      ? PASSIVE_VALUES.thornsDamage
+                      : PASSIVE_VALUES.counterguardDamage,
+                  damageType: "physical",
+                  defender: reflectedTarget.stats,
+                  defenderStatuses: reflectedTarget.statuses,
+                }),
+              0,
+            );
             const reflectedBarrierResult = absorbDirectDamage(
               reflectedTarget.barrier,
-              thornsDamage,
+              totalReflectedDamage,
             );
             const reflectedRemainingHp = Math.max(
               0,
@@ -4226,7 +4405,7 @@ export function resolveRound(
             reflectedDamage = {
               sourceId: targetId,
               targetId: action.actorId,
-              passiveId: "thorns" as const,
+              passiveIds,
               amount: reflectedBarrierResult.hpDamage,
               remainingHp: reflectedRemainingHp,
               absorbedByBarrier: reflectedBarrierResult.absorbedByBarrier,
@@ -4533,8 +4712,43 @@ export function resolveRound(
             : {}),
         });
       }
+      events.push(...phoenixRebirthEvents);
       events.push(...soulTransferEvents);
       events.push(...followUpStatusEvents);
+    }
+
+    if (
+      actionDealtDamage &&
+      action.abilityId === "autoAttack" &&
+      isCharacterInstanceId(action.actorId) &&
+      characterHasPassive(
+        nextState.characters[action.actorId],
+        "battleRhythm",
+      )
+    ) {
+      const character = nextState.characters[action.actorId];
+      const remainingPp = Math.min(
+        getCharacterMaxPp(character),
+        character.pp + PASSIVE_VALUES.battleRhythmPp,
+      );
+      const recoveredPp = remainingPp - character.pp;
+      nextState = updatePp(nextState, action.actorId, remainingPp);
+
+      const damageEvent = [...events]
+        .reverse()
+        .find(
+          (event) =>
+            event.type === "damage" &&
+            event.actorId === action.actorId &&
+            event.abilityId === "autoAttack",
+        );
+
+      if (damageEvent?.type === "damage") {
+        damageEvent.actorPpRecoveryAmount = recoveredPp;
+        damageEvent.actorCharacterState = getCharacterEventState(
+          nextState.characters[action.actorId],
+        );
+      }
     }
 
     if (
@@ -4819,6 +5033,10 @@ export function resolveRound(
           characterBeforeCost.hp - selfHpDamageEffect.amount,
         );
         const characterAfterCost = nextState.characters[action.actorId];
+        const phoenixRebirth = getPhoenixRebirthEvent(
+          characterBeforeCost,
+          characterAfterCost,
+        );
 
         events.push({
           type: "selfDamage",
@@ -4827,12 +5045,17 @@ export function resolveRound(
           abilityId: action.abilityId,
           abilityRank: ability.rank,
           amount: selfHpDamageEffect.amount,
-          remainingHp: characterAfterCost.hp,
+          remainingHp: phoenixRebirth ? 0 : characterAfterCost.hp,
           absorbedByBarrier: 0,
           isCritical: false,
           statusChanges: [],
-          characterState: getCharacterEventState(characterAfterCost),
+          characterState: getCharacterEventState(
+            phoenixRebirth ? characterBeforeCost : characterAfterCost,
+          ),
         });
+        if (phoenixRebirth) {
+          events.push(phoenixRebirth);
+        }
       }
     }
   }
@@ -4893,6 +5116,7 @@ export function resolveRound(
       nextState = itemResult.nextState;
       randomSeed = itemResult.nextSeed;
       events.push(itemResult.event);
+      events.push(...itemResult.followUpEvents);
     }
   }
 

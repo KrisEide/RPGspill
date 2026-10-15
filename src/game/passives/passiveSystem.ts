@@ -24,6 +24,9 @@ export const PASSIVE_VALUES = {
   lastingCareBarrier: 3,
   shieldmateBarrier: 5,
   leaveItToMeDamageBonus: 0.25,
+  battleRhythmPp: 3,
+  braceBarrier: 6,
+  counterguardDamage: 4,
   luckyHaulChance: 0.25,
 } as const;
 

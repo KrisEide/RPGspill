@@ -24,6 +24,8 @@ import rowanCastSpellSprite from "../../../assets/sprites/characters/rowan_casts
 import lyraCastSpellSprite from "../../../assets/sprites/characters/lyra_castspell.png";
 import rowanMagicBagSprite from "../../../assets/sprites/characters/rowan_magicbag.png";
 import lyraMagicBagSprite from "../../../assets/sprites/characters/lyra_magicbag.png";
+import rowanBarrierAbilitySprite from "../../../assets/sprites/characters/rowan_barrierability.png";
+import lyraBarrierAbilitySprite from "../../../assets/sprites/characters/lyra_barrierability.png";
 import type {
   AbilityId,
   CharacterPresetId,
@@ -85,6 +87,22 @@ const LYRA_WATER_HEALING_SPRITE_ADJUSTMENT =
     displayScale: 0.29,
   });
 
+const ROWAN_BARRIER_ABILITY_SPRITE_ADJUSTMENT =
+  createAnchoredSpriteAdjustment({
+    sourceSize: { width: 1254, height: 1254 },
+    sourceAnchor: { x: 475, y: 1170 },
+    targetAnchor: { x: 260, y: 330 },
+    displayScale: 0.41,
+  });
+
+const LYRA_BARRIER_ABILITY_SPRITE_ADJUSTMENT =
+  createAnchoredSpriteAdjustment({
+    sourceSize: { width: 1254, height: 1254 },
+    sourceAnchor: { x: 620, y: 1170 },
+    targetAnchor: { x: 260, y: 330 },
+    displayScale: 0.41,
+  });
+
 type CharacterVisualDefinition = {
   idleSpriteSrc: string;
   ghostIdleSpriteSrc: string;
@@ -129,6 +147,8 @@ export const CHARACTER_VISUALS: Record<
       magicBag: rowanMagicBagSprite,
       healingTide: rowanWaterHealingSprite,
       stonebloom: rowanEarthHealingSprite,
+      stoneguard: rowanBarrierAbilitySprite,
+      fortify: rowanBarrierAbilitySprite,
       whirlwind: rowanWhirlwindSprite,
       razorGale: rowanCastSpellSprite,
       cyclone: rowanCastSpellSprite,
@@ -161,6 +181,8 @@ export const CHARACTER_VISUALS: Record<
       healingTide: HEALING_SPRITE_ADJUSTMENT,
       restoringCurrent: HEALING_SPRITE_ADJUSTMENT,
       stonebloom: HEALING_SPRITE_ADJUSTMENT,
+      stoneguard: ROWAN_BARRIER_ABILITY_SPRITE_ADJUSTMENT,
+      fortify: ROWAN_BARRIER_ABILITY_SPRITE_ADJUSTMENT,
       whirlwind: createAnchoredSpriteAdjustment({
         sourceSize: { width: 1680, height: 936 },
         sourceAnchor: { x: 450, y: 840 },
@@ -218,6 +240,8 @@ export const CHARACTER_VISUALS: Record<
       magicBag: lyraMagicBagSprite,
       healingTide: lyraWaterHealingSprite,
       stonebloom: lyraEarthHealingSprite,
+      stoneguard: lyraBarrierAbilitySprite,
+      fortify: lyraBarrierAbilitySprite,
       whirlwind: lyraWhirlwindSprite,
       razorGale: lyraCastSpellSprite,
       cyclone: lyraCastSpellSprite,
@@ -250,6 +274,8 @@ export const CHARACTER_VISUALS: Record<
       healingTide: LYRA_WATER_HEALING_SPRITE_ADJUSTMENT,
       restoringCurrent: LYRA_EARTH_HEALING_SPRITE_ADJUSTMENT,
       stonebloom: LYRA_EARTH_HEALING_SPRITE_ADJUSTMENT,
+      stoneguard: LYRA_BARRIER_ABILITY_SPRITE_ADJUSTMENT,
+      fortify: LYRA_BARRIER_ABILITY_SPRITE_ADJUSTMENT,
       whirlwind: createAnchoredSpriteAdjustment({
         sourceSize: { width: 1680, height: 936 },
         sourceAnchor: { x: 445, y: 895 },

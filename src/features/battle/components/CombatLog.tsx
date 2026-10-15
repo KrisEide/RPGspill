@@ -1,4 +1,5 @@
 import { ITEM_DEFINITIONS } from "../../../data/items";
+import { PASSIVE_DEFINITIONS } from "../../../data/passives";
 import { STATUS_DEFINITIONS } from "../../../data/statuses";
 import { SPIRIT_DEFINITIONS } from "../../../data/spirits";
 import { resolveAbility } from "../../../game/abilities/abilityProgression";
@@ -37,6 +38,8 @@ export default function CombatLog({ events, getCombatantName }: Props) {
           key={
             event.type === "statusDamage"
               ? `${event.targetId}-${event.statusId}-${index}`
+              : event.type === "phoenixRebirth"
+                ? `${event.targetId}-phoenix-rebirth-${index}`
               : event.type === "soulTransfer"
                 ? `${event.ghostId}-${event.targetId}-soul-${index}`
               : event.type === "spiritDamage"
@@ -48,7 +51,11 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                     : `${event.actorId}-${event.abilityId}-${index}`
           }
         >
-          {event.type === "soulTransfer" ? (
+          {event.type === "phoenixRebirth" ? (
+            <>
+              Phoenix returned {getCombatantName(event.targetId)} with {event.remainingHp} HP and {event.remainingBarrier} Barrier.
+            </>
+          ) : event.type === "soulTransfer" ? (
             <>
               Soul Link shared the party's remaining HP: {getCombatantName(event.targetId)}
               {" "}returned with {event.targetRemainingHp} HP and {getCombatantName(event.ghostId)}
@@ -100,7 +107,12 @@ export default function CombatLog({ events, getCombatantName }: Props) {
           ) : event.type === "wait" ? (
             <>{getCombatantName(event.actorId)} caught their breath.</>
           ) : event.type === "defend" ? (
-            <>{getCombatantName(event.actorId)} is defending.</>
+            <>
+              {getCombatantName(event.actorId)} is defending.
+              {event.barrierAmount > 0
+                ? ` Brace granted ${event.barrierAmount} Barrier.`
+                : ""}
+            </>
           ) : event.type === "selfDamage" ? (
             <>
               {getCombatantName(event.actorId)} lost {event.amount} HP to{" "}
@@ -251,7 +263,7 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 : ""}
               .
               {event.reflectedDamage
-                ? ` Thorns dealt ${event.reflectedDamage.amount} damage to ${getCombatantName(event.reflectedDamage.targetId)}.`
+                ? ` ${event.reflectedDamage.passiveIds.map((passiveId) => PASSIVE_DEFINITIONS[passiveId].name).join(" and ")} dealt ${event.reflectedDamage.amount} damage to ${getCombatantName(event.reflectedDamage.targetId)}.`
                 : ""}
               {event.statusChanges.some(
                 (change) =>
@@ -271,7 +283,7 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 ? ` ${getCombatantName(event.actorId)} restored ${event.actorHealingAmount} Ghost HP.`
                 : ""}
               {(event.actorPpRecoveryAmount ?? 0) > 0
-                ? ` ${getCombatantName(event.actorId)} restored ${event.actorPpRecoveryAmount} Ghost PP.`
+                ? ` ${getCombatantName(event.actorId)} restored ${event.actorPpRecoveryAmount} PP.`
                 : ""}
               {(event.linkedSupportImpact?.healingAmount ?? 0) > 0
                 ? ` ${getCombatantName(event.linkedSupportImpact!.targetId)} restored ${event.linkedSupportImpact!.healingAmount} HP.`

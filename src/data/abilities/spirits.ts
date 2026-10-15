@@ -30,15 +30,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Damage and Burn all enemies.",
         description:
-          "Deal 1 + 20% of Fire Power as Spirit Fire damage to all enemies and apply Burn.",
+          "Deal 6 + 30% of Fire Power as Spirit Fire damage to all enemies and apply Burn.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 1,
+            basePower: 6,
             attackScaling: 0,
-            elementalPowerScaling: 0.2,
+            elementalPowerScaling: 0.3,
             statusOnHit: {
               statusId: "burn",
             },
@@ -58,13 +58,13 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Grant Barrier to both heroes.",
         description:
-          "Grant 10 + 30% of Earth Power as Barrier to both heroes.",
+          "Grant 12 + 40% of Earth Power as Barrier to both heroes.",
         ppCost: 0,
         effects: [
           {
             type: "barrier",
-            amount: 10,
-            elementalPowerScaling: 0.3,
+            amount: 12,
+            elementalPowerScaling: 0.4,
           },
         ],
       },
@@ -81,15 +81,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Act first and damage one enemy.",
         description:
-          "Act first this round and deal 16 + 40% of Wind Power as Spirit Wind damage to one enemy.",
+          "Act first this round and deal 20 + 60% of Wind Power as Spirit Wind damage to one enemy.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 16,
+            basePower: 20,
             attackScaling: 0,
-            elementalPowerScaling: 0.4,
+            elementalPowerScaling: 0.6,
           },
         ],
       },
@@ -129,14 +129,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Deal heavy Spirit Physical damage.",
         description:
-          "Deal 16 + 60% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
+          "Deal 22 + 80% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 16,
-            attackScaling: 0.6,
+            basePower: 22,
+            attackScaling: 0.8,
             elementalPowerScaling: 0,
           },
         ],
@@ -149,13 +149,13 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
     category: "spirit",
     resolutionPriority: 1000,
     useTiming: "quickAction",
-    target: "singleAlly",
+    target: "allAllies",
     element: null,
     ranks: {
       1: {
-        shortDescription: "Negate the next enemy attack.",
+        shortDescription: "Both heroes negate the next enemy attack.",
         description:
-          "Quick · Priority. Choose yourself or your ally. The next enemy attack that would damage them deals 0 damage instead.",
+          "Quick · Priority. Both heroes negate the next enemy attack that would damage them.",
         ppCost: 0,
         effects: [
           {
@@ -200,6 +200,23 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       },
     },
   },
+  phoenixRebirth: {
+    id: "phoenixRebirth",
+    name: "Rebirth",
+    category: "spirit",
+    resolutionPriority: 0,
+    target: "self",
+    element: "fire",
+    ranks: {
+      1: {
+        shortDescription: "Survive one lethal blow with 40 HP and 10 Barrier.",
+        description:
+          "Automatic · Once per run. When you would die, remain in living form with 40 HP, gain 10 Barrier, and remove ongoing damaging effects.",
+        ppCost: 0,
+        effects: [],
+      },
+    },
+  },
 } satisfies Record<
   | "cinderburst"
   | "stoneback"
@@ -208,6 +225,7 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
   | "warhound"
   | "bodyguard"
   | "bloodpact"
-  | "ironquill",
+  | "ironquill"
+  | "phoenixRebirth",
   AbilityDefinition
 >;

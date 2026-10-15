@@ -573,6 +573,39 @@ function applyCurrentCombatEvent(
               },
             },
           }
+      : event.type === "phoenixRebirth"
+        ? {
+            ...state.combat,
+            characters: {
+              ...state.combat.characters,
+              [event.targetId]: {
+                ...state.combat.characters[event.targetId],
+                hp: event.remainingHp,
+                barrier: event.remainingBarrier,
+                ...event.characterState,
+                spirits: {
+                  ...state.combat.characters[event.targetId].spirits,
+                  phoenix: state.combat.characters[event.targetId].spirits.phoenix
+                    ? {
+                        ...state.combat.characters[event.targetId].spirits.phoenix,
+                        activeUsesRemaining: event.phoenixActiveUsesRemaining,
+                      }
+                    : undefined,
+                },
+              },
+            },
+          }
+      : event.type === "defend" && isCharacterInstanceId(event.targetId)
+        ? {
+            ...state.combat,
+            characters: {
+              ...state.combat.characters,
+              [event.targetId]: {
+                ...state.combat.characters[event.targetId],
+                barrier: event.remainingBarrier,
+              },
+            },
+          }
       : event.type === "damage" ||
     event.type === "selfDamage" ||
     event.type === "statusDamage" ||

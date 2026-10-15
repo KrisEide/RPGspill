@@ -73,6 +73,16 @@ export const ABILITY_REWARD_POOL: readonly AbilityRewardDefinition[] = [
     tags: ["earth", "healing", "barrier", "cleanse"],
   },
   {
+    abilityId: "stoneguard",
+    icon: "🛡️",
+    tags: ["earth", "barrier", "single_target"],
+  },
+  {
+    abilityId: "fortify",
+    icon: "🏰",
+    tags: ["earth", "barrier", "aoe", "partner"],
+  },
+  {
     abilityId: "whirlwind",
     icon: "🌪️",
     tags: ["physical", "damage", "aoe", "burn"],

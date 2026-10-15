@@ -4,13 +4,18 @@ import { test } from "node:test";
 import { SPIRIT_DEFINITIONS } from "../src/data/spirits";
 import { ABILITIES } from "../src/data/abilities";
 
-test("Guard Dog deals 5 passive damage and keeps Bodyguard Quick", () => {
+test("Guard Dog deals 5 passive damage and Bodyguard quickly protects both heroes", () => {
   assert.equal(
     SPIRIT_DEFINITIONS.guardDog.passive.nonDamagingActionSpiritAttack
       ?.basePower,
     5,
   );
   assert.equal(ABILITIES.bodyguard.useTiming, "quickAction");
+  assert.equal(ABILITIES.bodyguard.target, "allAllies");
+  assert.match(
+    ABILITIES.bodyguard.ranks[1].description,
+    /Both heroes.*next enemy attack/i,
+  );
 });
 
 test("Bodyguard adds a persistent white aura to its protected hero", () => {

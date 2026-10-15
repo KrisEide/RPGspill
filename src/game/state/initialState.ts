@@ -82,9 +82,16 @@ function createCharacterState(
     statuses: [],
   };
 
-  return usesDevelopmentLoadout && startInGhostForm
-    ? applyCharacterHp(character, 0)
-    : character;
+  if (!usesDevelopmentLoadout || !startInGhostForm) {
+    return character;
+  }
+
+  const forcedGhost = applyCharacterHp(
+    { ...character, spirits: {} },
+    0,
+  );
+
+  return { ...forcedGhost, spirits: character.spirits };
 }
 
 export function createInitialCombatState(setup: GameSetup): CombatState {

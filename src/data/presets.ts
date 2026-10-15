@@ -50,6 +50,8 @@ export const CHARACTER_PRESETS = {
       magicBag: 1,
       healingTide: 1,
       stonebloom: 1,
+      stoneguard: 1,
+      fortify: 1,
       whirlwind: 1,
       windSlash: 1,
       razorGale: 1,
@@ -64,6 +66,7 @@ export const CHARACTER_PRESETS = {
       "warhound",
       "guardDog",
       "ironquill",
+      "phoenix",
     ],
   },
   char2: {
@@ -86,6 +89,8 @@ export const CHARACTER_PRESETS = {
       magicBag: 1,
       healingTide: 1,
       stonebloom: 1,
+      stoneguard: 1,
+      fortify: 1,
       whirlwind: 1,
       windSlash: 1,
       razorGale: 1,
@@ -100,6 +105,7 @@ export const CHARACTER_PRESETS = {
       "warhound",
       "guardDog",
       "ironquill",
+      "phoenix",
     ],
   },
 } satisfies Record<CharacterPresetId, CharacterPreset>;

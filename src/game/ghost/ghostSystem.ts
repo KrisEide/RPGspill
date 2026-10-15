@@ -13,6 +13,15 @@ export const GHOST_MAX_PP = 20;
 export const GHOST_INCOMING_DAMAGE_MULTIPLIER = 0.5;
 export const GHOST_RECEIVED_HEALING_MULTIPLIER = 0.5;
 export const REFORM_LIVING_HP = 30;
+export const PHOENIX_REBIRTH_HP = 40;
+export const PHOENIX_REBIRTH_BARRIER = 10;
+const PHOENIX_CLEANSED_STATUS_IDS = new Set([
+  "burn",
+  "poison",
+  "cinderCurse",
+  "rootseed",
+  "bleed",
+]);
 export const GHOST_UPGRADE_VALUES = {
   heavyHauntDamageBonus: 4,
   closerToTheVeilHpThreshold: 25,
@@ -77,6 +86,26 @@ export function applyCharacterHp(
   }
 
   if (character.form === "living") {
+    const phoenix = character.spirits.phoenix;
+
+    if (phoenix && phoenix.activeUsesRemaining > 0) {
+      return {
+        ...character,
+        hp: Math.min(character.stats.maxHp, PHOENIX_REBIRTH_HP),
+        barrier: PHOENIX_REBIRTH_BARRIER,
+        statuses: character.statuses.filter(
+          (status) => !PHOENIX_CLEANSED_STATUS_IDS.has(status.id),
+        ),
+        spirits: {
+          ...character.spirits,
+          phoenix: {
+            ...phoenix,
+            activeUsesRemaining: 0,
+          },
+        },
+      };
+    }
+
     return {
       ...character,
       form: "ghost",
@@ -104,6 +133,13 @@ export function applyCharacterHp(
     itemDamageBonus: null,
     abilityDamageBonus: null,
   };
+}
+
+export function hasAvailablePhoenixRebirth(character: CharacterState) {
+  return (
+    character.form === "living" &&
+    (character.spirits.phoenix?.activeUsesRemaining ?? 0) > 0
+  );
 }
 
 export function getCharacterEventState(

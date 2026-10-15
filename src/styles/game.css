@@ -927,6 +927,19 @@ body {
   filter: grayscale(0.7) brightness(0.65);
 }
 
+.cmdbar__abilityButton--automatic {
+  cursor: default;
+}
+
+.cmdbar__abilityButton--automatic:hover {
+  transform: none;
+}
+
+.cmdbar__abilityButton--automaticSpent .cmdbar__abilityIcon {
+  filter: grayscale(1) brightness(0.58);
+  opacity: 0.68;
+}
+
 .cmdbar__abilityButton--compact.cmdbar__itemEntry {
   position: relative;
   display: flex;
@@ -2520,6 +2533,170 @@ battlescene bilde. */
   animation: soulTransferLivingPulse 4800ms 450ms ease-in-out both;
 }
 
+.battleScene__playerUnit--phoenixRebirth {
+  z-index: 20;
+}
+
+.battleScene__playerUnit--phoenixRebirth .battleScene__playerSprite--idle {
+  animation: phoenixRebirthHero 12000ms ease-in-out both;
+}
+
+.phoenixRebirthSequence {
+  position: absolute;
+  inset: -34% -24% -7%;
+  z-index: 42;
+  pointer-events: none;
+}
+
+.phoenixRebirthSequence__stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 0;
+  image-rendering: auto;
+  filter: drop-shadow(0 0 12px rgba(255, 220, 111, 0.92))
+    drop-shadow(0 0 30px rgba(255, 139, 36, 0.72));
+}
+
+.phoenixRebirthSequence__stage--one {
+  animation: phoenixRebirthStageOne 12000ms ease-in-out both;
+}
+
+.phoenixRebirthSequence__stage--two {
+  animation: phoenixRebirthStageTwo 12000ms ease-in-out both;
+}
+
+.phoenixRebirthSequence__stage--three {
+  animation: phoenixRebirthStageThree 12000ms ease-in-out both;
+}
+
+.phoenixRebirthSequence__glow {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  opacity: 0;
+  transform: translateX(-50%) scale(0.35);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 235, 0.98) 0 10%,
+    rgba(255, 223, 105, 0.9) 24%,
+    rgba(255, 126, 30, 0.6) 48%,
+    transparent 72%
+  );
+  filter: blur(5px) drop-shadow(0 0 34px rgba(255, 188, 53, 0.95));
+  animation: phoenixRebirthGlow 12000ms ease-in-out both;
+}
+
+@keyframes phoenixRebirthHero {
+  0% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  5%,
+  84% {
+    opacity: 0;
+    filter: brightness(1);
+  }
+  91% {
+    opacity: 0.55;
+    filter: brightness(2.5) sepia(0.55) saturate(1.65)
+      drop-shadow(0 0 22px rgba(255, 215, 89, 1));
+  }
+  96% {
+    opacity: 1;
+    filter: brightness(1.65) sepia(0.25) saturate(1.35)
+      drop-shadow(0 0 30px rgba(255, 181, 55, 0.92));
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1) drop-shadow(0 0 8px rgba(255, 190, 68, 0.45));
+  }
+}
+
+@keyframes phoenixRebirthStageOne {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateY(7%) scale(0.86);
+  }
+  21%,
+  37% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  44%,
+  100% {
+    opacity: 0;
+    transform: translateY(-2%) scale(1.04);
+  }
+}
+
+@keyframes phoenixRebirthStageTwo {
+  0%,
+  34% {
+    opacity: 0;
+    transform: scale(0.91);
+  }
+  41%,
+  57% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  65%,
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes phoenixRebirthStageThree {
+  0%,
+  57% {
+    opacity: 0;
+    transform: translateY(5%) scale(0.82);
+  }
+  65%,
+  80% {
+    opacity: 1;
+    transform: translateY(-2%) scale(1.02);
+  }
+  88%,
+  100% {
+    opacity: 0;
+    transform: translateY(-7%) scale(1.12);
+  }
+}
+
+@keyframes phoenixRebirthGlow {
+  0%,
+  72% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.35);
+  }
+  80% {
+    opacity: 0.68;
+    transform: translateX(-50%) scale(1.05);
+  }
+  88% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.42);
+  }
+  97% {
+    opacity: 0.42;
+    transform: translateX(-50%) scale(1.18);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(1.08);
+  }
+}
+
 .soulTransferDelta {
   position: absolute;
   top: 20%;
@@ -2713,6 +2890,10 @@ battlescene bilde. */
   animation: playerCast
     var(--action-animation-duration, var(--combat-animation-duration))
     ease-in-out both;
+}
+
+.battleScene__playerUnit--stationaryCast {
+  animation: none;
 }
 
 .battleScene__playerUnit--projectile-casting {
@@ -5669,6 +5850,14 @@ battlescene bilde. */
   animation-duration: 2200ms;
 }
 
+.supportNumber--brace {
+  color: #e8f5c1;
+  text-shadow:
+    0 2px 2px #24320f,
+    0 0 12px rgba(185, 224, 98, 0.9);
+  animation-duration: 1300ms;
+}
+
 .magicBagResult {
   position: absolute;
   left: 50%;
@@ -5785,6 +5974,13 @@ battlescene bilde. */
   animation: barrierImpact 1100ms ease-out both;
 }
 
+.battleScene__playerUnit--supportImpact-fire:not(
+    .battleScene__playerUnit--acting
+  )
+  .battleScene__playerSprite--idle {
+  animation: phoenixWarmthImpact 1500ms ease-out both;
+}
+
 .battleScene__enemyUnit--supportImpact-earth:not(
     .battleScene__enemyUnit--attacking
   )
@@ -5799,10 +5995,57 @@ battlescene bilde. */
   }
 }
 
+@keyframes phoenixWarmthImpact {
+  20%,
+  65% {
+    filter: brightness(1.24)
+      drop-shadow(0 0 16px rgba(255, 182, 55, 0.92))
+      drop-shadow(0 0 34px rgba(224, 67, 24, 0.58));
+  }
+}
+
 @keyframes barrierImpact {
   30% {
     filter: brightness(1.2)
       drop-shadow(0 0 20px rgba(157, 229, 106, 0.95));
+  }
+}
+
+.barrierAbilityGlow {
+  position: absolute;
+  inset: 5% 10% -2%;
+  z-index: 0;
+  border-radius: 48%;
+  background: radial-gradient(
+    ellipse at 50% 62%,
+    rgba(255, 224, 116, 0.5) 0%,
+    rgba(190, 210, 92, 0.34) 34%,
+    rgba(104, 156, 64, 0.18) 56%,
+    rgba(70, 112, 42, 0) 76%
+  );
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: barrierAbilityGlow 2200ms ease-out both;
+}
+
+@keyframes barrierAbilityGlow {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  22% {
+    opacity: 0.92;
+    transform: scale(1.03);
+  }
+  48%,
+  70% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
   }
 }
 

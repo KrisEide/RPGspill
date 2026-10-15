@@ -421,6 +421,28 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "earth",
   },
+  stoneguard: {
+    icon: "🛡️",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 3000,
+      impactDelayMs: 1350,
+      eventDurationMs: 3700,
+    },
+    impact: "earth",
+  },
+  fortify: {
+    icon: "🏰",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 3000,
+      impactDelayMs: 1350,
+      eventDurationMs: 3700,
+    },
+    impact: "earth",
+  },
   whirlwind: {
     icon: "🌪️",
     animation: "whirlwind",
@@ -730,6 +752,16 @@ export const ABILITY_VISUALS: Partial<
       width: 115,
       variant: "steelDart",
       rotationOffsetDegrees: -135,
+    },
+  },
+  phoenixRebirth: {
+    icon: "🔥",
+    animation: "cast",
+    impact: "fire",
+    timing: {
+      animationDurationMs: 1600,
+      impactDelayMs: 250,
+      eventDurationMs: 1900,
     },
   },
 };

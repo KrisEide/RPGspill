@@ -31,6 +31,7 @@ const PASSIVE_CATEGORY_ORDER: PassiveCategory[] = [
   "burn",
   "barrier",
   "healing",
+  "physical",
   "coop",
   "items",
 ];
@@ -39,6 +40,7 @@ const PASSIVE_CATEGORY_LABELS: Record<PassiveCategory, string> = {
   burn: "Burn",
   barrier: "Barrier",
   healing: "Healing",
+  physical: "Physical",
   coop: "Co-op",
   items: "Items",
 };

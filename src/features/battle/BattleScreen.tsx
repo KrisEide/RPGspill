@@ -13,6 +13,9 @@ import { STATUS_DEFINITIONS } from "../../data/statuses";
 import { getRestSceneDefinition } from "../../data/restChoices";
 import ghostBoltIcon from "../../assets/icons/ghost_ghostbolt.png";
 import bleedEffect from "../../assets/Effect/bleed.png";
+import rebirthOne from "../../assets/Effect/rebirth1.png";
+import rebirthTwo from "../../assets/Effect/rebirth2.png";
+import rebirthThree from "../../assets/Effect/rebirth3.png";
 import {
   getSpiritForActiveAbility,
   SPIRIT_DEFINITIONS,
@@ -152,6 +155,8 @@ const BLOODPACT_PASSIVE_IMPACT_DELAY_MS = 650;
 const BLOODPACT_ACTIVE_IMPACT_DELAY_MS = 900;
 const SOUL_TRANSFER_IMPACT_DELAY_MS = 1600;
 const SOUL_TRANSFER_EVENT_DURATION_MS = 5600;
+const PHOENIX_REBIRTH_IMPACT_DELAY_MS = 9400;
+const PHOENIX_REBIRTH_EVENT_DURATION_MS = 12000;
 const POWER_TONIC_ACTIVATION_DURATION_MS = 2600;
 const MYSTERIOUS_POTION_ACTIVATION_DURATION_MS = 3400;
 const MYSTERIOUS_POTION_IMPACT_DELAY_MS = 1150;
@@ -885,6 +890,7 @@ export default function BattleScreen(props: Props) {
                 activeShortDescription: active.shortDescription,
                 activeDescription: active.description,
                 usesRemaining: spirit.activeUsesRemaining,
+                automatic: definition.automaticActive,
                 available: spirit.id !== "bloodpact" || Boolean(getActiveBloodpactRoles(combatState, commandCharacter.instanceId)),
               },
             ]
@@ -1398,6 +1404,7 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "statusDamage" ||
       currentCombatEvent.type === "spiritDamage";
     const isSoulTransferEvent = currentCombatEvent.type === "soulTransfer";
+    const isPhoenixRebirthEvent = currentCombatEvent.type === "phoenixRebirth";
     const isCinderCurseTick =
       currentCombatEvent.type === "statusDamage" &&
       currentCombatEvent.statusId === "cinderCurse";
@@ -1431,7 +1438,9 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "itemUse"
         ? getItemProjectileVisual(currentCombatEvent)
         : null;
-    const impactDelay = isSoulTransferEvent
+    const impactDelay = isPhoenixRebirthEvent
+      ? PHOENIX_REBIRTH_IMPACT_DELAY_MS
+      : isSoulTransferEvent
       ? SOUL_TRANSFER_IMPACT_DELAY_MS
       : currentCombatEvent.type === "bloodpact"
       ? currentCombatEvent.active
@@ -1464,7 +1473,9 @@ export default function BattleScreen(props: Props) {
             : 300)
         : (currentAbilityVisuals?.timing?.impactDelayMs ??
           COMBAT_IMPACT_DELAY_MS);
-    const baseEventDuration = isSoulTransferEvent
+    const baseEventDuration = isPhoenixRebirthEvent
+      ? PHOENIX_REBIRTH_EVENT_DURATION_MS
+      : isSoulTransferEvent
       ? SOUL_TRANSFER_EVENT_DURATION_MS
       : currentCombatEvent.type === "bloodpact"
       ? currentCombatEvent.active
@@ -2109,6 +2120,8 @@ export default function BattleScreen(props: Props) {
               : `${getCombatantName(currentCombatEvent.actorId)} is Stunned and loses the action...`
           : currentCombatEvent?.type === "soulTransfer"
             ? `${getCombatantName(currentCombatEvent.ghostId)} shares their remaining life with ${getCombatantName(currentCombatEvent.targetId)}...`
+          : currentCombatEvent?.type === "phoenixRebirth"
+            ? `${getCombatantName(currentCombatEvent.targetId)} is reborn...`
           : currentCombatEvent?.type === "bloodpact"
             ? `Bloodpact${currentCombatEvent.active ? " active" : ""} · ${getCombatantName(currentCombatEvent.targetId)} ${currentCombatEvent.stage === "sacrifice" ? `sacrifices ${currentCombatEvent.hpLoss} HP` : `gains ${currentCombatEvent.barrierAmount} Barrier`}…`
           : currentCombatEvent?.type === "barrierRemoved"
@@ -2358,6 +2371,9 @@ export default function BattleScreen(props: Props) {
         const isSoulTransferTarget =
           currentCombatEvent?.type === "soulTransfer" &&
           currentCombatEvent.targetId === characterId;
+        const isPhoenixRebirthTarget =
+          currentCombatEvent?.type === "phoenixRebirth" &&
+          currentCombatEvent.targetId === characterId;
         const bloodpactEvent = currentCombatEvent?.type === "bloodpact" &&
           currentCombatEvent.targetId === characterId ? currentCombatEvent : null;
         const visuals = CHARACTER_VISUALS[character.presetId];
@@ -2374,6 +2390,10 @@ export default function BattleScreen(props: Props) {
             currentCombatEvent?.type === "statusApplied" ||
             currentCombatEvent?.type === "charge") &&
           currentCombatEvent.actorId === characterId &&
+          !(
+            currentCombatEvent.type === "support" &&
+            currentCombatEvent.abilityId === "phoenixRebirth"
+          ) &&
           (currentCombatEvent.type !== "damage" ||
             (currentCombatEvent.twinFlamesFollowUp !== true &&
               (currentCombatEvent.abilityId !== "cyclone" ||
@@ -2411,6 +2431,10 @@ export default function BattleScreen(props: Props) {
           ? ABILITY_VISUALS[currentCombatEvent.abilityId]
           : null;
         const isCasting = activeAbilityVisuals?.animation === "cast";
+        const isBarrierAbilityCast =
+          isAttacking &&
+          (currentCombatEvent.abilityId === "stoneguard" ||
+            currentCombatEvent.abilityId === "fortify");
         const castVariant = isCasting
           ? activeAbilityVisuals?.castVariant
           : null;
@@ -2478,6 +2502,18 @@ export default function BattleScreen(props: Props) {
           displayedImpactEvent,
           characterId,
         );
+        const defendBarrierAmount =
+          appliedCombatEvent?.type === "defend" &&
+          appliedCombatEvent.targetId === characterId
+            ? appliedCombatEvent.barrierAmount
+            : 0;
+        const hasEarthBarrierImpact = Boolean(
+          supportImpact &&
+            supportImpact.barrierAmount > 0 &&
+            "abilityId" in supportImpact &&
+            (supportImpact.abilityId === "stoneguard" ||
+              supportImpact.abilityId === "fortify"),
+        );
         const isTwinFlamesGhostRecovery =
           displayedImpactEvent?.type === "damage" &&
           displayedImpactEvent.abilityId === "twinFlames" &&
@@ -2529,7 +2565,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(characterId);
               }
             }}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""} ${isGhostTransitionCharacter && ghostTransitionIsRevealed ? "battleScene__playerUnit--ghostTransition" : ""} ${isSoulTransferGhost ? "battleScene__playerUnit--soulTransferGhost" : ""} ${isSoulTransferTarget ? "battleScene__playerUnit--soulTransferTarget" : ""} ${isTwinFlamesGhostRecovery ? "battleScene__playerUnit--twinFlamesGhostRecovery" : ""} ${hasPowerTonicBuff ? "battleScene__playerUnit--powerBuff" : ""} ${hasBodyguardProtection ? "battleScene__playerUnit--bodyguard" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${isBarrierAbilityCast ? "battleScene__playerUnit--stationaryCast" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""} ${isGhostTransitionCharacter && ghostTransitionIsRevealed ? "battleScene__playerUnit--ghostTransition" : ""} ${isSoulTransferGhost ? "battleScene__playerUnit--soulTransferGhost" : ""} ${isSoulTransferTarget ? "battleScene__playerUnit--soulTransferTarget" : ""} ${isPhoenixRebirthTarget ? "battleScene__playerUnit--phoenixRebirth" : ""} ${isTwinFlamesGhostRecovery ? "battleScene__playerUnit--twinFlamesGhostRecovery" : ""} ${hasPowerTonicBuff ? "battleScene__playerUnit--powerBuff" : ""} ${hasBodyguardProtection ? "battleScene__playerUnit--bodyguard" : ""}`}
             style={
               activeAbilityVisuals?.timing
                 ? ({
@@ -2546,6 +2582,14 @@ export default function BattleScreen(props: Props) {
                 : undefined
             }
           >
+            {isPhoenixRebirthTarget && (
+              <div className="phoenixRebirthSequence" aria-hidden="true">
+                <div className="phoenixRebirthSequence__glow" />
+                <img className="phoenixRebirthSequence__stage phoenixRebirthSequence__stage--one" src={rebirthOne} alt="" />
+                <img className="phoenixRebirthSequence__stage phoenixRebirthSequence__stage--two" src={rebirthTwo} alt="" />
+                <img className="phoenixRebirthSequence__stage phoenixRebirthSequence__stage--three" src={rebirthThree} alt="" />
+              </div>
+            )}
             {mysteriousPotionImpact && (
               <div
                 className={`mysteriousPotionEffect ${isMysteriousPotionGhostUse ? "mysteriousPotionEffect--ghost" : "mysteriousPotionEffect--living"}`}
@@ -2568,6 +2612,9 @@ export default function BattleScreen(props: Props) {
             )}
             {hasBodyguardProtection && (
               <div className="bodyguardAura" aria-hidden="true" />
+            )}
+            {hasEarthBarrierImpact && (
+              <div className="barrierAbilityGlow" aria-hidden="true" />
             )}
             <img
               key={bloodpactEvent ? `bloodpact-${combatState.round}-${gameState.pendingRound?.nextEventIndex}` : "idle"}
@@ -2674,6 +2721,14 @@ export default function BattleScreen(props: Props) {
                     : 0
                 }
               />
+            )}
+            {defendBarrierAmount > 0 && (
+              <div
+                className="supportNumber supportNumber--brace"
+                aria-hidden="true"
+              >
+                <span>🛡 +{defendBarrierAmount}</span>
+              </div>
             )}
             {supportImpact &&
               (supportImpact.healingAmount > 0 ||

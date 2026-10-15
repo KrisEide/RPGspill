@@ -198,7 +198,62 @@ export const EARTH_ABILITY_DEFINITIONS = {
       },
     },
   },
+  stoneguard: {
+    id: "stoneguard",
+    name: "Stoneguard",
+    category: "ability",
+    resolutionPriority: 0,
+    target: "singleAlly",
+    element: "earth",
+    ranks: {
+      1: {
+        shortDescription: "Grant Barrier to one hero.",
+        description: "Grant 12 Barrier to yourself or your partner.",
+        ppCost: 4,
+        effects: [{ type: "barrier", amount: 12 }],
+      },
+      2: {
+        shortDescription: "Grant more Barrier to an unprotected hero.",
+        description:
+          "Grant 16 Barrier to yourself or your partner. If the target has no Barrier, grant 4 additional Barrier.",
+        newEffectDescription:
+          "Barrier increases to 16. A target with no Barrier gains 4 additional Barrier.",
+        ppCost: 4,
+        effects: [
+          { type: "barrier", amount: 16, bonusIfNoBarrier: 4 },
+        ],
+      },
+    },
+  },
+  fortify: {
+    id: "fortify",
+    name: "Fortify",
+    category: "ability",
+    resolutionPriority: 0,
+    target: "allAllies",
+    element: "earth",
+    ranks: {
+      1: {
+        shortDescription: "Grant Barrier to both heroes.",
+        description: "Grant 8 Barrier to both heroes.",
+        ppCost: 7,
+        effects: [{ type: "barrier", amount: 8 }],
+      },
+      2: {
+        shortDescription: "Grant more Barrier to both heroes.",
+        description: "Grant 11 Barrier to both heroes.",
+        newEffectDescription: "Barrier increases from 8 to 11.",
+        ppCost: 7,
+        effects: [{ type: "barrier", amount: 11 }],
+      },
+    },
+  },
 } satisfies Record<
-  "earthquake" | "rootseed" | "stonebreaker" | "stonebloom",
+  | "earthquake"
+  | "rootseed"
+  | "stonebreaker"
+  | "stonebloom"
+  | "stoneguard"
+  | "fortify",
   AbilityDefinition
 >;

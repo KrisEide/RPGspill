@@ -97,6 +97,7 @@ type Props = {
     activeShortDescription: string;
     activeDescription: string;
     usesRemaining: number;
+    automatic?: boolean;
     available?: boolean;
   }[];
   items: {
@@ -398,12 +399,18 @@ export default function CommandBar({
                       >
                         <button
                           type="button"
-                          className="cmdbar__abilityButton"
+                          className={`cmdbar__abilityButton${spirit.automatic ? " cmdbar__abilityButton--automatic" : ""}${spirit.automatic && spirit.usesRemaining <= 0 ? " cmdbar__abilityButton--automaticSpent" : ""}`}
                           disabled={
-                            spirit.usesRemaining <= 0 || spirit.available === false || actionsDisabled
+                            actionsDisabled ||
+                            (!spirit.automatic &&
+                              (spirit.usesRemaining <= 0 || spirit.available === false))
                           }
+                          aria-disabled={spirit.automatic || undefined}
                           aria-describedby={tooltipId}
                           onClick={() => {
+                            if (spirit.automatic) {
+                              return;
+                            }
                             onSpiritSelect(spirit.activeAbilityId);
                             setOpenPanel(null);
                             setSelected("spirit");
@@ -422,9 +429,13 @@ export default function CommandBar({
                             </span>
                           </span>
                           <span className="cmdbar__abilityCost">
-                            {spirit.usesRemaining > 0
-                              ? `${spirit.usesRemaining} use`
-                              : "Used"}
+                            {spirit.automatic
+                              ? spirit.usesRemaining > 0
+                                ? "Ready"
+                                : "Spent"
+                              : spirit.usesRemaining > 0
+                                ? `${spirit.usesRemaining} use`
+                                : "Used"}
                           </span>
                         </button>
                         <div
@@ -436,16 +447,21 @@ export default function CommandBar({
                             {spirit.name}
                           </div>
                           <div>
-                            <strong>Active:</strong> {spirit.activeDescription}
+                            <strong>{spirit.automatic ? "Automatic:" : "Active:"}</strong>{" "}
+                            {spirit.activeDescription}
                           </div>
                           <div>
                             <strong>Passive — {spirit.passiveName}:</strong>{" "}
                             {spirit.passiveDescription}
                           </div>
                           <div className="cmdbar__abilityTooltipMeta">
-                            {spirit.usesRemaining > 0
-                              ? "Available once this encounter."
-                              : "Already used this encounter."}
+                            {spirit.automatic
+                              ? spirit.usesRemaining > 0
+                                ? "Rebirth is ready. Once per run."
+                                : "Rebirth has been spent. Warm Embers remains active."
+                              : spirit.usesRemaining > 0
+                                ? "Available once this encounter."
+                                : "Already used this encounter."}
                           </div>
                         </div>
                       </div>
