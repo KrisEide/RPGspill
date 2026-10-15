@@ -36,10 +36,10 @@ import type {
 } from "../types";
 
 const OFFERS_PER_CHARACTER = 3;
-const RANK_TWO_START_ENCOUNTER = 6;
-const RANK_TWO_FULL_WEIGHT_ENCOUNTER = 10;
+const RANK_TWO_START_ENCOUNTER = 9;
+const RANK_TWO_FULL_WEIGHT_ENCOUNTER = 13;
 const STANDARD_REWARD_CATEGORY_WEIGHT = 1;
-const NEW_ABILITY_CATEGORY_WEIGHT = 0.5;
+const NEW_ABILITY_CATEGORY_WEIGHT = 1;
 export type GeneratedRewardOffers = {
   offers: RewardOffers;
   nextSeed: number;
@@ -57,12 +57,16 @@ function createSpiritRewardOffer(
     type: "newSpirit",
     spiritId: definition.id,
     icon: definition.icon,
+    tags: definition.tags,
     title: definition.name,
     description: `${definition.passive.description} ${activeDescription}`,
     passiveName: definition.passive.name,
+    passiveShortDescription: definition.passive.shortDescription,
     passiveDescription: definition.passive.description,
     activeName: activeAbility?.name ?? definition.name,
     activeDescription,
+    activeDetailedDescription:
+      activeAbility?.description ?? activeDescription,
   };
 }
 
@@ -115,6 +119,7 @@ function createPassiveRewardOffer(
     passiveId: definition.id,
     category: definition.category,
     icon: definition.icon,
+    tags: definition.tags,
     title: definition.name,
     description: definition.description,
   };
@@ -124,7 +129,7 @@ function getRewardProgressEncounterNumber(state: CombatState) {
   const encounter = ENCOUNTER_DEFINITIONS[state.encounterId];
 
   // A rest belongs to the encounter that was just completed. This prevents
-  // the pre-Encounter 6 camp from unlocking Rank 2 one fight too early.
+  // camps before a numbered combat from advancing reward progression early.
   return encounter.kind === "rest"
     ? Math.max(0, encounter.number - 1)
     : encounter.number;
@@ -288,6 +293,7 @@ function createAbilityRewardOffer(
     rank: rankNumber,
     ppCost: rank.ppCost,
     icon: definition.icon,
+    tags: definition.tags,
     title: ability.name,
     description: rank.shortDescription,
     detailedDescription: rank.description,
@@ -320,6 +326,7 @@ function createGhostAbilityRewardOffer(
       ? `${ghostHpCost} Ghost HP`
       : `${rank.ppCost} Ghost PP`,
     icon: definition.icon,
+    tags: definition.tags,
     title: ability.name,
     description: rank.shortDescription,
     detailedDescription: rank.description,
@@ -340,6 +347,7 @@ function createGhostUpgradeRewardOffer(
     type: "ghostUpgrade",
     upgradeId: definition.upgradeId,
     icon: definition.icon,
+    tags: definition.tags,
     title: definition.title,
     description: definition.description,
   };
@@ -716,6 +724,26 @@ function applyRestReward(
       },
     },
   };
+}
+
+export function previewRestRewardChoice(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  choiceId: RewardChoiceId,
+): CombatState | null {
+  if (state.phase !== "rest" || state.restStage !== "choice") {
+    return null;
+  }
+
+  const offer = state.rewardOffers?.[characterId].find(
+    (candidate) => candidate.id === choiceId,
+  );
+
+  if (!offer || offer.type !== "rest") {
+    return null;
+  }
+
+  return applyRestReward(state, characterId, offer);
 }
 
 export function getRewardParticipantCharacterIds(state: CombatState) {

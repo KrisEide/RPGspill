@@ -1,4 +1,8 @@
-import { resolveRound } from "../combat/resolveRound";
+import {
+  resolveImmediateQuickAbility,
+  resolveImmediateWarhoundAutoAttack,
+  resolveRound,
+} from "../combat/resolveRound";
 import { selectBloodpactRoles } from "../combat/bloodpact";
 import {
   areAllLivingPlayersReady,
@@ -87,7 +91,12 @@ export function gameReducer(
   }
 
   if (action.type === "receiveRoundResult") {
-    return beginRoundAnimation(state, action.result);
+    return beginRoundAnimation(
+      state,
+      action.result,
+      action.result.nextState.round === state.combat.round &&
+        action.result.nextState.phase === "selectingActions",
+    );
   }
 
   if (action.type === "startEncounter") {
@@ -123,6 +132,27 @@ export function gameReducer(
     );
   }
 
+  if (action.type === "submitPlayerAction" && action.abilityId === "autoAttack") {
+    const characterId =
+      state.combat.players[action.playerId].controlledCharacterId;
+
+    if (state.roundSelections[characterId].action === null) {
+      const immediateResult = resolveImmediateWarhoundAutoAttack(
+        state.combat,
+        {
+          kind: "ability",
+          actorId: characterId,
+          abilityId: "autoAttack",
+          targetId: action.targetId,
+        },
+      );
+
+      if (immediateResult) {
+        return beginRoundAnimation(state, immediateResult, true);
+      }
+    }
+  }
+
   const roundSelections =
     action.type === "submitPlayerItem"
       ? selectPlayerItem(state.combat, state.roundSelections, action)
@@ -130,6 +160,26 @@ export function gameReducer(
 
   if (!roundSelections) {
     return state;
+  }
+
+  if (action.type === "submitPlayerAction") {
+    const characterId =
+      state.combat.players[action.playerId].controlledCharacterId;
+    const previousQuickActionCount =
+      state.roundSelections[characterId].quickActions.length;
+    const immediateAction =
+      roundSelections[characterId].quickActions[previousQuickActionCount];
+
+    if (immediateAction?.kind === "ability") {
+      const immediateResult = resolveImmediateQuickAbility(
+        state.combat,
+        immediateAction,
+      );
+
+      if (immediateResult) {
+        return beginRoundAnimation(state, immediateResult, true);
+      }
+    }
   }
 
   if (areAllLivingPlayersReady(state.combat, roundSelections)) {
@@ -149,6 +199,7 @@ export function gameReducer(
 function beginRoundAnimation(
   state: ClientBattleState,
   result: RoundResult,
+  preserveRoundSelections = false,
 ): ClientBattleState {
   if (state.phase !== "selectingActions") {
     return state;
@@ -173,6 +224,7 @@ function beginRoundAnimation(
       result,
       nextEventIndex: 0,
       currentEventApplied: false,
+      preserveRoundSelections,
     },
   };
 }
@@ -504,6 +556,23 @@ function applyCurrentCombatEvent(
             },
           },
         }
+      : event.type === "soulTransfer"
+        ? {
+            ...state.combat,
+            characters: {
+              ...state.combat.characters,
+              [event.ghostId]: {
+                ...state.combat.characters[event.ghostId],
+                hp: event.ghostRemainingHp,
+                ...event.ghostCharacterState,
+              },
+              [event.targetId]: {
+                ...state.combat.characters[event.targetId],
+                hp: event.targetRemainingHp,
+                ...event.targetCharacterState,
+              },
+            },
+          }
       : event.type === "damage" ||
     event.type === "selfDamage" ||
     event.type === "statusDamage" ||
@@ -626,7 +695,9 @@ function finishRound(state: ClientBattleState): ClientBattleState {
     ...state,
     combat: pendingRound.result.nextState,
     phase: pendingRound.result.nextState.phase,
-    roundSelections: createEmptyRoundSelections(),
+    roundSelections: pendingRound.preserveRoundSelections
+      ? state.roundSelections
+      : createEmptyRoundSelections(),
     lastRoundEvents: pendingRound.result.events,
     pendingRound: null,
   };

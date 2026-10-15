@@ -10,6 +10,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "❤️",
     title: "Vitality",
     description: "Permanently gain +10 Max HP and restore 10 HP.",
+    tags: ["hp", "low_hp"],
     effect: {
       target: "maxHp",
       amount: 10,
@@ -22,6 +23,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "⚔️",
     title: "Power",
     description: "Permanently gain +4 Attack.",
+    tags: ["attack", "physical", "damage"],
     effect: {
       target: "attack",
       amount: 4,
@@ -33,6 +35,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "⚡",
     title: "Quickness",
     description: "Permanently gain +5 Agility.",
+    tags: ["agility", "opener"],
     effect: {
       target: "agility",
       amount: 5,
@@ -44,6 +47,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "🛡️",
     title: "Fortitude",
     description: "Permanently gain +5 Defense.",
+    tags: ["defense", "physical"],
     effect: {
       target: "defense",
       amount: 5,
@@ -55,6 +59,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "🔮",
     title: "Warding",
     description: "Permanently gain +5 Resistance.",
+    tags: ["resistance", "magical"],
     effect: {
       target: "resistance",
       amount: 5,
@@ -66,6 +71,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "💠",
     title: "Focus",
     description: "Permanently gain +10 Max PP and restore 5 PP.",
+    tags: ["pp", "high_cost"],
     effect: {
       target: "maxPp",
       amount: 10,
@@ -78,6 +84,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "🎯",
     title: "Precision",
     description: "Permanently gain +10% Critical Hit Chance.",
+    tags: ["crit", "wind"],
     effect: {
       target: "criticalChance",
       amount: 0.1,
@@ -89,6 +96,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "🔥",
     title: "Flame Affinity",
     description: "Permanently gain +4 Fire Power.",
+    tags: ["fire", "burn", "damage"],
     effect: {
       target: "firePower",
       amount: 4,
@@ -100,6 +108,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "💧",
     title: "Tidal Affinity",
     description: "Permanently gain +4 Water Power.",
+    tags: ["water", "healing"],
     effect: {
       target: "waterPower",
       amount: 4,
@@ -111,6 +120,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "🪨",
     title: "Stone Affinity",
     description: "Permanently gain +4 Earth Power.",
+    tags: ["earth", "barrier"],
     effect: {
       target: "earthPower",
       amount: 4,
@@ -122,6 +132,7 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     icon: "🌪️",
     title: "Gale Affinity",
     description: "Permanently gain +4 Wind Power.",
+    tags: ["wind", "crit"],
     effect: {
       target: "windPower",
       amount: 4,

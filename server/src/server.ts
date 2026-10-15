@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import express from "express";
 import { Server } from "socket.io";
 import {
+  CHARACTER_ORDER,
   DEFAULT_PLAYER_CHARACTER_CONTROL,
   PLAYER_ORDER,
 } from "../../src/game/playerControl";
@@ -17,9 +18,14 @@ import {
 } from "../../src/game/combat/playerActions";
 import {
   resolveImmediateItemUse,
+  resolveImmediateQuickAbility,
+  resolveImmediateWarhoundAutoAttack,
   resolveRound,
 } from "../../src/game/combat/resolveRound";
-import { ITEM_DEFINITIONS } from "../../src/data/items";
+import {
+  ITEM_DEFINITIONS,
+  getItemUseProfile,
+} from "../../src/data/items";
 import { createInitialCombatState } from "../../src/game/state/initialState";
 import { selectBloodpactRoles } from "../../src/game/combat/bloodpact";
 import { startEncounter } from "../../src/game/state/encounterState";
@@ -72,6 +78,15 @@ const ROOM_CODE_LENGTH = 4;
 const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
 const DIST_DIRECTORY = resolve(process.cwd(), "dist");
+const REST_RECOVERY_PRESENTATION_DURATION_MS = 6000;
+
+function restoredPartyResources(before: CombatState, after: CombatState) {
+  return CHARACTER_ORDER.some(
+    (characterId) =>
+      after.characters[characterId].hp > before.characters[characterId].hp ||
+      after.characters[characterId].pp > before.characters[characterId].pp,
+  );
+}
 
 const rooms = new Map<string, GameRoom>();
 const app = express();
@@ -376,8 +391,45 @@ io.on("connection", (socket) => {
       !playerId ||
       request.round !== room.combatState.round
     ) {
-      respond({ accepted: false, playerReady: false });
+      respond({
+        accepted: false,
+        playerReady: false,
+        resolvedImmediately: false,
+      });
       return;
+    }
+
+    const characterId =
+      room.combatState.players[playerId].controlledCharacterId;
+
+    if (
+      request.abilityId === "autoAttack" &&
+      room.roundSelections[characterId].action === null
+    ) {
+      const immediateResult = resolveImmediateWarhoundAutoAttack(
+        room.combatState,
+        {
+          kind: "ability",
+          actorId: characterId,
+          abilityId: "autoAttack",
+          targetId: request.targetId,
+        },
+      );
+
+      if (immediateResult) {
+        room.combatState = immediateResult.nextState;
+        respond({
+          accepted: true,
+          playerReady: false,
+          resolvedImmediately: true,
+        });
+        io.to(room.code).emit("roundResolved", immediateResult);
+        io.to(room.code).emit(
+          "playerReadinessUpdated",
+          createPlayerReadinessState(room),
+        );
+        return;
+      }
     }
 
     const roundSelections = selectPlayerAction(
@@ -392,13 +444,42 @@ io.on("connection", (socket) => {
     );
 
     if (!roundSelections) {
-      respond({ accepted: false, playerReady: false });
+      respond({
+        accepted: false,
+        playerReady: false,
+        resolvedImmediately: false,
+      });
       return;
     }
 
+    const previousQuickActionCount =
+      room.roundSelections[characterId].quickActions.length;
+    const immediateAction =
+      roundSelections[characterId].quickActions[previousQuickActionCount];
+
+    if (immediateAction?.kind === "ability") {
+      const immediateResult = resolveImmediateQuickAbility(
+        room.combatState,
+        immediateAction,
+      );
+
+      if (immediateResult) {
+        room.combatState = immediateResult.nextState;
+        respond({
+          accepted: true,
+          playerReady: false,
+          resolvedImmediately: true,
+        });
+        io.to(room.code).emit("roundResolved", immediateResult);
+        io.to(room.code).emit(
+          "playerReadinessUpdated",
+          createPlayerReadinessState(room),
+        );
+        return;
+      }
+    }
+
     room.roundSelections = roundSelections;
-    const characterId =
-      room.combatState.players[playerId].controlledCharacterId;
     respond({
       accepted: true,
       playerReady: !doesCharacterNeedAction(
@@ -406,6 +487,7 @@ io.on("connection", (socket) => {
         room.roundSelections,
         characterId,
       ),
+      resolvedImmediately: false,
     });
     io.to(room.code).emit(
       "playerReadinessUpdated",
@@ -450,9 +532,13 @@ io.on("connection", (socket) => {
     const characterId =
       room.combatState.players[playerId].controlledCharacterId;
     const definition = ITEM_DEFINITIONS[request.itemId];
+    const actor = room.combatState.characters[characterId];
+    const useProfile = definition
+      ? getItemUseProfile(definition, actor.form)
+      : null;
 
     if (
-      definition?.resolutionTiming === "preRound" &&
+      useProfile?.resolutionTiming === "preRound" &&
       room.roundSelections[characterId].action === null &&
       isValidPlayerTarget(
         room.combatState,
@@ -619,6 +705,11 @@ io.on("connection", (socket) => {
       return;
     }
 
+    const resourcesWereRestored = restoredPartyResources(
+      room.combatState,
+      upgradedCombatState,
+    );
+
     room.roundSelections = createEmptyRoundSelections();
     room.upgradeSelections = {
       player1: null,
@@ -638,11 +729,31 @@ io.on("connection", (socket) => {
       upgradedCombatState.restStage === "complete" &&
       nextEncounterId
     ) {
-      room.combatState = startEncounter(
-        upgradedCombatState,
-        nextEncounterId,
-      );
-      io.to(room.code).emit("encounterStarted", room.combatState);
+      if (resourcesWereRestored) {
+        room.combatState = upgradedCombatState;
+        io.to(room.code).emit("rewardStageUpdated", room.combatState);
+        const completedEncounterId = room.combatState.encounterId;
+        setTimeout(() => {
+          if (
+            room.combatState?.encounterId !== completedEncounterId ||
+            room.combatState.restStage !== "complete"
+          ) {
+            return;
+          }
+
+          room.combatState = startEncounter(
+            room.combatState,
+            nextEncounterId,
+          );
+          io.to(room.code).emit("encounterStarted", room.combatState);
+        }, REST_RECOVERY_PRESENTATION_DURATION_MS);
+      } else {
+        room.combatState = startEncounter(
+          upgradedCombatState,
+          nextEncounterId,
+        );
+        io.to(room.code).emit("encounterStarted", room.combatState);
+      }
       return;
     }
 

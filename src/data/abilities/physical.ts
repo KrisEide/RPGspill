@@ -35,6 +35,53 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
       },
     },
   },
+  lacerate: {
+    id: "lacerate",
+    name: "Lacerate",
+    category: "ability",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Physical damage that applies Bleed.",
+        description:
+          "Deal Physical damage to one enemy and apply Bleed for 3 rounds.",
+        ppCost: 5,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 11,
+            attackScaling: 0.6,
+            elementalPowerScaling: 0,
+            statusOnHit: { statusId: "bleed" },
+          },
+        ],
+      },
+      2: {
+        shortDescription: "Stronger damage that tears open an existing Bleed.",
+        description:
+          "Deal Physical damage to one enemy and apply Bleed. If the target was already Bleeding, trigger one Bleed tick immediately.",
+        newEffectDescription:
+          "Base Power increases to 14 and Attack scaling to 70%. Hitting an already Bleeding target triggers one Bleed tick immediately.",
+        ppCost: 5,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 14,
+            attackScaling: 0.7,
+            elementalPowerScaling: 0,
+            statusOnHit: {
+              statusId: "bleed",
+              triggerTickIfAlreadyActive: true,
+            },
+          },
+        ],
+      },
+    },
+  },
   whirlwind: {
     id: "whirlwind",
     name: "Whirlwind",
@@ -80,4 +127,7 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
       },
     },
   },
-} satisfies Record<"sacrificialStrike" | "whirlwind", AbilityDefinition>;
+} satisfies Record<
+  "sacrificialStrike" | "lacerate" | "whirlwind",
+  AbilityDefinition
+>;

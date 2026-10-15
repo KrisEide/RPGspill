@@ -119,6 +119,8 @@ export const CHARACTER_VISUALS: Record<
     abilitySpriteSrcs: {
       fireball: rowanFireballSprite,
       cinderCurse: rowanCastSpellSprite,
+      searingBrand: rowanCastSpellSprite,
+      twinFlames: rowanCastSpellSprite,
       earthquake: rowanCastSpellSprite,
       stonebreaker: rowanCastSpellSprite,
       crashingWave: rowanCastingSprite,
@@ -129,6 +131,7 @@ export const CHARACTER_VISUALS: Record<
       stonebloom: rowanEarthHealingSprite,
       whirlwind: rowanWhirlwindSprite,
       razorGale: rowanCastSpellSprite,
+      cyclone: rowanCastSpellSprite,
       warhound: rowanCastSpellSprite,
       bodyguard: rowanCastSpellSprite,
       ironquill: rowanCastSpellSprite,
@@ -139,6 +142,7 @@ export const CHARACTER_VISUALS: Record<
     },
     itemSpriteSrcs: {
       healingPotion: rowanPotionUseSprite,
+      mysteriousPotion: rowanPotionUseSprite,
       elixir: rowanPotionUseSprite,
       throwingKnife: rowanCastSpellSprite,
       steelDart: rowanCastSpellSprite,
@@ -173,6 +177,10 @@ export const CHARACTER_VISUALS: Record<
         xRatio: 0.76,
         yRatio: 0.5,
       },
+      backwind: {
+        xRatio: 0.76,
+        yRatio: 0.5,
+      },
       swiftWing: {
         xRatio: 0.76,
         yRatio: 0.5,
@@ -200,6 +208,8 @@ export const CHARACTER_VISUALS: Record<
     abilitySpriteSrcs: {
       fireball: lyraFireballSprite,
       cinderCurse: lyraCastSpellSprite,
+      searingBrand: lyraCastSpellSprite,
+      twinFlames: lyraCastSpellSprite,
       earthquake: lyraCastSpellSprite,
       stonebreaker: lyraCastSpellSprite,
       crashingWave: lyraCastingSprite,
@@ -210,6 +220,7 @@ export const CHARACTER_VISUALS: Record<
       stonebloom: lyraEarthHealingSprite,
       whirlwind: lyraWhirlwindSprite,
       razorGale: lyraCastSpellSprite,
+      cyclone: lyraCastSpellSprite,
       warhound: lyraCastSpellSprite,
       bodyguard: lyraCastSpellSprite,
       ironquill: lyraCastSpellSprite,
@@ -220,6 +231,7 @@ export const CHARACTER_VISUALS: Record<
     },
     itemSpriteSrcs: {
       healingPotion: lyraPotionUseSprite,
+      mysteriousPotion: lyraPotionUseSprite,
       elixir: lyraPotionUseSprite,
       throwingKnife: lyraCastSpellSprite,
       steelDart: lyraCastSpellSprite,
@@ -251,6 +263,10 @@ export const CHARACTER_VISUALS: Record<
         yRatio: 0.07,
       },
       windSlash: {
+        xRatio: 0.76,
+        yRatio: 0.5,
+      },
+      backwind: {
         xRatio: 0.76,
         yRatio: 0.5,
       },

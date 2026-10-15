@@ -1,9 +1,10 @@
+import { useEffect, useRef, useState } from "react";
 import type {
   CharacterInstanceId,
   CharacterState,
 } from "../../../game/types";
 import { CHARACTER_ORDER } from "../../../game/playerControl";
-import { getPortraitSource } from "../../characterSelect/data/characterOptions";
+import { getCharacterPortraitSource } from "../../characterSelect/data/characterOptions";
 import { ABILITIES } from "../../../data/abilities";
 import { STATUS_DEFINITIONS } from "../../../data/statuses";
 import {
@@ -14,11 +15,15 @@ import {
 type Props = {
   characters: Record<CharacterInstanceId, CharacterState>;
   activeCharacterId: CharacterInstanceId | null;
+  variant?: "battle" | "camp";
+  showResourceChanges?: boolean;
+  lastLivingHeroName?: string | null;
 };
 
 type CharacterStatusCardProps = {
   character: CharacterState;
   isActive: boolean;
+  showResourceChanges: boolean;
 };
 
 function getResourcePercent(current: number, maximum: number) {
@@ -32,7 +37,11 @@ function getResourcePercent(current: number, maximum: number) {
 function CharacterStatusCard({
   character,
   isActive,
+  showResourceChanges,
 }: CharacterStatusCardProps) {
+  const previousHpRef = useRef(character.hp);
+  const previousPpRef = useRef(character.pp);
+  const [resourceGain, setResourceGain] = useState({ hp: 0, pp: 0 });
   const maxHp = getCharacterMaxHp(character);
   const maxPp = getCharacterMaxPp(character);
   const hpPercent = getResourcePercent(character.hp, maxHp);
@@ -47,9 +56,16 @@ function CharacterStatusCard({
   const poisonStatus = character.statuses.find(
     (status) => status.id === "poison",
   );
+  const bleedStatus = character.statuses.find(
+    (status) => status.id === "bleed",
+  );
   const poisonDamage =
     poisonStatus?.tickBasePower ??
     STATUS_DEFINITIONS.poison.endOfRoundDamage?.basePower ??
+    0;
+  const bleedDamage =
+    bleedStatus?.tickBasePower ??
+    STATUS_DEFINITIONS.bleed.endOfRoundDamage?.basePower ??
     0;
   const abilityCharge = character.statuses.find(
     (status) => status.id === "abilityCharge",
@@ -65,14 +81,34 @@ function CharacterStatusCard({
     ? ABILITIES[abilityCharge.readiedAbilityId]
     : null;
 
+  useEffect(() => {
+    const hpGain = Math.max(0, character.hp - previousHpRef.current);
+    const ppGain = Math.max(0, character.pp - previousPpRef.current);
+    previousHpRef.current = character.hp;
+    previousPpRef.current = character.pp;
+
+    if (!showResourceChanges || (hpGain === 0 && ppGain === 0)) {
+      return;
+    }
+
+    setResourceGain({ hp: hpGain, pp: ppGain });
+    const timer = window.setTimeout(() => {
+      setResourceGain({ hp: 0, pp: 0 });
+    }, 4500);
+
+    return () => window.clearTimeout(timer);
+  }, [character.hp, character.pp, showResourceChanges]);
+
+  const isRecovering = resourceGain.hp > 0 || resourceGain.pp > 0;
+
   return (
     <article
-      className={`statusCard ${isActive ? "statusCard--active" : ""} statusCard--${character.form}`}
+      className={`statusCard ${isActive ? "statusCard--active" : ""} statusCard--${character.form} ${isRecovering ? "statusCard--recovering" : ""}`}
     >
       <div className="statusCard__portraitFrame">
         <img
           className="statusCard__portrait"
-          src={getPortraitSource(character.portraitId)}
+          src={getCharacterPortraitSource(character)}
           alt={`${character.name} portrait`}
         />
       </div>
@@ -126,6 +162,15 @@ function CharacterStatusCard({
                 ☠️ {poisonDamage}
               </span>
             )}
+            {bleedStatus && (
+              <span
+                className="statusCard__bleed"
+                aria-label={`Bleed: ${bleedDamage} damage at the end of each round, ${bleedStatus.remainingRounds ?? 1} rounds remaining`}
+                title={`Bleed: ${bleedDamage} damage at the end of each round · ${bleedStatus.remainingRounds ?? 1} rounds remaining`}
+              >
+                🩸 {bleedDamage}
+              </span>
+            )}
             {swiftWingIsActive && (
               <span
                 className="statusCard__turnPriority"
@@ -153,6 +198,11 @@ function CharacterStatusCard({
             <span>
               HP {character.hp} / {maxHp}
             </span>
+            {resourceGain.hp > 0 && (
+              <span className="statusCard__resourceGain statusCard__resourceGain--hp">
+                +{resourceGain.hp}
+              </span>
+            )}
             {character.barrier > 0 && (
               <span
                 className="statusCard__barrier"
@@ -186,6 +236,11 @@ function CharacterStatusCard({
             <span>
               PP {character.pp} / {maxPp}
             </span>
+            {resourceGain.pp > 0 && (
+              <span className="statusCard__resourceGain statusCard__resourceGain--pp">
+                +{resourceGain.pp}
+              </span>
+            )}
           </div>
           <div
             className="statusCard__bar"
@@ -209,16 +264,29 @@ function CharacterStatusCard({
 export default function PartyStatusPanel({
   characters,
   activeCharacterId,
+  variant = "battle",
+  showResourceChanges = false,
+  lastLivingHeroName = null,
 }: Props) {
   return (
-    <aside className="partyStatus" aria-label="Party status">
+    <aside
+      className={`partyStatus partyStatus--${variant}`}
+      aria-label="Party status"
+    >
       {CHARACTER_ORDER.map((characterId) => (
         <CharacterStatusCard
           key={characterId}
           character={characters[characterId]}
           isActive={characterId === activeCharacterId}
+          showResourceChanges={showResourceChanges}
         />
       ))}
+      {lastLivingHeroName && (
+        <div className="lastLivingWarning" role="status">
+          <strong>Last living hero</strong>
+          <span>If {lastLivingHeroName} falls, the battle is lost.</span>
+        </div>
+      )}
     </aside>
   );
 }

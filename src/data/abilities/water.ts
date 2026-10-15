@@ -12,7 +12,7 @@ export const WATER_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Water damage and weaken one enemy.",
         description:
-          "Strike one enemy with water and reduce the damage of its next attack by 20%.",
+          "Strike one enemy with water and reduce the damage of its next attack by 30%.",
         ppCost: 5,
         effects: [
           {
@@ -23,7 +23,7 @@ export const WATER_ABILITY_DEFINITIONS = {
             elementalPowerScaling: 0.5,
             statusOnHit: {
               statusId: "weakened",
-              magnitude: 0.2,
+              magnitude: 0.3,
             },
           },
         ],
@@ -31,9 +31,9 @@ export const WATER_ABILITY_DEFINITIONS = {
       2: {
         shortDescription: "Stronger Water damage and weakening.",
         description:
-          "Strike one enemy with water and reduce the damage of its next attack by 25%.",
+          "Strike one enemy with water and reduce the damage of its next attack by 40%.",
         newEffectDescription:
-          "Base Power increases to 13 and Weakened reduces the target's next attack by 25%.",
+          "Base Power increases to 13 and Weakened reduces the target's next attack by 40%.",
         ppCost: 5,
         effects: [
           {
@@ -44,7 +44,7 @@ export const WATER_ABILITY_DEFINITIONS = {
             elementalPowerScaling: 0.5,
             statusOnHit: {
               statusId: "weakened",
-              magnitude: 0.25,
+              magnitude: 0.4,
             },
           },
         ],

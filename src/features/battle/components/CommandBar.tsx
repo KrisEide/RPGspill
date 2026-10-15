@@ -10,6 +10,9 @@ import ghostAttackIcon from "../../../assets/icons/ghost_attack.png";
 import ghostBoltIcon from "../../../assets/icons/ghost_ghostbolt.png";
 import ghostHealIcon from "../../../assets/icons/ghost_ghostheal.png";
 import ghostReformIcon from "../../../assets/icons/ghost_reform.png";
+import mysteriousPotionIcon from "../../../assets/icons/mysteriouspotion.png";
+import soulLinkIcon from "../../../assets/icons/soulink.png";
+import soulLinkBrokenIcon from "../../../assets/icons/soulinkbroken.png";
 import portrait from "../../../assets/portraits/character1_1.png";
 import type {
   AbilityId,
@@ -26,6 +29,7 @@ type CommandId =
   | "items"
   | "ghostStrike"
   | "ghostHeal"
+  | "mysteriousPotion"
   | "reform";
 type CommandPanelId = "abilities" | "spirit" | "items";
 
@@ -36,6 +40,7 @@ type CommandDefinition = {
   icon: string;
   glyph?: string;
   panelId: CommandPanelId | null;
+  quantity?: number;
 };
 
 const PANEL_CONTENT: Record<
@@ -61,11 +66,14 @@ type Props = {
   actionsDisabled?: boolean;
   abilitiesAvailable?: boolean;
   spiritAvailable?: boolean;
+  spiritUsed?: boolean;
   ghostMode?: boolean;
   ghostStrikeDamage: number;
   ghostHealPpCost: number;
   ghostHealAvailable: boolean;
+  mysteriousPotionQuantity?: number;
   canReform?: boolean;
+  soulLinkActive?: boolean;
   abilities: {
     id: AbilityId;
     name: string;
@@ -107,6 +115,7 @@ type Props = {
   onDefendSelect: () => void;
   onGhostStrikeSelect: () => void;
   onGhostHealSelect: () => void;
+  onMysteriousPotionSelect: () => void;
   onReform: () => void;
 };
 
@@ -115,11 +124,14 @@ export default function CommandBar({
   actionsDisabled = false,
   abilitiesAvailable = false,
   spiritAvailable = false,
+  spiritUsed = false,
   ghostMode = false,
   ghostStrikeDamage,
   ghostHealPpCost,
   ghostHealAvailable,
+  mysteriousPotionQuantity = 0,
   canReform = false,
+  soulLinkActive = false,
   abilities,
   spirits,
   items,
@@ -131,12 +143,15 @@ export default function CommandBar({
   onDefendSelect,
   onGhostStrikeSelect,
   onGhostHealSelect,
+  onMysteriousPotionSelect,
   onReform,
 }: Props) {
   const [selected, setSelected] = useState<CommandId>("attack");
   const [hovered, setHovered] = useState<CommandId | null>(null);
   const [openPanel, setOpenPanel] = useState<CommandPanelId | null>(null);
+  const [hoveredAbilityId, setHoveredAbilityId] = useState<AbilityId | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
+  const [soulLinkHovered, setSoulLinkHovered] = useState(false);
   const shiftHeld = useShiftHeld();
 
   const commands = useMemo<CommandDefinition[]>(
@@ -159,16 +174,26 @@ export default function CommandBar({
           {
             id: "ghostHeal",
             title: "Ghost Heal",
-            desc: `Restore 8 Ghost HP. Costs ${ghostHealPpCost} Ghost PP.`,
+            desc: `Restore 12 Ghost HP. Costs ${ghostHealPpCost} Ghost PP.`,
             icon: ghostHealIcon,
             panelId: null,
           },
+          ...(mysteriousPotionQuantity > 0
+            ? [{
+                id: "mysteriousPotion" as const,
+                title: "Mysterious Potion",
+                desc: "Quick · Restore 10 Ghost HP and gain 10 Barrier.",
+                icon: mysteriousPotionIcon,
+                panelId: null,
+                quantity: mysteriousPotionQuantity,
+              }]
+            : []),
           {
             id: "reform",
             title: "Reform",
             desc: canReform
-              ? "Return to Living Form with 30 HP."
-              : "Requires 100 Ghost HP.",
+              ? "Ready. Return to Living Form with 30 HP."
+              : "Reach 100 Ghost HP to unlock Reform.",
             icon: ghostReformIcon,
             panelId: null,
           },
@@ -215,14 +240,23 @@ export default function CommandBar({
       ghostHealPpCost,
       ghostMode,
       ghostStrikeDamage,
+      mysteriousPotionQuantity,
     ],
   );
 
   const activeId = hovered ?? selected;
-  const active = commands.find((c) => c.id === activeId) ?? commands[0];
+  const active = soulLinkHovered
+    ? {
+        title: soulLinkActive ? "Soullink aktive" : "Soullink broken",
+        desc: "",
+      }
+    : (commands.find((c) => c.id === activeId) ?? commands[0]);
 
   const portraitToUse = portraitSrc ?? portrait;
   const panelContent = openPanel ? PANEL_CONTENT[openPanel] : null;
+  const hoveredAbility = abilities.find(
+    (ability) => ability.id === hoveredAbilityId,
+  ) ?? null;
   const hoveredItem = items.find((item) => item.id === hoveredItemId) ?? null;
 
   return (
@@ -237,6 +271,24 @@ export default function CommandBar({
             alt="Character portrait"
           />
         </div>
+        {ghostMode && !panelContent && (
+          <div
+            className={`cmdbar__soulLinkStatus ${soulLinkActive ? "cmdbar__soulLinkStatus--active" : "cmdbar__soulLinkStatus--broken"}`}
+            role="status"
+            aria-label={`Soul Link ${soulLinkActive ? "Active" : "Broken"}`}
+            tabIndex={0}
+            onMouseEnter={() => setSoulLinkHovered(true)}
+            onMouseLeave={() => setSoulLinkHovered(false)}
+            onFocus={() => setSoulLinkHovered(true)}
+            onBlur={() => setSoulLinkHovered(false)}
+          >
+            <img
+              className="cmdbar__soulLinkIcon"
+              src={soulLinkActive ? soulLinkIcon : soulLinkBrokenIcon}
+              alt=""
+            />
+          </div>
+        )}
         {panelContent ? (
           <section
             className="cmdbar__panel"
@@ -250,6 +302,7 @@ export default function CommandBar({
                 onClick={() => {
                   setOpenPanel(null);
                   setHovered(null);
+                  setHoveredAbilityId(null);
                   setHoveredItemId(null);
                 }}
               >
@@ -258,25 +311,31 @@ export default function CommandBar({
             </div>
             <div className="cmdbar__panelContent">
               {openPanel === "abilities" && abilities.length > 0 ? (
-                <div className="cmdbar__abilityList cmdbar__abilityList--compact">
-                  {abilities.map((ability) => {
-                    const tooltipId = `ability-tooltip-${ability.id}`;
-
-                    return (
+                <>
+                  <div
+                    className="cmdbar__abilityList cmdbar__abilityList--compact cmdbar__abilityList--scrollable"
+                    onScroll={() => setHoveredAbilityId(null)}
+                  >
+                    {abilities.map((ability) => (
                       <div
                         key={ability.id}
                         className="cmdbar__abilityEntry cmdbar__abilityEntry--compact"
+                        onMouseEnter={() => setHoveredAbilityId(ability.id)}
+                        onMouseLeave={() => setHoveredAbilityId(null)}
                       >
                         <button
                           type="button"
                           className="cmdbar__abilityButton cmdbar__abilityButton--compact"
                           disabled={!ability.available || actionsDisabled}
-                          aria-describedby={tooltipId}
+                          aria-describedby="ability-tooltip"
+                          onFocus={() => setHoveredAbilityId(ability.id)}
+                          onBlur={() => setHoveredAbilityId(null)}
                           onClick={() => {
                             onAbilitySelect(ability.id);
                             setOpenPanel(null);
                             setSelected("abilities");
                             setHovered(null);
+                            setHoveredAbilityId(null);
                           }}
                         >
                           <span className="cmdbar__abilityIcon" aria-hidden="true">
@@ -294,37 +353,39 @@ export default function CommandBar({
                             {ability.ppCost} PP
                           </span>
                         </button>
-                        <div
-                          id={tooltipId}
-                          className="cmdbar__abilityTooltip"
-                          role="tooltip"
-                        >
-                          <div className="cmdbar__abilityTooltipTitle">
-                            {ability.name} · Rank {ability.rank}
-                          </div>
-                          <div>
-                            {shiftHeld
-                              ? ability.description
-                              : ability.shortDescription}
-                          </div>
-                          {shiftHeld && ability.scalingDescription && (
-                            <div className="cmdbar__abilityTooltipScaling">
-                              Scaling: {ability.scalingDescription}
-                            </div>
-                          )}
-                          <div className="cmdbar__abilityTooltipMeta">
-                            Cost: {ability.ppCost} PP
-                          </div>
-                          {!shiftHeld && (
-                            <div className="cmdbar__abilityTooltipHint">
-                              Hold Shift for more info
-                            </div>
-                          )}
-                        </div>
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                  {hoveredAbility && (
+                    <div
+                      id="ability-tooltip"
+                      className="cmdbar__abilityTooltip cmdbar__abilityTooltip--shared"
+                      role="tooltip"
+                    >
+                      <div className="cmdbar__abilityTooltipTitle">
+                        {hoveredAbility.name} · Rank {hoveredAbility.rank}
+                      </div>
+                      <div>
+                        {shiftHeld
+                          ? hoveredAbility.description
+                          : hoveredAbility.shortDescription}
+                      </div>
+                      {shiftHeld && hoveredAbility.scalingDescription && (
+                        <div className="cmdbar__abilityTooltipScaling">
+                          Scaling: {hoveredAbility.scalingDescription}
+                        </div>
+                      )}
+                      <div className="cmdbar__abilityTooltipMeta">
+                        Cost: {hoveredAbility.ppCost} PP
+                      </div>
+                      {!shiftHeld && (
+                        <div className="cmdbar__abilityTooltipHint">
+                          Hold Shift for more info
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : openPanel === "spirit" && spirits.length > 0 ? (
                 <div className="cmdbar__abilityList">
                   {spirits.map((spirit) => {
@@ -472,6 +533,7 @@ export default function CommandBar({
                     c.id === "defend" ||
                     c.id === "ghostStrike" ||
                     c.id === "ghostHeal" ||
+                    c.id === "mysteriousPotion" ||
                     c.id === "reform") &&
                   actionsDisabled;
 
@@ -479,7 +541,7 @@ export default function CommandBar({
                   <button
                     key={c.id}
                     type="button"
-                    className={`cmdbar__slot ${isSelected ? "cmdbar__slot--selected" : ""} ${isLocked ? "cmdbar__slot--locked" : ""}`}
+                    className={`cmdbar__slot ${isSelected ? "cmdbar__slot--selected" : ""} ${isLocked ? "cmdbar__slot--locked" : ""} ${c.id === "spirit" && spiritUsed ? "cmdbar__slot--spirit-used" : ""}`}
                     disabled={isLocked && c.id !== "reform"}
                     aria-disabled={isLocked || isActionUnavailable}
                     onClick={() => {
@@ -510,6 +572,11 @@ export default function CommandBar({
                         return;
                       }
 
+                      if (c.id === "mysteriousPotion") {
+                        onMysteriousPotionSelect();
+                        return;
+                      }
+
                       if (c.id === "reform") {
                         onReform();
                         return;
@@ -533,6 +600,9 @@ export default function CommandBar({
                         src={c.icon}
                         alt=""
                       />
+                    )}
+                    {c.quantity !== undefined && (
+                      <span className="cmdbar__slotQuantity">×{c.quantity}</span>
                     )}
                   </button>
                 );

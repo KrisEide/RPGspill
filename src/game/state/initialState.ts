@@ -57,6 +57,8 @@ function createCharacterState(
     hp: stats.maxHp,
     pp: stats.maxPp,
     savedLivingPp: null,
+    ghostReformReady: false,
+    soulLinkActive: false,
     barrier: 0,
     stats,
     abilityRanks: usesDevelopmentLoadout

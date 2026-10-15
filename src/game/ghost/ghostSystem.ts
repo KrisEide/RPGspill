@@ -6,7 +6,8 @@ import type {
   CombatState,
 } from "../types";
 
-export const GHOST_MAX_HP = 100;
+export const GHOST_MAX_HP = 120;
+export const GHOST_REFORM_HP = 100;
 export const GHOST_STARTING_HP = 30;
 export const GHOST_MAX_PP = 20;
 export const GHOST_INCOMING_DAMAGE_MULTIPLIER = 0.5;
@@ -63,7 +64,16 @@ export function applyCharacterHp(
   }
 
   if (requestedHp > 0) {
-    return { ...character, hp: requestedHp };
+    return {
+      ...character,
+      hp: requestedHp,
+      ghostReformReady:
+        character.form === "ghost"
+          ? character.ghostReformReady || requestedHp >= GHOST_REFORM_HP
+          : false,
+      soulLinkActive:
+        character.form === "ghost" ? character.soulLinkActive : false,
+    };
   }
 
   if (character.form === "living") {
@@ -73,6 +83,8 @@ export function applyCharacterHp(
       hp: GHOST_STARTING_HP,
       pp: GHOST_MAX_PP,
       savedLivingPp: character.pp,
+      ghostReformReady: false,
+      soulLinkActive: true,
       barrier: 0,
       statuses: [],
       itemDamageBonus: null,
@@ -85,6 +97,8 @@ export function applyCharacterHp(
     form: "permanentlyDead",
     hp: 0,
     pp: 0,
+    ghostReformReady: false,
+    soulLinkActive: false,
     barrier: 0,
     statuses: [],
     itemDamageBonus: null,
@@ -99,6 +113,8 @@ export function getCharacterEventState(
     form: character.form,
     pp: character.pp,
     savedLivingPp: character.savedLivingPp,
+    ghostReformReady: character.ghostReformReady,
+    soulLinkActive: character.soulLinkActive,
     statuses: character.statuses,
   };
 }
@@ -135,7 +151,7 @@ export function reformGhost(
 ): CombatState | null {
   const character = state.characters[characterId];
 
-  if (character.form !== "ghost" || character.hp < GHOST_MAX_HP) {
+  if (character.form !== "ghost" || !character.ghostReformReady) {
     return null;
   }
 
@@ -152,6 +168,8 @@ export function reformGhost(
           character.savedLivingPp ?? character.stats.maxPp,
         ),
         savedLivingPp: null,
+        ghostReformReady: false,
+        soulLinkActive: false,
         statuses: [],
       },
     },
@@ -182,6 +200,8 @@ export function reviveGhost(
           character.savedLivingPp ?? character.stats.maxPp,
         ),
         savedLivingPp: null,
+        ghostReformReady: false,
+        soulLinkActive: false,
         statuses: [],
       },
     },

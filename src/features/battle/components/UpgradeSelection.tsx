@@ -37,11 +37,12 @@ export default function UpgradeSelection({
 }: Props) {
   const isRest = mode !== "victory";
   const shiftHeld = useShiftHeld();
-  const hasAbilityChoices = choices.some(
+  const hasDetailedChoices = choices.some(
     (choice) =>
       choice.type === "newAbility" ||
       choice.type === "abilityRank" ||
-      choice.type === "newGhostAbility",
+      choice.type === "newGhostAbility" ||
+      choice.type === "newSpirit",
   );
   const isSpiritChoice =
     choices.length > 0 &&
@@ -71,13 +72,11 @@ export default function UpgradeSelection({
         >
           ◆
         </span>
-        <div className="upgradeSelection__victory">
-          {isRest
-            ? restEyebrow
-            : isGhostChoice
-              ? "Ghost Reward"
-              : "Victory"}
-        </div>
+        {!isGhostChoice && (
+          <div className="upgradeSelection__victory">
+            {isRest ? restEyebrow : "Victory"}
+          </div>
+        )}
         <h1 id="upgrade-title" className="upgradeSelection__title">
           {isRest
             ? restTitle
@@ -90,15 +89,8 @@ export default function UpgradeSelection({
         <p className="upgradeSelection__character">
           {mode === "restChoice"
             ? `Choose how ${characterName} prepares.`
-            : isSpiritChoice
-              ? `Choose one Spirit for ${characterName}`
-              : `Choose one reward for ${characterName}`}
+            : `For ${characterName}${hasDetailedChoices ? " · Hold Shift for details" : ""}`}
         </p>
-        {hasAbilityChoices && (
-          <div className="upgradeSelection__detailsHint">
-            Hold Shift while hovering for more info
-          </div>
-        )}
         {itemRewards.map((itemReward, index) => (
           <div
             key={`${itemReward.name}-${index}`}
@@ -114,7 +106,7 @@ export default function UpgradeSelection({
                 src={itemReward.icon}
                 alt=""
               />
-              Item found: <strong>{itemReward.name}</strong>
+              <strong>{itemReward.name}</strong> found
             </div>
             <div
               id={`item-reward-tooltip-${index}`}
@@ -141,9 +133,15 @@ export default function UpgradeSelection({
               choice.type === "newAbility" ||
               choice.type === "abilityRank" ||
               choice.type === "newGhostAbility";
-            const detailsId = isAbilityChoice
+            const hasShiftDetails =
+              isAbilityChoice || choice.type === "newSpirit";
+            const detailsId = hasShiftDetails
               ? `reward-ability-details-${index}`
               : undefined;
+            const displayTitle =
+              choice.type === "abilityRank"
+                ? `Rank ${choice.rank} · ${choice.title}`
+                : choice.title;
 
             return (
               <button
@@ -158,43 +156,34 @@ export default function UpgradeSelection({
                 <span className="upgradeSelection__cardIcon" aria-hidden="true">
                   {choice.icon}
                 </span>
-                <span className="upgradeSelection__cardType">
-                  {choice.type === "newAbility"
-                    ? "New Ability"
-                    : choice.type === "abilityRank"
-                      ? "Ability Upgrade"
-                    : choice.type === "newGhostAbility"
-                      ? "Ghost Ability"
-                    : choice.type === "ghostUpgrade"
-                      ? "Ghost Upgrade"
-                    : choice.type === "newSpirit"
-                      ? "New Spirit"
-                    : choice.type === "passive"
-                      ? "Passive"
-                      : choice.type === "rest"
-                        ? "Preparation"
-                        : "Stat Upgrade"}
-                </span>
-                <strong className="upgradeSelection__cardTitle">
-                  {choice.title}
-                </strong>
-                {(choice.type === "newAbility" ||
-                  choice.type === "abilityRank" ||
-                  choice.type === "newGhostAbility") && (
-                  <span className="upgradeSelection__cardMeta">
-                    Rank {choice.rank} · {choice.type === "newGhostAbility"
-                      ? choice.costLabel
-                      : `${choice.ppCost} PP`}
+                {choice.type !== "newSpirit" && (
+                  <span className="upgradeSelection__cardType">
+                    {choice.type === "newAbility"
+                      ? "New Ability"
+                      : choice.type === "abilityRank"
+                        ? "Ability Upgrade"
+                        : choice.type === "newGhostAbility"
+                          ? "Ghost Ability"
+                          : choice.type === "ghostUpgrade"
+                            ? "Ghost Upgrade"
+                            : choice.type === "passive"
+                              ? "Passive"
+                              : choice.type === "rest"
+                                ? "Preparation"
+                                : "Stat Upgrade"}
                   </span>
                 )}
+                <strong className="upgradeSelection__cardTitle">
+                  {displayTitle}
+                </strong>
                 {choice.type === "newSpirit" ? (
                   <span className="upgradeSelection__cardDescription upgradeSelection__cardDescription--spirit">
                     <span>
-                      <strong>Passive — {choice.passiveName}</strong>
-                      {choice.passiveDescription}
+                      <strong>Passive</strong>
+                      {choice.passiveShortDescription}
                     </span>
                     <span>
-                      <strong>Active — {choice.activeName}</strong>
+                      <strong>Active</strong>
                       {choice.activeDescription}
                     </span>
                   </span>
@@ -210,7 +199,7 @@ export default function UpgradeSelection({
                     role="tooltip"
                   >
                     <span className="cmdbar__abilityTooltipTitle">
-                      {choice.title} · Rank {choice.rank}
+                      {displayTitle}
                     </span>
                     <span>{choice.detailedDescription}</span>
                     {choice.scalingDescription && (
@@ -222,6 +211,28 @@ export default function UpgradeSelection({
                       Cost: {choice.type === "newGhostAbility"
                         ? choice.costLabel
                         : `${choice.ppCost} PP`}
+                    </span>
+                  </span>
+                )}
+                {choice.type === "newSpirit" && shiftHeld && (
+                  <span
+                    id={detailsId}
+                    className="cmdbar__abilityTooltip upgradeSelection__abilityTooltip upgradeSelection__spiritTooltip"
+                    role="tooltip"
+                  >
+                    <span className="cmdbar__abilityTooltipTitle">
+                      {choice.title}
+                    </span>
+                    <span>
+                      <strong>Passive</strong>
+                      {choice.passiveDescription}
+                    </span>
+                    <span>
+                      <strong>Active — {choice.activeName}</strong>
+                      {choice.activeDetailedDescription}
+                    </span>
+                    <span className="cmdbar__abilityTooltipMeta">
+                      Once per encounter
                     </span>
                   </span>
                 )}

@@ -1,9 +1,14 @@
-import type { AbilityId, GhostUpgradeId } from "../game/types";
+import type {
+  AbilityId,
+  GhostUpgradeId,
+  RewardTag,
+} from "../game/types";
 
 export type NewGhostAbilityRewardDefinition = {
   type: "newGhostAbility";
   abilityId: AbilityId;
   icon: string;
+  tags: readonly RewardTag[];
 };
 
 export type GhostUpgradeRewardDefinition = {
@@ -12,6 +17,7 @@ export type GhostUpgradeRewardDefinition = {
   icon: string;
   title: string;
   description: string;
+  tags: readonly RewardTag[];
 };
 
 export type GhostRewardDefinition =
@@ -25,6 +31,7 @@ export const GHOST_REWARD_POOL = [
     type: "newGhostAbility",
     abilityId: "possession",
     icon: "🫴",
+    tags: ["ghost", "debuff", "partner"],
   },
   {
     type: "ghostUpgrade",
@@ -32,6 +39,7 @@ export const GHOST_REWARD_POOL = [
     icon: "👊",
     title: "Heavy Haunt",
     description: "Ghost Strike deals +4 Physical damage (7 → 11).",
+    tags: ["ghost", "physical", "damage"],
   },
   {
     type: "ghostUpgrade",
@@ -40,5 +48,6 @@ export const GHOST_REWARD_POOL = [
     title: "Closer to the Veil",
     description:
       "While below 25 Ghost HP, Ghost Strike and Ghost Bolt deal +50% damage.",
+    tags: ["ghost", "low_hp", "damage"],
   },
 ] as const satisfies readonly GhostRewardDefinition[];

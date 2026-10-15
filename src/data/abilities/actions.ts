@@ -132,11 +132,11 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Restore 8 Ghost HP.",
+        shortDescription: "Restore 12 Ghost HP.",
         description:
-          "Restore 8 Ghost HP. Costs 4 Ghost PP. This is fixed Ghost recovery.",
+          "Restore 12 Ghost HP. Costs 4 Ghost PP. This is fixed Ghost recovery.",
         ppCost: 4,
-        effects: [{ type: "ghostHealing", amount: 8 }],
+        effects: [{ type: "ghostHealing", amount: 12 }],
       },
     },
   },
@@ -217,6 +217,28 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  prepareSweep: {
+    id: "prepareSweep",
+    name: "Prepare Sweep",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Prepare a sweeping attack against both heroes.",
+        description:
+          "Charge Multi Attack. It will strike both living heroes next round unless interrupted.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "charge",
+            readiesAbilityId: "orcGruntMultiAttack",
+          },
+        ],
+      },
+    },
+  },
   orcGruntMultiAttack: {
     id: "orcGruntMultiAttack",
     name: "Multi Attack",
@@ -233,7 +255,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
           {
             type: "damage",
             damageType: "physical",
-            basePower: 9,
+            basePower: 6,
             attackScaling: 0.25,
             elementalPowerScaling: 0,
           },
@@ -433,14 +455,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 14 raw Physical damage.",
-        description: "Strike one random hero for 14 raw Physical damage.",
+        shortDescription: "Deal 12 raw Physical damage.",
+        description: "Strike one random hero for 12 raw Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 14,
+            basePower: 12,
             attackScaling: 0,
             elementalPowerScaling: 0,
             criticalHit: {
@@ -462,15 +484,15 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 18 raw Physical damage and Stun on HP damage.",
+        shortDescription: "Deal 16 raw Physical damage and Stun on HP damage.",
         description:
-          "Strike one random hero for 18 raw Physical damage. If the hit damages HP, Stun them for their next action.",
+          "Strike one random hero for 16 raw Physical damage. If the hit damages HP, Stun them for their next action.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 18,
+            basePower: 16,
             attackScaling: 0,
             elementalPowerScaling: 0,
             statusOnHpDamage: { statusId: "stunned" },
@@ -504,15 +526,15 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Deal 16 raw Physical damage to both heroes.",
+        shortDescription: "Deal 14 raw Physical damage to both heroes.",
         description:
-          "Deal 16 raw Physical damage to both heroes. HP damage applies Bleed.",
+          "Deal 14 raw Physical damage to both heroes. HP damage applies Bleed.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 16,
+            basePower: 14,
             attackScaling: 0,
             elementalPowerScaling: 0,
             statusOnHpDamage: { statusId: "bleed" },
@@ -531,14 +553,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 27 raw Physical damage.",
-        description: "Smash one random hero for 27 raw Physical damage.",
+        shortDescription: "Deal 24 raw Physical damage.",
+        description: "Smash one random hero for 24 raw Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 27,
+            basePower: 24,
             attackScaling: 0,
             elementalPowerScaling: 0,
           },
@@ -572,6 +594,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "greenSlimeStrongAttack"
   | "greenSlimeBuff"
   | "blueSlimePoisonAttack"
+  | "prepareSweep"
   | "orcGruntMultiAttack"
   | "gangStrike"
   | "darkBolt"

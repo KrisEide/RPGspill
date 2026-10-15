@@ -37,6 +37,8 @@ export default function CombatLog({ events, getCombatantName }: Props) {
           key={
             event.type === "statusDamage"
               ? `${event.targetId}-${event.statusId}-${index}`
+              : event.type === "soulTransfer"
+                ? `${event.ghostId}-${event.targetId}-soul-${index}`
               : event.type === "spiritDamage"
                 ? `${event.sourceId}-${event.spiritId}-${event.targetId}-${index}`
                 : event.type === "itemUse"
@@ -46,7 +48,13 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                     : `${event.actorId}-${event.abilityId}-${index}`
           }
         >
-          {event.type === "bloodpact" ? (
+          {event.type === "soulTransfer" ? (
+            <>
+              Soul Link shared the party's remaining HP: {getCombatantName(event.targetId)}
+              {" "}returned with {event.targetRemainingHp} HP and {getCombatantName(event.ghostId)}
+              {" "}was left with {event.ghostRemainingHp} Ghost HP. The link broke.
+            </>
+          ) : event.type === "bloodpact" ? (
             <>
               Bloodpact{event.active ? " active" : ""}: {getCombatantName(event.targetId)}
               {event.stage === "sacrifice"
@@ -102,7 +110,9 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 : ""}
             </>
           ) : event.type === "charge" ? (
-            event.abilityId === "gatherDreadflame" ? (
+            event.abilityId === "prepareSweep" ? (
+              <>{getCombatantName(event.actorId)} began preparing a sweeping Multi Attack.</>
+            ) : event.abilityId === "gatherDreadflame" ? (
               <>{getCombatantName(event.actorId)} gathered Dreadflame.</>
             ) : (
               <>{getCombatantName(event.actorId)} began charging {resolveAbility(event.abilityId, event.abilityRank)?.name ?? "an ability"}.</>

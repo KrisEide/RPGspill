@@ -17,6 +17,11 @@ const ITEM_RARITY_WEIGHTS = {
   rare: 1,
 } as const;
 
+export function getItemRewardWeight(itemId: ItemId) {
+  const definition = ITEM_DEFINITIONS[itemId];
+  return definition.rewardWeight ?? ITEM_RARITY_WEIGHTS[definition.rarity];
+}
+
 export type InventoryEntry = {
   definition: ItemDefinition;
   quantity: number;
@@ -139,15 +144,14 @@ function drawWeightedItem(pool: readonly ItemId[], seed: number) {
 
   const roll = nextRandom(seed);
   const totalWeight = pool.reduce(
-    (sum, itemId) =>
-      sum + ITEM_RARITY_WEIGHTS[ITEM_DEFINITIONS[itemId].rarity],
+    (sum, itemId) => sum + getItemRewardWeight(itemId),
     0,
   );
   let weightedRoll = roll.value * totalWeight;
   let selectedIndex = pool.length - 1;
 
   for (let index = 0; index < pool.length; index += 1) {
-    weightedRoll -= ITEM_RARITY_WEIGHTS[ITEM_DEFINITIONS[pool[index]].rarity];
+    weightedRoll -= getItemRewardWeight(pool[index]);
     if (weightedRoll < 0) {
       selectedIndex = index;
       break;

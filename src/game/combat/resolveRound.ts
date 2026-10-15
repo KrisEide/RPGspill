@@ -30,7 +30,7 @@ import {
 } from "./spiritTurnPriority";
 import { STATUS_DEFINITIONS } from "../../data/statuses";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
-import { ITEM_DEFINITIONS } from "../../data/items";
+import { ITEM_DEFINITIONS, getItemUseProfile } from "../../data/items";
 import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
 import { generateRewardOffers } from "../rewards/rewardSystem";
 import {
@@ -61,12 +61,14 @@ import {
 } from "../abilities/abilityProgression";
 import type {
   AbilityId,
+  AbilityCombatAction,
   ActiveStatus,
   CombatAction,
   CombatantId,
   CombatEvent,
   CombatState,
   CharacterInstanceId,
+  Element,
   ItemId,
   ItemCombatAction,
   ItemUseEvent,
@@ -78,6 +80,7 @@ import type {
   StatusChange,
   StatusDamageEvent,
   StatusId,
+  SoulTransferEvent,
   SpiritId,
 } from "../types";
 
@@ -139,6 +142,62 @@ function updateHp(
     enemies: state.enemies.map((enemy) =>
       enemy.instanceId === id ? { ...enemy, hp } : enemy,
     ),
+  };
+}
+
+function resolveSoulTransfer(
+  state: CombatState,
+  targetId: CharacterInstanceId,
+  incomingHpDamage: number,
+): { state: CombatState; event: SoulTransferEvent } | null {
+  const target = state.characters[targetId];
+  const ghostId = CHARACTER_ORDER.find(
+    (characterId) =>
+      characterId !== targetId &&
+      state.characters[characterId].form === "ghost" &&
+      state.characters[characterId].soulLinkActive,
+  );
+
+  if (target.form !== "living" || !ghostId) {
+    return null;
+  }
+
+  const ghost = state.characters[ghostId];
+  const remainingPartyHp = ghost.hp + target.hp - incomingHpDamage;
+
+  if (remainingPartyHp < 2) {
+    return null;
+  }
+
+  const ghostRemainingHp = Math.floor(remainingPartyHp / 2);
+  const targetRemainingHp = Math.ceil(remainingPartyHp / 2);
+  const nextGhost = applyCharacterHp(
+    { ...ghost, soulLinkActive: false },
+    ghostRemainingHp,
+  );
+  const nextTarget = applyCharacterHp(target, targetRemainingHp);
+  const nextState: CombatState = {
+    ...state,
+    characters: {
+      ...state.characters,
+      [ghostId]: nextGhost,
+      [targetId]: nextTarget,
+    },
+  };
+
+  return {
+    state: nextState,
+    event: {
+      type: "soulTransfer",
+      ghostId,
+      targetId,
+      ghostHpLost: ghost.hp - ghostRemainingHp,
+      targetHpRestored: targetRemainingHp,
+      ghostRemainingHp,
+      targetRemainingHp,
+      ghostCharacterState: getCharacterEventState(nextGhost),
+      targetCharacterState: getCharacterEventState(nextTarget),
+    },
   };
 }
 
@@ -970,6 +1029,51 @@ function applyDamageLinkedAbilityHealing(
   };
 }
 
+function applyTwinFlamesPartyHealing(
+  state: CombatState,
+  healerId: CharacterInstanceId,
+  amount: number,
+) {
+  let nextState = state;
+  const collectedImpacts: MultiTargetSupportImpact[] = [];
+
+  for (const targetId of CHARACTER_ORDER) {
+    const result = applyDamageLinkedAbilityHealing(
+      nextState,
+      healerId,
+      targetId,
+      amount,
+    );
+    nextState = result.state;
+    collectedImpacts.push(result.impact, ...result.secondaryImpacts);
+  }
+
+  const impacts = collectedImpacts.reduce<MultiTargetSupportImpact[]>(
+    (merged, impact) => {
+      const existing = merged.find(
+        (candidate) => candidate.targetId === impact.targetId,
+      );
+
+      if (!existing) {
+        merged.push({ ...impact });
+        return merged;
+      }
+
+      existing.healingAmount += impact.healingAmount;
+      existing.barrierAmount += impact.barrierAmount;
+      existing.remainingHp = impact.remainingHp;
+      existing.remainingBarrier = impact.remainingBarrier;
+      existing.remainingPp = impact.remainingPp;
+      existing.characterState = impact.characterState;
+      existing.statusChanges.push(...impact.statusChanges);
+      return merged;
+    },
+    [],
+  );
+
+  return { state: nextState, impacts };
+}
+
 function resolveEndOfRoundStatuses(
   state: CombatState,
   events: CombatEvent[],
@@ -1034,9 +1138,23 @@ function resolveEndOfRoundStatuses(
       const previousCharacterForm = isCharacterInstanceId(combatantId)
         ? nextState.characters[combatantId].form
         : null;
+      const soulTransfer =
+        calculatedRemainingHp <= 0 &&
+        !isCharacterInstanceId(status.sourceId) &&
+        isCharacterInstanceId(combatantId)
+          ? resolveSoulTransfer(nextState, combatantId, amount)
+          : null;
 
-      nextState = updateHp(nextState, combatantId, calculatedRemainingHp);
-      const remainingHp = getCombatant(nextState, combatantId)?.hp ?? 0;
+      if (soulTransfer) {
+        nextState = soulTransfer.state;
+      } else {
+        nextState = updateHp(nextState, combatantId, calculatedRemainingHp);
+      }
+      const remainingHp = soulTransfer
+        ? 0
+        : (getCombatant(nextState, combatantId)?.hp ?? 0);
+      const actualRemainingHp =
+        getCombatant(nextState, combatantId)?.hp ?? 0;
       let sourceHealingAmount = 0;
       let sourceRemainingHp: number | undefined;
 
@@ -1078,7 +1196,7 @@ function resolveEndOfRoundStatuses(
             statusId: activeStatus.id,
           })),
         );
-      } else if (persistsUntilCombatEnd && remainingHp > 0) {
+      } else if (persistsUntilCombatEnd && actualRemainingHp > 0) {
         if (status.id === "rootseed") {
           const refreshedStatus = {
             ...status,
@@ -1099,7 +1217,7 @@ function resolveEndOfRoundStatuses(
             status: refreshedStatus,
           });
         }
-      } else if ((remainingRounds ?? 0) > 0 && remainingHp > 0) {
+      } else if ((remainingRounds ?? 0) > 0 && actualRemainingHp > 0) {
         const refreshedStatus = { ...status, remainingRounds };
         nextState = updateStatuses(
           nextState,
@@ -1163,6 +1281,18 @@ function resolveEndOfRoundStatuses(
             ? getEventCharacterState(nextState, status.sourceId)
             : undefined,
       });
+
+      if (soulTransfer) {
+        events.push({
+          ...soulTransfer.event,
+          ghostCharacterState: getCharacterEventState(
+            nextState.characters[soulTransfer.event.ghostId],
+          ),
+          targetCharacterState: getCharacterEventState(
+            nextState.characters[soulTransfer.event.targetId],
+          ),
+        });
+      }
 
       if (characterChangedForm) {
         break;
@@ -1359,9 +1489,12 @@ export function resolveImmediateItemUse(
 ) {
   const definition = ITEM_DEFINITIONS[action.itemId];
   const actor = state.characters[action.actorId];
+  const useProfile = definition
+    ? getItemUseProfile(definition, actor.form)
+    : null;
 
   if (
-    definition?.resolutionTiming !== "preRound" ||
+    useProfile?.resolutionTiming !== "preRound" ||
     actor.statuses.some((status) => status.id === "stunned")
   ) {
     return null;
@@ -1399,10 +1532,13 @@ function resolveItemUse(
 } | null {
   const definition = ITEM_DEFINITIONS[action.itemId];
   const actor = state.characters[action.actorId];
+  const useProfile = definition
+    ? getItemUseProfile(definition, actor.form)
+    : null;
 
   if (
     !definition ||
-    (!options.allowDefeatedActor && actor.form !== "living") ||
+    (!options.allowDefeatedActor && !useProfile) ||
     (!options.itemAlreadyConsumed &&
       (actor.inventory[action.itemId] ?? 0) <= 0)
   ) {
@@ -1450,7 +1586,7 @@ function resolveItemUse(
     let revived = false;
     const statusChanges: StatusChange[] = [];
 
-    for (const effect of definition.effects) {
+    for (const effect of useProfile?.effects ?? definition.effects) {
       const currentTarget = getCombatant(nextState, targetId);
 
       if (!currentTarget) {
@@ -1468,6 +1604,14 @@ function resolveItemUse(
           defender: currentTarget.stats,
           defenderStatuses: currentTarget.statuses,
         });
+        if (effect.usesDamageVariance) {
+          const varianceResult = nextRandom(randomSeed);
+          randomSeed = varianceResult.nextSeed;
+          mitigatedDamage = applyDamageVariance(
+            mitigatedDamage,
+            varianceResult.value,
+          );
+        }
         if (
           characterHasPassive(actor, "bloodScent") &&
           currentTarget.statuses.some((status) => status.id === "bleed")
@@ -1570,6 +1714,35 @@ function resolveItemUse(
         );
         healingAmount += remainingHp - currentTarget.hp;
         nextState = updateHp(nextState, targetId, remainingHp);
+        continue;
+      }
+
+      if (effect.type === "restoreGhostHp") {
+        if (
+          !isCharacterInstanceId(targetId) ||
+          currentTarget.hp <= 0 ||
+          nextState.characters[targetId].form !== "ghost"
+        ) {
+          continue;
+        }
+
+        const remainingHp = Math.min(
+          getCharacterMaxHp(nextState.characters[targetId]),
+          currentTarget.hp + effect.amount,
+        );
+        healingAmount += remainingHp - currentTarget.hp;
+        nextState = updateHp(nextState, targetId, remainingHp);
+        continue;
+      }
+
+      if (effect.type === "directHpLoss") {
+        if (!isCharacterInstanceId(targetId) || currentTarget.hp <= 0) {
+          continue;
+        }
+
+        const hpLoss = Math.min(effect.amount, currentTarget.hp);
+        damageAmount += hpLoss;
+        nextState = updateHp(nextState, targetId, currentTarget.hp - hpLoss);
         continue;
       }
 
@@ -1759,6 +1932,7 @@ function resolveItemUse(
 function getSelectedPlayerActions(
   state: CombatState,
   selections: RoundSelections,
+  includeReadiedAbilities = true,
 ) {
   const actions: Array<{
     action: CombatAction;
@@ -1809,6 +1983,7 @@ function getSelectedPlayerActions(
     );
 
     if (
+      includeReadiedAbilities &&
       state.characters[characterId].form === "living" &&
       charge?.readiedAbilityId &&
       charge.readiedTargetId
@@ -1830,9 +2005,100 @@ function getSelectedPlayerActions(
   return actions;
 }
 
+export function resolveImmediateWarhoundAutoAttack(
+  state: CombatState,
+  action: AbilityCombatAction,
+): RoundResult | null {
+  if (
+    state.phase !== "selectingActions" ||
+    action.abilityId !== "autoAttack" ||
+    !isCharacterInstanceId(action.actorId) ||
+    action.targetId === null ||
+    isCharacterInstanceId(action.targetId)
+  ) {
+    return null;
+  }
+
+  const actor = state.characters[action.actorId];
+  const warhound = actor.spirits.warhound;
+  const target = state.enemies.find(
+    (enemy) => enemy.instanceId === action.targetId,
+  );
+
+  if (
+    actor.form !== "living" ||
+    actor.statuses.some(
+      (status) => status.id === "stunned" || status.id === "abilityCharge",
+    ) ||
+    !getKnownAbilityRank(actor.abilityRanks, "autoAttack") ||
+    !warhound ||
+    warhound.passiveTriggeredThisEncounter ||
+    !SPIRIT_DEFINITIONS.warhound.passive
+      .firstAutoAttackEachEncounterIsQuick ||
+    !target ||
+    !isEnemyTargetable(target)
+  ) {
+    return null;
+  }
+
+  const triggeredState = markSpiritEncounterPassiveTriggered(
+    state,
+    action.actorId,
+    "warhound",
+  );
+  const selections: RoundSelections = {
+    "character-1": { action: null, bonusAction: null, quickActions: [] },
+    "character-2": { action: null, bonusAction: null, quickActions: [] },
+  };
+  selections[action.actorId].quickActions.push(action);
+
+  const result = resolveRound(triggeredState, selections, {
+    immediateActionsOnly: true,
+  });
+
+  return result.events.length > 0 ? result : null;
+}
+
+export function resolveImmediateQuickAbility(
+  state: CombatState,
+  action: AbilityCombatAction,
+): RoundResult | null {
+  if (
+    state.phase !== "selectingActions" ||
+    !isCharacterInstanceId(action.actorId)
+  ) {
+    return null;
+  }
+
+  const actor = state.characters[action.actorId];
+  const ability = getCombatantAbility(state, action.actorId, action.abilityId);
+
+  if (
+    actor.form !== "living" ||
+    actor.statuses.some(
+      (status) => status.id === "stunned" || status.id === "abilityCharge",
+    ) ||
+    ability?.useTiming !== "quickAction"
+  ) {
+    return null;
+  }
+
+  const selections: RoundSelections = {
+    "character-1": { action: null, bonusAction: null, quickActions: [] },
+    "character-2": { action: null, bonusAction: null, quickActions: [] },
+  };
+  selections[action.actorId].quickActions.push(action);
+  const result = resolveRound(state, selections, {
+    immediateActionsOnly: true,
+  });
+
+  return result.events.length > 0 ? result : null;
+}
+
 export function resolveRound(
   state: CombatState,
   selections: RoundSelections,
+  options: { immediateActionsOnly?: boolean } = {},
 ): RoundResult {
   if (state.phase !== "selectingActions") {
     return { nextState: state, events: [] };
@@ -1859,12 +2125,18 @@ export function resolveRound(
 
   let randomSeed = state.randomSeed;
   const orderedActions = [
-    ...getSelectedPlayerActions(state, selections),
-    ...createEnemyActionsFromIntents(state).map((action) => ({
-      action,
-      requiredPossessionSourceId: null,
-      isQuickAction: false,
-    })),
+    ...getSelectedPlayerActions(
+      state,
+      selections,
+      !options.immediateActionsOnly,
+    ),
+    ...(options.immediateActionsOnly
+      ? []
+      : createEnemyActionsFromIntents(state).map((action) => ({
+          action,
+          requiredPossessionSourceId: null,
+          isQuickAction: false,
+        }))),
   ]
     .map(
       (
@@ -1895,10 +2167,16 @@ export function resolveRound(
           action,
           requiredPossessionSourceId,
           originalOrder,
-          alwaysActsLast:
-            action.kind === "ability" &&
-            getCombatantAbility(state, action.actorId, action.abilityId)
-              ?.turnOrderRule === "alwaysLast",
+          lastActionTier:
+            action.kind !== "ability"
+              ? 0
+              : getCombatantAbility(state, action.actorId, action.abilityId)
+                    ?.turnOrderRule === "absoluteLast"
+                ? 2
+                : getCombatantAbility(state, action.actorId, action.abilityId)
+                      ?.turnOrderRule === "alwaysLast"
+                  ? 1
+                  : 0,
           resolutionPriority: Math.max(
             abilityPriority,
             isQuickAction &&
@@ -1914,14 +2192,13 @@ export function resolveRound(
       },
     )
     .sort((first, second) => {
-      const alwaysLastOrder =
-        Number(first.alwaysActsLast) - Number(second.alwaysActsLast);
+      const alwaysLastOrder = first.lastActionTier - second.lastActionTier;
 
       if (alwaysLastOrder !== 0) {
         return alwaysLastOrder;
       }
 
-      if (first.alwaysActsLast && second.alwaysActsLast) {
+      if (first.lastActionTier > 0 && second.lastActionTier > 0) {
         return (
           second.agility - first.agility ||
           first.originalOrder - second.originalOrder
@@ -1945,9 +2222,9 @@ export function resolveRound(
     while (tieEndIndex < actions.length) {
       const candidate = actions[tieEndIndex];
       const sameTurnOrder =
-        candidate.alwaysActsLast === first.alwaysActsLast &&
+        candidate.lastActionTier === first.lastActionTier &&
         candidate.agility === first.agility &&
-        (first.alwaysActsLast ||
+        (first.lastActionTier > 0 ||
           candidate.resolutionPriority === first.resolutionPriority);
 
       if (!sameTurnOrder) {
@@ -1975,17 +2252,44 @@ export function resolveRound(
   const delayedItemActions: ItemCombatAction[] = [];
   const activeDamageReductions = new Map<CombatantId, number[]>();
   const resolvedPossessions = new Set<CharacterInstanceId>();
+  const latestDamagingElementByCharacter = new Map<
+    CharacterInstanceId,
+    Element
+  >();
+  const damagedTargetsByElementByCharacter = new Map<
+    CharacterInstanceId,
+    Map<Element, Set<CombatantId>>
+  >();
+  const damagedTargetsByGhostCharacter = new Map<
+    CharacterInstanceId,
+    Set<CombatantId>
+  >();
   const stunnedActorIds = new Set<CombatantId>();
   const resolvedStunnedActorIds = new Set<CombatantId>();
-  const bloodpactPassive = SPIRIT_DEFINITIONS.bloodpact.passive.roundStartBloodpact!;
-  for (const ownerId of CHARACTER_ORDER) {
-    nextState = resolveBloodpact(
-      nextState, ownerId,
-      bloodpactPassive.hpCost, bloodpactPassive.barrierAmount, false, events,
-    );
+  if (!options.immediateActionsOnly) {
+    const bloodpactPassive =
+      SPIRIT_DEFINITIONS.bloodpact.passive.roundStartBloodpact!;
+    for (const ownerId of CHARACTER_ORDER) {
+      nextState = resolveBloodpact(
+        nextState,
+        ownerId,
+        bloodpactPassive.hpCost,
+        bloodpactPassive.barrierAmount,
+        false,
+        events,
+      );
+    }
   }
 
   for (const { action, requiredPossessionSourceId } of actions) {
+    if (
+      !CHARACTER_ORDER.some(
+        (characterId) => nextState.characters[characterId].form === "living",
+      )
+    ) {
+      break;
+    }
+
     if (
       requiredPossessionSourceId &&
       !resolvedPossessions.has(requiredPossessionSourceId)
@@ -2119,6 +2423,17 @@ export function resolveRound(
       continue;
     }
 
+    const partnerId = isCharacterInstanceId(action.actorId)
+      ? CHARACTER_ORDER.find(
+          (characterId) => characterId !== action.actorId,
+        )
+      : undefined;
+    const twinFlamesElement =
+      action.abilityId === "twinFlames" &&
+      partnerId !== undefined
+        ? (latestDamagingElementByCharacter.get(partnerId) ?? null)
+        : null;
+
     let resolvedTargetId = action.targetId;
 
     if (
@@ -2161,6 +2476,31 @@ export function resolveRound(
       resolvedTargetId = woundedLivingAllies[0].instanceId;
     }
 
+    if (
+      isCharacterInstanceId(action.actorId) &&
+      ability.target === "singleEnemy" &&
+      !action.isChargeRelease &&
+      resolvedTargetId !== null &&
+      !isCharacterInstanceId(resolvedTargetId)
+    ) {
+      const selectedEnemy = nextState.enemies.find(
+        (enemy) => enemy.instanceId === resolvedTargetId,
+      );
+
+      if (!selectedEnemy || !isEnemyTargetable(selectedEnemy)) {
+        const eligibleEnemies = nextState.enemies.filter(isEnemyTargetable);
+
+        if (eligibleEnemies.length > 0) {
+          const targetRoll = nextRandom(randomSeed);
+          randomSeed = targetRoll.nextSeed;
+          resolvedTargetId =
+            eligibleEnemies[
+              Math.floor(targetRoll.value * eligibleEnemies.length)
+            ].instanceId;
+        }
+      }
+    }
+
     const initialTargetIds =
       ability?.target === "allEnemies"
         ? isCharacterInstanceId(action.actorId)
@@ -2184,15 +2524,22 @@ export function resolveRound(
 
     const chargeReleaseStatusChanges: StatusChange[] = [];
 
-    if (action.isChargeRelease && isCharacterInstanceId(action.actorId)) {
-      const chargingActor = nextState.characters[action.actorId];
+    if (action.isChargeRelease) {
+      const chargingActor = getCombatant(nextState, action.actorId);
+      if (!chargingActor) {
+        continue;
+      }
       const hasStoredCharge = chargingActor.statuses.some(
         (status) =>
           status.id === "abilityCharge" &&
           status.readiedAbilityId === action.abilityId,
       );
 
-      if (!hasStoredCharge || chargingActor.form !== "living") {
+      if (
+        !hasStoredCharge ||
+        (isCharacterInstanceId(action.actorId) &&
+          nextState.characters[action.actorId].form !== "living")
+      ) {
         continue;
       }
 
@@ -2450,11 +2797,11 @@ export function resolveRound(
     );
 
     if (chargeEffect && !action.isChargeRelease) {
-      if (characterActorId && resolvedTargetId !== null) {
+      if (resolvedTargetId !== null) {
         const incomingStatus: ActiveStatus = {
           ...createStatusFromSource(
             nextState,
-            characterActorId,
+            action.actorId,
             "abilityCharge",
           ),
           readiedAbilityId: chargeEffect.readiesAbilityId,
@@ -2462,7 +2809,7 @@ export function resolveRound(
         };
         const result = applyStatusToTarget(
           nextState,
-          characterActorId,
+          action.actorId,
           incomingStatus,
         );
         nextState = result.state;
@@ -2470,7 +2817,7 @@ export function resolveRound(
           ? [
               {
                 type: "applied",
-                combatantId: characterActorId,
+                combatantId: action.actorId,
                 status: result.status,
               },
             ]
@@ -2478,7 +2825,7 @@ export function resolveRound(
 
         events.push({
           type: "charge",
-          actorId: characterActorId,
+          actorId: action.actorId,
           targetId: resolvedTargetId,
           abilityId: action.abilityId,
           abilityRank: ability.rank,
@@ -2997,9 +3344,49 @@ export function resolveRound(
         : 0;
     let firstDamageStatusChanges: StatusChange[] | null = null;
     let actionDealtDamage = false;
+    let partnerElementDamageBonusApplied = false;
+    const damagedTargetIdsThisAction = new Set<CombatantId>();
     const bodyguardProtectedTargetIds = new Set<CombatantId>();
 
-    for (const effect of ability.effects) {
+    const effectsForAction = ability.effects.flatMap((effect) => {
+      if (
+        effect.type !== "damage" ||
+        !effect.twinFlamesCombo ||
+        twinFlamesElement === null
+      ) {
+        return [effect];
+      }
+
+      if (twinFlamesElement === "fire") {
+        return [
+          effect,
+          {
+            ...effect,
+            basePower: effect.twinFlamesCombo.fire.basePower,
+            elementalPowerScaling:
+              effect.twinFlamesCombo.fire.elementalPowerScaling,
+            twinFlamesCombo: undefined,
+            twinFlamesFollowUp: true,
+          },
+        ];
+      }
+
+      if (twinFlamesElement === "wind") {
+        return [
+          effect,
+          {
+            ...effect,
+            twinFlamesCombo: undefined,
+            twinFlamesFollowUp: true,
+            targetRule: "randomOtherEnemy" as const,
+          },
+        ];
+      }
+
+      return [effect];
+    });
+
+    for (const effect of effectsForAction) {
       if (effect.type === "wakeEnemy") {
         const sleepingTarget = nextState.enemies.find(
           (enemy) =>
@@ -3220,8 +3607,43 @@ export function resolveRound(
         continue;
       }
 
-      const targetIds =
-        ability.target === "allEnemies"
+      if (
+        effect.retargetOnDefeat &&
+        resolvedTargetId !== null &&
+        !isCharacterInstanceId(resolvedTargetId)
+      ) {
+        const currentTarget = nextState.enemies.find(
+          (enemy) => enemy.instanceId === resolvedTargetId,
+        );
+
+        if (!currentTarget || !isEnemyTargetable(currentTarget)) {
+          const eligibleEnemies = nextState.enemies.filter(isEnemyTargetable);
+
+          if (eligibleEnemies.length === 0) {
+            continue;
+          }
+
+          const targetRoll = nextRandom(randomSeed);
+          randomSeed = targetRoll.nextSeed;
+          resolvedTargetId =
+            eligibleEnemies[
+              Math.floor(targetRoll.value * eligibleEnemies.length)
+            ].instanceId;
+        }
+      }
+
+      let targetIds =
+        effect.targetRule === "randomOtherEnemy"
+          ? nextState.enemies
+              .filter(
+                (enemy) =>
+                  isEnemyTargetable(enemy) &&
+                  enemy.instanceId !== resolvedTargetId,
+              )
+              .map((enemy) => enemy.instanceId)
+          : effect.retargetOnDefeat && resolvedTargetId !== null
+            ? [resolvedTargetId]
+          : ability.target === "allEnemies"
           ? initialTargetIds.filter(
               (targetId) => {
                 const target = getCombatant(nextState, targetId);
@@ -3232,6 +3654,69 @@ export function resolveRound(
               },
             )
           : initialTargetIds;
+
+      if (effect.targetRule === "randomOtherEnemy") {
+        if (targetIds.length > 1) {
+          const targetRoll = nextRandom(randomSeed);
+          randomSeed = targetRoll.nextSeed;
+          targetIds = [
+            targetIds[Math.floor(targetRoll.value * targetIds.length)],
+          ];
+        } else {
+          targetIds = targetIds.slice(0, 1);
+        }
+      }
+
+      const preHitStatusChanges = new Map<CombatantId, StatusChange[]>();
+      const barrierRemovedBeforeHit = new Map<CombatantId, number>();
+
+      if (effect.twinFlamesCombo && twinFlamesElement === "water") {
+        for (const targetId of targetIds) {
+          const target = getCombatant(nextState, targetId);
+          const burnStatuses =
+            target?.statuses.filter((status) => status.id === "burn") ?? [];
+
+          if (!target || burnStatuses.length === 0) {
+            continue;
+          }
+
+          nextState = updateStatuses(
+            nextState,
+            targetId,
+            target.statuses.filter((status) => status.id !== "burn"),
+          );
+          preHitStatusChanges.set(targetId, [
+            {
+              type: "removed",
+              combatantId: targetId,
+              statusId: effect.twinFlamesCombo.water.cleanseStatusId,
+            },
+          ]);
+        }
+      }
+
+      if (effect.twinFlamesCombo && twinFlamesElement === "earth") {
+        for (const targetId of targetIds) {
+          const target = getCombatant(nextState, targetId);
+
+          if (!target || target.hp <= 0) {
+            continue;
+          }
+
+          const removed = Math.min(
+            target.barrier,
+            effect.twinFlamesCombo.earth.barrierRemoval,
+          );
+          if (removed > 0) {
+            nextState = updateBarrier(
+              nextState,
+              targetId,
+              target.barrier - removed,
+            );
+            barrierRemovedBeforeHit.set(targetId, removed);
+          }
+        }
+      }
       const spreadSourceStatus = effect.spreadStatus
         ? targetIds.flatMap(
             (targetId) =>
@@ -3242,10 +3727,12 @@ export function resolveRound(
         : undefined;
       const impacts = [];
       const followUpStatusEvents: StatusDamageEvent[] = [];
+      const soulTransferEvents: SoulTransferEvent[] = [];
       let linkedSupportImpact: MultiTargetSupportImpact | undefined;
       let linkedSecondarySupportImpacts:
         | MultiTargetSupportImpact[]
         | undefined;
+      let twinFlamesGhostPartnerId: CharacterInstanceId | undefined;
 
       for (const targetId of targetIds) {
         const currentTarget = getCombatant(nextState, targetId);
@@ -3312,8 +3799,10 @@ export function resolveRound(
           randomSeed = varianceResult.nextSeed;
           amount = applyDamageVariance(normalDamage, varianceResult.value);
         }
-        const statusChanges: StatusChange[] = [];
-        let flashpointStatus: ActiveStatus | null = null;
+        const statusChanges: StatusChange[] = [
+          ...(preHitStatusChanges.get(targetId) ?? []),
+        ];
+        let immediateStatusTick: ActiveStatus | null = null;
 
         if (
           hasLivingAllyBonus &&
@@ -3356,10 +3845,24 @@ export function resolveRound(
           }
         }
 
+        const partnerElementDamageBonusApplies =
+          effect.partnerElementDamageBonus !== undefined &&
+          partnerId !== undefined &&
+          (damagedTargetsByElementByCharacter
+            .get(partnerId)
+            ?.get(effect.partnerElementDamageBonus.element)
+            ?.has(targetId) ?? false);
+        partnerElementDamageBonusApplied ||=
+          partnerElementDamageBonusApplies;
+
         amount = Math.max(
           1,
           Math.round(
             amount *
+              (partnerElementDamageBonusApplies &&
+              effect.partnerElementDamageBonus
+                ? effect.partnerElementDamageBonus.multiplier
+                : 1) *
               outgoingDamageMultiplier *
               (1 + (itemDamageBonus?.amount ?? 0)) *
               (1 + bloodScentBonus) *
@@ -3469,7 +3972,7 @@ export function resolveRound(
                 characterActor &&
                 characterHasPassive(characterActor, "flashpoint")
               ) {
-                flashpointStatus = newStatus;
+                immediateStatusTick = newStatus;
               }
             }
           }
@@ -3488,6 +3991,9 @@ export function resolveRound(
             : null;
 
           if (targetAfterOtherStatuses) {
+            const existingStatus = targetAfterOtherStatuses.statuses.find(
+              (status) => status.id === effect.statusOnHit?.statusId,
+            );
             const newStatus = createStatusFromSource(
               nextState,
               action.actorId,
@@ -3505,13 +4011,26 @@ export function resolveRound(
                 combatantId: targetId,
                 status: result.status,
               });
-              if (
+              const triggersIfNew =
+                !result.wasAlreadyActive &&
+                effect.statusOnHit.triggerTickIfNew === true;
+              const triggersIfAlreadyActive =
                 result.wasAlreadyActive &&
+                effect.statusOnHit.triggerTickIfAlreadyActive === true;
+              const triggersFromFlashpoint =
                 result.status.id === "burn" &&
+                result.wasAlreadyActive &&
                 characterActor &&
-                characterHasPassive(characterActor, "flashpoint")
+                characterHasPassive(characterActor, "flashpoint");
+
+              if (
+                triggersIfNew ||
+                triggersIfAlreadyActive ||
+                triggersFromFlashpoint
               ) {
-                flashpointStatus = newStatus;
+                immediateStatusTick = triggersIfAlreadyActive
+                  ? (existingStatus ?? newStatus)
+                  : newStatus;
               }
             }
           }
@@ -3590,12 +4109,35 @@ export function resolveRound(
           targetId,
           barrierResult.remainingBarrier,
         );
-        nextState = updateHp(
+        const soulTransfer =
+          calculatedRemainingHp <= 0 &&
+          !isCharacterInstanceId(action.actorId) &&
+          isCharacterInstanceId(targetId)
+            ? resolveSoulTransfer(
+                nextState,
+                targetId,
+                barrierResult.hpDamage,
+              )
+            : null;
+        let damageCharacterState = getEventCharacterState(
           nextState,
           targetId,
-          calculatedRemainingHp,
         );
-        const remainingHp = getCombatant(nextState, targetId)?.hp ?? 0;
+
+        if (soulTransfer) {
+          nextState = soulTransfer.state;
+          soulTransferEvents.push(soulTransfer.event);
+        } else {
+          nextState = updateHp(
+            nextState,
+            targetId,
+            calculatedRemainingHp,
+          );
+          damageCharacterState = getEventCharacterState(nextState, targetId);
+        }
+        const remainingHp = soulTransfer
+          ? 0
+          : (getCombatant(nextState, targetId)?.hp ?? 0);
 
         if (
           effect.statusOnHpDamage &&
@@ -3706,30 +4248,40 @@ export function resolveRound(
           if (wildfire.statusChange) {
             statusChanges.push(wildfire.statusChange);
           }
-        } else if (flashpointStatus) {
+        } else if (immediateStatusTick) {
           const targetAfterDirectDamage = getCombatant(nextState, targetId);
-          const burnDamage = STATUS_DEFINITIONS.burn.endOfRoundDamage;
+          const statusDamage =
+            STATUS_DEFINITIONS[immediateStatusTick.id].endOfRoundDamage;
 
-          if (targetAfterDirectDamage && burnDamage) {
-            const flashpointAmount = calculateFixedDamage({
-              basePower:
-                flashpointStatus.tickBasePower ?? burnDamage.basePower,
-              damageType: burnDamage.damageType,
-              defender: targetAfterDirectDamage.stats,
-              defenderStatuses: targetAfterDirectDamage.statuses,
-            });
-            const flashpointRemainingHp = Math.max(
+          if (targetAfterDirectDamage && statusDamage) {
+            const tickBasePower =
+              immediateStatusTick.tickBasePower ?? statusDamage.basePower;
+            let immediateStatusAmount = statusDamage.ignoresMitigation
+              ? Math.max(1, Math.round(tickBasePower))
+              : calculateFixedDamage({
+                  basePower: tickBasePower,
+                  damageType: statusDamage.damageType,
+                  defender: targetAfterDirectDamage.stats,
+                  defenderStatuses: targetAfterDirectDamage.statuses,
+                });
+            if (isCharacterInstanceId(targetId)) {
+              immediateStatusAmount = applyGhostIncomingDamage(
+                nextState.characters[targetId],
+                immediateStatusAmount,
+              );
+            }
+            const immediateStatusRemainingHp = Math.max(
               0,
-              targetAfterDirectDamage.hp - flashpointAmount,
+              targetAfterDirectDamage.hp - immediateStatusAmount,
             );
-            const flashpointStatusChanges: StatusChange[] = [];
+            const immediateStatusChanges: StatusChange[] = [];
             nextState = updateHp(
               nextState,
               targetId,
-              flashpointRemainingHp,
+              immediateStatusRemainingHp,
             );
 
-            if (flashpointRemainingHp <= 0) {
+            if (immediateStatusRemainingHp <= 0) {
               const wildfire = spreadWildfireAfterEnemyDeath(
                 nextState,
                 targetId,
@@ -3738,20 +4290,20 @@ export function resolveRound(
               nextState = wildfire.state;
               randomSeed = wildfire.nextSeed;
               if (wildfire.statusChange) {
-                flashpointStatusChanges.push(wildfire.statusChange);
+                immediateStatusChanges.push(wildfire.statusChange);
               }
             }
 
             followUpStatusEvents.push({
               type: "statusDamage",
-              sourceId: flashpointStatus.sourceId,
+              sourceId: immediateStatusTick.sourceId,
               targetId,
-              statusId: "burn",
-              element: burnDamage.element,
-              amount: flashpointAmount,
-              remainingHp: flashpointRemainingHp,
+              statusId: immediateStatusTick.id,
+              element: statusDamage.element,
+              amount: immediateStatusAmount,
+              remainingHp: immediateStatusRemainingHp,
               isCritical: false,
-              statusChanges: flashpointStatusChanges,
+              statusChanges: immediateStatusChanges,
             });
           }
         }
@@ -3783,6 +4335,7 @@ export function resolveRound(
           linkedSecondarySupportImpacts = healingResult.secondaryImpacts;
         }
         actionDealtDamage = true;
+        damagedTargetIdsThisAction.add(targetId);
         firstDamageStatusChanges ??= statusChanges;
         impacts.push({
           targetId,
@@ -3792,13 +4345,65 @@ export function resolveRound(
           remainingBarrier: barrierResult.remainingBarrier,
           isCritical,
           statusChanges,
-          characterState: getEventCharacterState(nextState, targetId),
+          characterState: damageCharacterState,
           reflectedDamage,
+          ...(barrierRemovedBeforeHit.has(targetId)
+            ? {
+                barrierRemovedBeforeHit:
+                  barrierRemovedBeforeHit.get(targetId),
+              }
+            : {}),
         });
       }
 
       if (impacts.length === 0) {
         continue;
+      }
+
+      if (
+        effect.twinFlamesCombo &&
+        twinFlamesElement === "water" &&
+        characterActorId
+      ) {
+        const healing = applyTwinFlamesPartyHealing(
+          nextState,
+          characterActorId,
+          effect.twinFlamesCombo.water.partyHealing,
+        );
+        nextState = healing.state;
+        linkedSupportImpact = healing.impacts[0];
+        linkedSecondarySupportImpacts = healing.impacts.slice(1);
+      }
+
+      if (
+        effect.twinFlamesCombo &&
+        action.abilityId === "twinFlames" &&
+        partnerId !== undefined &&
+        nextState.characters[partnerId].form === "ghost" &&
+        impacts.some((impact) =>
+          damagedTargetsByGhostCharacter
+            .get(partnerId)
+            ?.has(impact.targetId),
+        )
+      ) {
+        const ghost = nextState.characters[partnerId];
+        const remainingHp = Math.min(
+          getCharacterMaxHp(ghost),
+          ghost.hp + effect.twinFlamesCombo.ghost.healing,
+        );
+        const healingAmount = remainingHp - ghost.hp;
+        nextState = updateHp(nextState, partnerId, remainingHp);
+        const healedGhost = nextState.characters[partnerId];
+        twinFlamesGhostPartnerId = partnerId;
+        linkedSupportImpact = {
+          targetId: partnerId,
+          healingAmount,
+          remainingHp,
+          barrierAmount: 0,
+          remainingBarrier: healedGhost.barrier,
+          statusChanges: [],
+          characterState: getCharacterEventState(healedGhost),
+        };
       }
 
       if (effect.spreadStatus && spreadSourceStatus) {
@@ -3910,8 +4515,25 @@ export function resolveRound(
           ...(linkedSecondarySupportImpacts?.length
             ? { linkedSecondarySupportImpacts }
             : {}),
+          ...(action.abilityId === "twinFlames"
+            ? {
+                twinFlamesElement,
+                twinFlamesFollowUp:
+                  effect.twinFlamesFollowUp === true,
+                ...(twinFlamesGhostPartnerId
+                  ? { twinFlamesGhostPartnerId }
+                  : {}),
+              }
+            : {}),
+          ...(action.abilityId === "backwind"
+            ? { backwindBonus: partnerElementDamageBonusApplied }
+            : {}),
+          ...(effect.multiHitIndex !== undefined
+            ? { multiHitIndex: effect.multiHitIndex }
+            : {}),
         });
       }
+      events.push(...soulTransferEvents);
       events.push(...followUpStatusEvents);
     }
 
@@ -3967,6 +4589,45 @@ export function resolveRound(
           })),
         );
       }
+    }
+
+    if (
+      actionDealtDamage &&
+      isCharacterInstanceId(action.actorId) &&
+      ability.element !== null &&
+      ability.effects.some(
+        (effect) =>
+          effect.type === "damage" && effect.damageType === "elemental",
+      )
+    ) {
+      latestDamagingElementByCharacter.set(
+        action.actorId,
+        ability.element,
+      );
+      const targetsByElement =
+        damagedTargetsByElementByCharacter.get(action.actorId) ??
+        new Map<Element, Set<CombatantId>>();
+      const damagedTargets =
+        targetsByElement.get(ability.element) ?? new Set<CombatantId>();
+      for (const targetId of damagedTargetIdsThisAction) {
+        damagedTargets.add(targetId);
+      }
+      targetsByElement.set(ability.element, damagedTargets);
+      damagedTargetsByElementByCharacter.set(action.actorId, targetsByElement);
+    }
+
+    if (
+      actionDealtDamage &&
+      isCharacterInstanceId(action.actorId) &&
+      nextState.characters[action.actorId].form === "ghost"
+    ) {
+      const damagedTargets =
+        damagedTargetsByGhostCharacter.get(action.actorId) ??
+        new Set<CombatantId>();
+      for (const targetId of damagedTargetIdsThisAction) {
+        damagedTargets.add(targetId);
+      }
+      damagedTargetsByGhostCharacter.set(action.actorId, damagedTargets);
     }
 
     if (
@@ -4176,6 +4837,16 @@ export function resolveRound(
     }
   }
 
+  if (options.immediateActionsOnly) {
+    nextState = { ...nextState, randomSeed };
+
+    if (!nextState.enemies.some((enemy) => enemy.hp > 0)) {
+      nextState = completeVictory(nextState, randomSeed);
+    }
+
+    return { nextState, events };
+  }
+
   const scriptedSleepingEnemy = nextState.enemies.find((enemy) => {
     const definition = ENEMY_DEFINITIONS[enemy.enemyId];
 
@@ -4259,7 +4930,7 @@ export function resolveRound(
   };
 
   const playersAlive = CHARACTER_ORDER.some(
-    (characterId) => nextState.characters[characterId].hp > 0,
+    (characterId) => nextState.characters[characterId].form === "living",
   );
   const enemiesAlive = nextState.enemies.some((enemy) => enemy.hp > 0);
   const roundOutcome: RoundOutcomePhase = !playersAlive

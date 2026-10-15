@@ -51,6 +51,7 @@ export type MultiplayerActionRequest = {
 export type MultiplayerActionResult = {
   accepted: boolean;
   playerReady: boolean;
+  resolvedImmediately: boolean;
 };
 
 export type AutomaticRoundRequest = {

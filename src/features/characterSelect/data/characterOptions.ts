@@ -4,7 +4,10 @@ import portrait3 from "../../../assets/portraits/character1_3.png";
 import portrait7 from "../../../assets/portraits/character3_1.png";
 import portrait8 from "../../../assets/portraits/character3_2.png";
 import portrait9 from "../../../assets/portraits/character3_3.png";
+import rowanGhostPortrait from "../../../assets/portraits/rowan_ghost.png";
+import lyraGhostPortrait from "../../../assets/portraits/lyra_ghost.png";
 import type {
+  CharacterState,
   CharacterPresetId,
   PortraitId,
 } from "../../../game/types";
@@ -39,4 +42,17 @@ export const CHARACTER_OPTIONS: CharacterOption[] = [
 
 export function getPortraitSource(portraitId: PortraitId) {
   return PORTRAIT_SOURCES[portraitId];
+}
+
+const GHOST_PORTRAIT_SOURCES: Record<CharacterPresetId, string> = {
+  char1: rowanGhostPortrait,
+  char2: lyraGhostPortrait,
+};
+
+export function getCharacterPortraitSource(
+  character: Pick<CharacterState, "form" | "portraitId" | "presetId">,
+) {
+  return character.form === "ghost"
+    ? GHOST_PORTRAIT_SOURCES[character.presetId]
+    : getPortraitSource(character.portraitId);
 }

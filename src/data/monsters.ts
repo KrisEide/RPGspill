@@ -7,7 +7,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 1,
     isBoss: false,
     stats: {
-      maxHp: 25,
+      maxHp: 24,
       maxPp: 0,
       criticalChance: 0,
       attack: 3,
@@ -38,7 +38,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       attack: 8,
       defense: 5,
       resistance: 5,
-      agility: 6,
+      agility: 8,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -52,11 +52,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       greenSlimeBuff: 1,
     },
     randomActionPattern: {
-      abilityIds: [
-        "autoAttack",
-        "greenSlimeStrongAttack",
-        "greenSlimeBuff",
-      ],
+      abilityIds: ["autoAttack", "greenSlimeStrongAttack", "greenSlimeBuff"],
       preventImmediateRepeat: true,
     },
   },
@@ -72,7 +68,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       attack: 4,
       defense: 5,
       resistance: 7,
-      agility: 7,
+      agility: 8,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -110,7 +106,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       attack: 8,
       defense: 10,
       resistance: 10,
-      agility: 6,
+      agility: 12,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -120,9 +116,10 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     },
     abilityRanks: {
       autoAttack: 1,
+      prepareSweep: 1,
       orcGruntMultiAttack: 1,
     },
-    actionPattern: ["autoAttack", "orcGruntMultiAttack"],
+    repeatingActionPattern: ["autoAttack", "prepareSweep", null],
   },
   orcRaider: {
     id: "orcRaider",
@@ -149,8 +146,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     },
     passive: {
       name: "Strength in Numbers",
-      description:
-        "Orc Raiders deal +1 damage for each other Orc Raider alive.",
+      description: "+1 damage for each other living Orc Raider.",
     },
   },
   orcMage: {
@@ -165,7 +161,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       attack: 8,
       defense: 5,
       resistance: 12,
-      agility: 7,
+      agility: 14,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -216,7 +212,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       attack: 6,
       defense: 8,
       resistance: 12,
-      agility: 7,
+      agility: 11,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -291,13 +287,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 1,
     isBoss: true,
     stats: {
-      maxHp: 220,
+      maxHp: 180,
       maxPp: 0,
       criticalChance: 0,
       attack: 0,
       defense: 10,
       resistance: 10,
-      agility: 8,
+      agility: 12,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -313,12 +309,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     startsSleeping: true,
     wakesOnRound: 3,
     openingActionPattern: [null, null, null],
-    repeatingActionPattern: [
-      "bloodCleave",
-      "smash",
-      "smash",
-      "catchBreath",
-    ],
+    repeatingActionPattern: ["bloodCleave", "smash", "smash", "catchBreath"],
   },
   gorakBoss: {
     id: "gorakBoss",
@@ -326,13 +317,13 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 1,
     isBoss: true,
     stats: {
-      maxHp: 180,
+      maxHp: 140,
       maxPp: 0,
       criticalChance: 0,
       attack: 0,
       defense: 12,
       resistance: 10,
-      agility: 8,
+      agility: 17,
       elementalPower: {
         fire: 0,
         water: 0,
@@ -345,11 +336,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       shieldCharge: 1,
       wakeUp: 1,
     },
-    openingActionPattern: [
-      "gorakAutoAttack",
-      "shieldCharge",
-      "wakeUp",
-    ],
+    openingActionPattern: ["gorakAutoAttack", "shieldCharge", "wakeUp"],
     repeatingActionPattern: [
       "gorakAutoAttack",
       "gorakAutoAttack",

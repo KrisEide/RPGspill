@@ -8,7 +8,7 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     maxStacks: 1,
     durationRounds: 2,
     endOfRoundDamage: {
-      basePower: 3,
+      basePower: 4,
       damageType: "elemental",
       element: "fire",
     },
@@ -21,7 +21,7 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     tickPowerIncreasePerApplication: 1,
     persistsUntilCombatEnd: true,
     endOfRoundDamage: {
-      basePower: 2,
+      basePower: 3,
       damageType: "magical",
       element: null,
       ignoresMitigation: true,
@@ -78,7 +78,7 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     maxStacks: 1,
     durationRounds: 3,
     endOfRoundDamage: {
-      basePower: 2,
+      basePower: 3,
       damageType: "physical",
       element: null,
       ignoresMitigation: true,

@@ -19,6 +19,7 @@ export const FOREST_REST_CHOICES: Record<RestChoiceId, RestRewardOffer> = {
     icon: "🔥",
     title: "Recover",
     description: "Restore 40 HP and 25 PP.",
+    tags: ["healing", "hp", "pp"],
     effect: {
       type: "restore",
       hp: 40,
@@ -31,6 +32,7 @@ export const FOREST_REST_CHOICES: Record<RestChoiceId, RestRewardOffer> = {
     icon: "✨",
     title: "Focus",
     description: "Restore 20 HP and 40 PP.",
+    tags: ["healing", "hp", "pp"],
     effect: {
       type: "restore",
       hp: 20,
@@ -43,6 +45,7 @@ export const FOREST_REST_CHOICES: Record<RestChoiceId, RestRewardOffer> = {
     icon: "⬆️",
     title: "Take an Upgrade",
     description: "Receive a normal reward choice.",
+    tags: ["normal_reward"],
     effect: {
       type: "normalReward",
     },
@@ -56,6 +59,7 @@ export const SPIRIT_CAMP_CHOICES: Record<RestChoiceId, RestRewardOffer> = {
     icon: "🔥",
     title: "Recover",
     description: "Restore 50 HP and 15 PP.",
+    tags: ["healing", "hp", "pp"],
     effect: {
       type: "restore",
       hp: 50,
@@ -68,6 +72,7 @@ export const SPIRIT_CAMP_CHOICES: Record<RestChoiceId, RestRewardOffer> = {
     icon: "✨",
     title: "Focus",
     description: "Restore 20 HP and 40 PP.",
+    tags: ["healing", "hp", "pp"],
     effect: {
       type: "restore",
       hp: 20,
@@ -80,6 +85,7 @@ export const SPIRIT_CAMP_CHOICES: Record<RestChoiceId, RestRewardOffer> = {
     icon: "⬆️",
     title: "Take an Upgrade",
     description: "Choose from 3 normal rewards.",
+    tags: ["normal_reward"],
     effect: {
       type: "normalReward",
     },

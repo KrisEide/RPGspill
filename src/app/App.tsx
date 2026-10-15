@@ -8,6 +8,7 @@ import { DEFAULT_PLAYER_CHARACTER_CONTROL } from "../game/playerControl";
 import { createDevelopmentSetup } from "../game/development/createDevelopmentSetup";
 import {
   createMultiplayerRoom,
+  disconnectMultiplayerSession,
   joinMultiplayerRoom,
   submitMultiplayerCharacter,
   subscribeToCharacterReadiness,
@@ -208,6 +209,20 @@ export default function App() {
     setScreen("character");
   };
 
+  const returnToStartScreen = () => {
+    disconnectMultiplayerSession();
+    roomConnectionRef.current = null;
+    setRoomConnection(null);
+    setMultiplayerCombatState(null);
+    setCharacterReadiness(null);
+    setSessionEnded(false);
+    setGameSetup(null);
+    setPlayerOne(null);
+    setGameMode(null);
+    setSelectingPlayerId("player1");
+    setScreen("start");
+  };
+
   const startScreen = (
     <StartScreen
       onSinglePlayer={() => startCharacterSelect("singlePlayer")}
@@ -264,6 +279,7 @@ export default function App() {
         key={roomConnection.lobby.roomCode}
         initialCombatState={multiplayerCombatState}
         localPlayerId={roomConnection.playerId}
+        onReturnToStart={returnToStartScreen}
       />
     );
   }
@@ -272,5 +288,10 @@ export default function App() {
     return startScreen;
   }
 
-  return <BattleScreen setup={gameSetup} />;
+  return (
+    <BattleScreen
+      setup={gameSetup}
+      onReturnToStart={returnToStartScreen}
+    />
+  );
 }

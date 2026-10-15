@@ -10,8 +10,11 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Bloodpact",
     icon: "🩸",
     element: null,
+    tags: ["spirit", "sacrifice", "barrier", "partner", "low_hp"],
     passive: {
       name: "Bloodpact",
+      shortDescription:
+        "Sacrifice loses 1 HP; Protected gains 2 Barrier each round.",
       description:
         "At encounter start, choose Sacrifice and Protected. Roles stay locked. At the start of each round, Sacrifice loses 1 HP, ignoring Barrier, then Protected gains 2 Barrier. Pauses while either hero is not living.",
       roundStartBloodpact: { hpCost: 1, barrierAmount: 2 },
@@ -24,8 +27,11 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Embertail",
     icon: "🔥",
     element: "fire",
+    tags: ["spirit", "fire", "burn", "aoe", "opener"],
     passive: {
       name: "Embertail",
+      shortDescription:
+        "Your first attack each encounter deals bonus Fire damage.",
       description:
         "Your first attack each encounter deals 7 + 20% of Fire Power as additional Spirit Fire damage to one enemy hit.",
       firstDamageActionEachEncounter: {
@@ -43,8 +49,11 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Stoneback",
     icon: "🪨",
     element: "earth",
+    tags: ["spirit", "earth", "barrier", "partner"],
     passive: {
       name: "Stoneback",
+      shortDescription:
+        "Your first Barrier gain each encounter grants +5 Barrier.",
       description:
         "The first time you gain Barrier each encounter, gain 5 additional Barrier.",
       firstBarrierGainEachEncounter: {
@@ -59,8 +68,10 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Swift Wing",
     icon: "🪽",
     element: "wind",
+    tags: ["spirit", "wind", "agility", "opener"],
     passive: {
       name: "Swift Wing",
+      shortDescription: "20% chance to act first each round.",
       description:
         "At the start of each round, gain a 20% chance to act first regardless of Agility.",
       roundStartTurnPriority: {
@@ -76,8 +87,10 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Riverheart",
     icon: "💧",
     element: "water",
+    tags: ["spirit", "water", "healing", "partner"],
     passive: {
       name: "Riverheart",
+      shortDescription: "Both heroes receive +2 healing.",
       description: "All healing received by both heroes is increased by 2.",
       allHealingReceived: {
         flatIncrease: 2,
@@ -91,11 +104,14 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Warhound",
     icon: "🐺",
     element: null,
+    tags: ["spirit", "physical", "auto_attack", "quick", "damage"],
     passive: {
       name: "Warhound",
+      shortDescription:
+        "Your first Auto Attack each encounter is Quick and free.",
       description:
-        "Your first Auto Attack each round is Quick and does not consume your action.",
-      firstAutoAttackEachRoundIsQuick: true,
+        "Once per encounter, your first Auto Attack is Quick, resolves immediately, and does not consume your action.",
+      firstAutoAttackEachEncounterIsQuick: true,
     },
     activeAbilityId: "warhound",
     activeUsesPerEncounter: 1,
@@ -105,12 +121,15 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Guard Dog",
     icon: "🐕",
     element: null,
+    tags: ["spirit", "physical", "defend", "partner", "damage"],
     passive: {
       name: "Guard Dog",
+      shortDescription:
+        "Non-damaging actions make the Spirit attack for 5 damage.",
       description:
-        "Whenever you use a non-damaging action, the Spirit attacks one random enemy for 3 Spirit Physical damage.",
+        "Whenever you use a non-damaging action, the Spirit attacks one random enemy for 5 Spirit Physical damage.",
       nonDamagingActionSpiritAttack: {
-        basePower: 3,
+        basePower: 5,
         damageType: "physical",
       },
     },
@@ -122,8 +141,11 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     name: "Ironquill",
     icon: "🪶",
     element: null,
+    tags: ["spirit", "items", "physical", "quick", "damage"],
     passive: {
       name: "Ironquill",
+      shortDescription:
+        "Steel Darts grant +10% to your next damaging ability.",
       description:
         "Whenever you use a Steel Dart, your next damaging ability deals 10% more damage. This stacks for every Steel Dart and is consumed by the ability.",
       steelDartAbilityAmplifier: {

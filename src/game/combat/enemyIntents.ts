@@ -166,18 +166,25 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
       return;
     }
 
+    const storedCharge = enemy.statuses.find(
+      (status) => status.id === "abilityCharge" && status.readiedAbilityId,
+    );
+    const chargedAbility = storedCharge?.readiedAbilityId
+      ? getEnemyAbility(enemy, storedCharge.readiedAbilityId)
+      : null;
     const randomPatternResult = getRandomPatternAbility(
       state,
       enemy,
       randomSeed,
     );
-    const hasRandomPattern = randomPatternResult.isActive;
-    const ability =
+    const hasRandomPattern = !chargedAbility && randomPatternResult.isActive;
+    const ability = chargedAbility ?? (
       enemy.enemyId === "orcMage"
         ? getOrcMageAbility(state, enemy)
         : hasRandomPattern
           ? randomPatternResult.ability
-          : getPlannedAbility(state, enemy);
+          : getPlannedAbility(state, enemy)
+    );
     if (hasRandomPattern) {
       randomSeed = randomPatternResult.nextSeed;
     }
@@ -231,6 +238,7 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
       abilityId: ability.id,
       targetId,
       targetIds,
+      ...(chargedAbility ? { isChargeRelease: true } : {}),
     } satisfies EnemyIntent;
   });
 
@@ -254,6 +262,7 @@ export function createEnemyActionsFromIntents(
             actorId: enemy.instanceId,
             abilityId: intent.abilityId,
             targetId: intent.targetId,
+            isChargeRelease: intent.isChargeRelease,
           },
         ]
       : [];

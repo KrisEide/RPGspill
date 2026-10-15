@@ -55,6 +55,7 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   forestAmbush: {
     id: "forestAmbush",
     kind: "combat",
+    rewardType: "spirits",
     number: 4,
     title: "Forest Ambush",
     nextEncounterId: "orcReinforcements",
@@ -68,7 +69,6 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   orcReinforcements: {
     id: "orcReinforcements",
     kind: "combat",
-    rewardType: "spirits",
     number: 5,
     title: "Orc Reinforcements",
     nextEncounterId: "spiritCamp",

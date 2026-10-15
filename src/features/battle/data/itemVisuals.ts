@@ -3,6 +3,7 @@ import blastBombIcon from "../../../assets/icons/blastbomb.png";
 import cleanseTonicIcon from "../../../assets/icons/cleanstonic.png";
 import elixirIcon from "../../../assets/icons/elixir.png";
 import healingPotionIcon from "../../../assets/icons/healingpotion.png";
+import mysteriousPotionIcon from "../../../assets/icons/mysteriouspotion.png";
 import phoenixTonicIcon from "../../../assets/icons/pheonixtonic.png";
 import powerTonicIcon from "../../../assets/icons/powertonic.png";
 import razorBombIcon from "../../../assets/icons/razorbomb.png";
@@ -14,6 +15,7 @@ import type { ItemId } from "../../../game/types";
 
 export const ITEM_ICONS: Readonly<Record<ItemId, string>> = {
   healingPotion: healingPotionIcon,
+  mysteriousPotion: mysteriousPotionIcon,
   elixir: elixirIcon,
   throwingKnife: throwingKnifeIcon,
   blastBomb: blastBombIcon,
@@ -35,6 +37,8 @@ export const ITEM_BATTLEFIELD_EFFECTS: Readonly<
         width: number;
         variant: "blastBomb" | "razorBomb";
         durationMs: number;
+        impactDelayMs: number;
+        eventDurationMs: number;
         position?: {
           left: string;
           top: string;
@@ -47,13 +51,17 @@ export const ITEM_BATTLEFIELD_EFFECTS: Readonly<
     spriteSrc: bombBlastEffect,
     width: 480,
     variant: "blastBomb",
-    durationMs: 1700,
+    durationMs: 2400,
+    impactDelayMs: 850,
+    eventDurationMs: 3200,
   },
   razorBomb: {
     spriteSrc: razorBombEffect,
     width: 520,
     variant: "razorBomb",
-    durationMs: 1700,
+    durationMs: 2600,
+    impactDelayMs: 950,
+    eventDurationMs: 3500,
   },
 };
 

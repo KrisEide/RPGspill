@@ -136,11 +136,57 @@ export type StatUpgradeTarget =
   | "earthPower"
   | "windPower";
 
+export type RewardTag =
+  | "fire"
+  | "water"
+  | "earth"
+  | "wind"
+  | "physical"
+  | "magical"
+  | "damage"
+  | "healing"
+  | "barrier"
+  | "burn"
+  | "bleed"
+  | "crit"
+  | "pp"
+  | "hp"
+  | "attack"
+  | "defense"
+  | "resistance"
+  | "agility"
+  | "items"
+  | "spirit"
+  | "ghost"
+  | "revive"
+  | "cleanse"
+  | "debuff"
+  | "defend"
+  | "aoe"
+  | "single_target"
+  | "multi_hit"
+  | "charge"
+  | "quick"
+  | "delayed"
+  | "damage_over_time"
+  | "partner"
+  | "same_target"
+  | "sacrifice"
+  | "low_hp"
+  | "kill"
+  | "opener"
+  | "finisher"
+  | "high_cost"
+  | "auto_attack"
+  | "barrier_break"
+  | "normal_reward";
+
 type RewardOfferBase = {
   id: RewardChoiceId;
   icon: string;
   title: string;
   description: string;
+  tags: readonly RewardTag[];
 };
 
 export type StatRewardOffer = RewardOfferBase & {
@@ -193,9 +239,11 @@ export type SpiritRewardOffer = RewardOfferBase & {
   type: "newSpirit";
   spiritId: SpiritId;
   passiveName: string;
+  passiveShortDescription: string;
   passiveDescription: string;
   activeName: string;
   activeDescription: string;
+  activeDetailedDescription: string;
 };
 
 export type RestRewardOffer = RewardOfferBase & {
@@ -237,8 +285,11 @@ export type AbilityId =
   | "ghostHeal"
   | "possession"
   | "sacrificialStrike"
+  | "lacerate"
   | "fireball"
   | "cinderCurse"
+  | "searingBrand"
+  | "twinFlames"
   | "rootseed"
   | "earthquake"
   | "stonebreaker"
@@ -251,9 +302,12 @@ export type AbilityId =
   | "whirlwind"
   | "windSlash"
   | "razorGale"
+  | "cyclone"
+  | "backwind"
   | "greenSlimeStrongAttack"
   | "greenSlimeBuff"
   | "blueSlimePoisonAttack"
+  | "prepareSweep"
   | "orcGruntMultiAttack"
   | "gangStrike"
   | "darkBolt"
@@ -351,6 +405,14 @@ export type ItemEffect =
       amount: number;
     }
   | {
+      type: "restoreGhostHp";
+      amount: number;
+    }
+  | {
+      type: "directHpLoss";
+      amount: number;
+    }
+  | {
       type: "restorePp";
       amount: number;
     }
@@ -392,11 +454,18 @@ export type ItemDefinition = {
   icon: string;
   shortDescription: string;
   description: string;
+  tags: readonly RewardTag[];
   rarity: ItemRarity;
+  rewardWeight?: number;
   useTiming: ItemUseTiming;
   resolutionTiming: ItemResolutionTiming;
   target: ItemTarget;
   effects: ItemEffect[];
+  ghostUse?: {
+    useTiming: ItemUseTiming;
+    resolutionTiming: ItemResolutionTiming;
+    effects: ItemEffect[];
+  };
 };
 
 export type Inventory = Record<ItemId, number>;
@@ -478,6 +547,7 @@ export type PassiveDefinition = {
   name: string;
   icon: string;
   category: PassiveCategory;
+  tags: readonly RewardTag[];
   description: string;
   unique: true;
 };
@@ -513,6 +583,8 @@ export type DamageEffect = {
     magnitude?: number;
     chance?: number;
     durationRounds?: number;
+    triggerTickIfNew?: boolean;
+    triggerTickIfAlreadyActive?: boolean;
   };
   statusOnHpDamage?: {
     statusId: StatusId;
@@ -527,6 +599,33 @@ export type DamageEffect = {
     ratio: number;
     target: "self" | "secondaryTarget";
   };
+  partnerElementDamageBonus?: {
+    element: Element;
+    multiplier: number;
+  };
+  twinFlamesCombo?: {
+    fire: {
+      basePower: number;
+      elementalPowerScaling: number;
+    };
+    water: {
+      partyHealing: number;
+      cleanseStatusId: "burn";
+    };
+    earth: {
+      barrierRemoval: number;
+    };
+    wind: {
+      additionalEnemy: true;
+    };
+    ghost: {
+      healing: number;
+    };
+  };
+  twinFlamesFollowUp?: boolean;
+  targetRule?: "randomOtherEnemy";
+  retargetOnDefeat?: boolean;
+  multiHitIndex?: number;
 };
 
 export type DefendEffect = {
@@ -658,7 +757,7 @@ export type AbilityDefinition = {
   category: AbilityCategory;
   resolutionPriority: number;
   useTiming?: "action" | "quickAction";
-  turnOrderRule?: "alwaysLast";
+  turnOrderRule?: "alwaysLast" | "absoluteLast";
   target: AbilityTarget;
   secondaryTarget?: AbilityTarget;
   element: Element | null;
@@ -676,8 +775,10 @@ export type SpiritDefinition = {
   name: string;
   icon: string;
   element: Element | null;
+  tags: readonly RewardTag[];
   passive: {
     name: string;
+    shortDescription: string;
     description: string;
     firstDamageActionEachEncounter?: {
       basePower: number;
@@ -695,7 +796,7 @@ export type SpiritDefinition = {
     allHealingReceived?: {
       flatIncrease: number;
     };
-    firstAutoAttackEachRoundIsQuick?: true;
+    firstAutoAttackEachEncounterIsQuick?: true;
     nonDamagingActionSpiritAttack?: {
       basePower: number;
       damageType: DamageType;
@@ -799,6 +900,8 @@ export type CharacterState = CharacterDraft & {
   hp: number;
   pp: number;
   savedLivingPp: number | null;
+  ghostReformReady: boolean;
+  soulLinkActive: boolean;
   barrier: number;
   stats: CombatStats;
   abilityRanks: KnownAbilities;
@@ -816,7 +919,12 @@ export type CharacterState = CharacterDraft & {
 
 export type CharacterEventState = Pick<
   CharacterState,
-  "form" | "pp" | "savedLivingPp" | "statuses"
+  | "form"
+  | "pp"
+  | "savedLivingPp"
+  | "ghostReformReady"
+  | "soulLinkActive"
+  | "statuses"
 >;
 
 export type AbilityCombatAction = {
@@ -857,6 +965,7 @@ export type EnemyIntent = {
   abilityId: AbilityId;
   targetId: CombatantId | null;
   targetIds: CombatantId[];
+  isChargeRelease?: boolean;
 };
 
 export type DamageEvent = {
@@ -879,6 +988,12 @@ export type DamageEvent = {
   actorCharacterState?: CharacterEventState;
   linkedSupportImpact?: MultiTargetSupportImpact;
   linkedSecondarySupportImpacts?: MultiTargetSupportImpact[];
+  twinFlamesElement?: Element | null;
+  twinFlamesFollowUp?: boolean;
+  twinFlamesGhostPartnerId?: CharacterInstanceId;
+  backwindBonus?: boolean;
+  barrierRemovedBeforeHit?: number;
+  multiHitIndex?: number;
 };
 
 export type SelfDamageEvent = {
@@ -1101,8 +1216,21 @@ export type BloodpactEvent = {
   secondaryImpacts?: MultiTargetSupportImpact[];
 };
 
+export type SoulTransferEvent = {
+  type: "soulTransfer";
+  ghostId: CharacterInstanceId;
+  targetId: CharacterInstanceId;
+  ghostHpLost: number;
+  targetHpRestored: number;
+  ghostRemainingHp: number;
+  targetRemainingHp: number;
+  ghostCharacterState: CharacterEventState;
+  targetCharacterState: CharacterEventState;
+};
+
 export type CombatEvent =
   | BloodpactEvent
+  | SoulTransferEvent
   | BarrierRemovedEvent
   | DamageEvent
   | SelfDamageEvent
@@ -1152,6 +1280,7 @@ export type PendingRound = {
   result: RoundResult;
   nextEventIndex: number;
   currentEventApplied: boolean;
+  preserveRoundSelections?: boolean;
 };
 
 export type ClientBattleState = {

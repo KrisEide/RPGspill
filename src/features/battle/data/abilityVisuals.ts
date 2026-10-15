@@ -6,8 +6,13 @@ import cinderburstEffect from "../../../assets/Effect/embertail_cinderburst.png"
 import stonebackEffect from "../../../assets/Effect/stoneback.png";
 import cinderCurseEffect from "../../../assets/Effect/cindercurse.png";
 import cinderCurseTickEffect from "../../../assets/Effect/cindercurse_tick.png";
+import rootseedEffect from "../../../assets/Effect/rootseed.png";
+import leafDrainEffect from "../../../assets/Effect/leafdrain.png";
+import twinFlamesEffect from "../../../assets/Effect/twinflames.png";
 import earthSpellEffect from "../../../assets/Effect/earthspell.png";
 import razorGaleEffect from "../../../assets/Effect/razorgale.png";
+import cycloneEffect from "../../../assets/Effect/cyclone.png";
+import lacerateEffect from "../../../assets/Effect/lacerate.png";
 import healEffect from "../../../assets/Effect/healeffekt.png";
 import warhoundEffect from "../../../assets/Effect/warhound.png";
 import steelDartEffect from "../../../assets/icons/steeldart.png";
@@ -18,7 +23,7 @@ export type AbilityVisualDefinition = {
   icon: string;
   animation: "cast" | "melee" | "whirlwind";
   castVariant?: "fire" | "water" | "earth";
-  impact?: "fire" | "dark" | "wind" | "water" | "earth";
+  impact?: "fire" | "dark" | "wind" | "water" | "earth" | "bleed";
   timing?: {
     animationDurationMs: number;
     impactDelayMs: number;
@@ -28,7 +33,7 @@ export type AbilityVisualDefinition = {
   projectile?: {
     spriteSrc: string;
     width: number;
-    variant: "fire" | "dark" | "wind" | "steelDart";
+    variant: "fire" | "dark" | "wind" | "backwind" | "steelDart";
     rotationOffsetDegrees?: number;
   };
   targetEffect?: {
@@ -41,6 +46,18 @@ export type AbilityVisualDefinition = {
       | "dreadflame"
       | "cinderCurse"
       | "cinderCurseTick"
+      | "rootseed"
+      | "leafDrain"
+      | "searingBrand"
+      | "twinFlames"
+      | "twinFlamesWater"
+      | "twinFlamesEarth"
+      | "twinFlamesWind"
+      | "twinFlamesGhost"
+      | "cycloneHit1"
+      | "cycloneHit2"
+      | "cycloneHit3"
+      | "lacerate"
       | "stonebreaker"
       | "warhound";
     durationMs?: number;
@@ -54,7 +71,7 @@ export type AbilityVisualDefinition = {
   statusTickEffect?: {
     spriteSrc: string;
     width: number;
-    variant: "cinderCurseTick";
+    variant: "cinderCurseTick" | "leafDrain";
     durationMs?: number;
   };
   battlefieldEffect?: {
@@ -81,6 +98,24 @@ export const ABILITY_VISUALS: Partial<
       damageNumberDurationMs: 1500,
     },
   },
+  lacerate: {
+    icon: "🩸",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2100,
+      impactDelayMs: 1100,
+      eventDurationMs: 2800,
+      damageNumberDurationMs: 1500,
+    },
+    targetEffect: {
+      spriteSrc: lacerateEffect,
+      width: 360,
+      variant: "lacerate",
+      startsOnImpact: true,
+      durationMs: 900,
+    },
+    impact: "bleed",
+  },
   orcGruntMultiAttack: {
     icon: "💢",
     animation: "melee",
@@ -89,6 +124,15 @@ export const ABILITY_VISUALS: Partial<
       impactDelayMs: 1900,
       eventDurationMs: 4000,
       damageNumberDurationMs: 2200,
+    },
+  },
+  prepareSweep: {
+    icon: "⚔",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2800,
+      impactDelayMs: 1500,
+      eventDurationMs: 3300,
     },
   },
   greenSlimeStrongAttack: {
@@ -200,14 +244,64 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "fire",
   },
+  searingBrand: {
+    icon: "🔥",
+    animation: "cast",
+    castVariant: "fire",
+    timing: {
+      animationDurationMs: 4300,
+      impactDelayMs: 2400,
+      eventDurationMs: 5200,
+      damageNumberDurationMs: 1800,
+    },
+    targetEffect: {
+      spriteSrc: cinderCurseEffect,
+      width: 210,
+      variant: "searingBrand",
+      durationMs: 4100,
+    },
+    impact: "fire",
+  },
+  twinFlames: {
+    icon: "🔥",
+    animation: "cast",
+    castVariant: "fire",
+    timing: {
+      animationDurationMs: 4400,
+      impactDelayMs: 2500,
+      eventDurationMs: 5400,
+      damageNumberDurationMs: 1800,
+    },
+    targetEffect: {
+      spriteSrc: twinFlamesEffect,
+      width: 330,
+      variant: "twinFlames",
+      durationMs: 4200,
+    },
+    impact: "fire",
+  },
   rootseed: {
     icon: "🌱",
     animation: "cast",
     castVariant: "earth",
     timing: {
-      animationDurationMs: 2400,
+      animationDurationMs: 3000,
       impactDelayMs: 1500,
-      eventDurationMs: 3100,
+      eventDurationMs: 4200,
+      damageNumberDurationMs: 1500,
+    },
+    targetEffect: {
+      spriteSrc: rootseedEffect,
+      width: 210,
+      variant: "rootseed",
+      startsOnImpact: true,
+      durationMs: 2400,
+    },
+    statusTickEffect: {
+      spriteSrc: leafDrainEffect,
+      width: 250,
+      variant: "leafDrain",
+      durationMs: 2200,
     },
     impact: "earth",
   },
@@ -351,6 +445,22 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "wind",
   },
+  backwind: {
+    icon: "🍃",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2200,
+      impactDelayMs: 1200,
+      eventDurationMs: 2900,
+      damageNumberDurationMs: 1300,
+    },
+    projectile: {
+      spriteSrc: windSlashEffect,
+      width: 285,
+      variant: "backwind",
+    },
+    impact: "wind",
+  },
   razorGale: {
     icon: "🌬️",
     animation: "cast",
@@ -364,6 +474,23 @@ export const ABILITY_VISUALS: Partial<
       spriteSrc: razorGaleEffect,
       width: 540,
       variant: "razorGale",
+    },
+    impact: "wind",
+  },
+  cyclone: {
+    icon: "🌀",
+    animation: "cast",
+    timing: {
+      animationDurationMs: 2300,
+      impactDelayMs: 1450,
+      eventDurationMs: 2800,
+      damageNumberDurationMs: 1000,
+    },
+    targetEffect: {
+      spriteSrc: cycloneEffect,
+      width: 310,
+      variant: "cycloneHit1",
+      durationMs: 500,
     },
     impact: "wind",
   },
@@ -557,9 +684,9 @@ export const ABILITY_VISUALS: Partial<
     animation: "cast",
     castVariant: "water",
     timing: {
-      animationDurationMs: 2600,
-      impactDelayMs: 1150,
-      eventDurationMs: 3200,
+      animationDurationMs: 3600,
+      impactDelayMs: 1600,
+      eventDurationMs: 4300,
     },
     impact: "water",
   },

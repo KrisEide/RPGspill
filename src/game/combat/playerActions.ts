@@ -1,7 +1,6 @@
-import { ITEM_DEFINITIONS } from "../../data/items";
+import { ITEM_DEFINITIONS, getItemUseProfile } from "../../data/items";
 import {
   getSpiritForActiveAbility,
-  SPIRIT_DEFINITIONS,
 } from "../../data/spirits";
 import {
   getKnownAbilityRank,
@@ -202,21 +201,6 @@ export function selectPlayerAction(
       )
       : request.secondaryTargetId === undefined ||
       request.secondaryTargetId === null;
-  const warhound = actor.spirits.warhound;
-  const isWarhoundQuickAutoAttack =
-    request.abilityId === "autoAttack" &&
-    actor.form === "living" &&
-    Boolean(
-      warhound &&
-        SPIRIT_DEFINITIONS[warhound.id].passive
-          .firstAutoAttackEachRoundIsQuick,
-    ) &&
-    selection.action === null &&
-    !actor.statuses.some((status) => status.id === "stunned") &&
-    !selection.quickActions.some(
-      (action) =>
-        action.kind === "ability" && action.abilityId === "autoAttack",
-    );
   const isQuickAbility = ability?.useTiming === "quickAction";
   const spiritActiveAlreadyQueued = Boolean(
     activeSpirit &&
@@ -261,7 +245,7 @@ export function selectPlayerAction(
     secondaryTargetId: request.secondaryTargetId ?? null,
   };
 
-  if (isWarhoundQuickAutoAttack || isQuickAbility) {
+  if (isQuickAbility) {
     return {
       ...selections,
       [characterId]: {
@@ -293,14 +277,17 @@ export function selectPlayerItem(
   const actor = state.characters[characterId];
   const definition = ITEM_DEFINITIONS[request.itemId];
   const selection = selections[characterId];
+  const useProfile = definition
+    ? getItemUseProfile(definition, actor.form)
+    : null;
 
   if (
-    actor.form !== "living" ||
+    !useProfile ||
     actor.statuses.some((status) => status.id === "abilityCharge") ||
-    (definition?.useTiming === "quickAction" &&
+    (useProfile.useTiming === "quickAction" &&
       actor.statuses.some((status) => status.id === "stunned")) ||
     !definition ||
-    definition.resolutionTiming === "preRound" ||
+    useProfile.resolutionTiming === "preRound" ||
     !isValidPlayerTarget(
       state,
       characterId,
@@ -330,7 +317,7 @@ export function selectPlayerItem(
     targetId: request.targetId,
   };
 
-  if (definition.useTiming === "quickAction") {
+  if (useProfile.useTiming === "quickAction") {
     return {
       ...selections,
       [characterId]: {

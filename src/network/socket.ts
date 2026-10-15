@@ -66,6 +66,11 @@ function connect() {
   return connectionPromise;
 }
 
+export function disconnectMultiplayerSession() {
+  connectionPromise = null;
+  socket.disconnect();
+}
+
 export async function submitMultiplayerBloodpact(request: BloodpactSelectionRequest) {
   await connect();
   return new Promise<boolean>((resolve, reject) => {
