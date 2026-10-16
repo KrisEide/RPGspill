@@ -443,6 +443,17 @@ export const ABILITY_VISUALS: Partial<
     },
     impact: "earth",
   },
+  earthDemon: {
+    icon: "🗿",
+    animation: "cast",
+    castVariant: "earth",
+    timing: {
+      animationDurationMs: 3200,
+      impactDelayMs: 1600,
+      eventDurationMs: 3900,
+    },
+    impact: "earth",
+  },
   whirlwind: {
     icon: "🌪️",
     animation: "whirlwind",

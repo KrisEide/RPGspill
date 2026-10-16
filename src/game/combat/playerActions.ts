@@ -223,6 +223,7 @@ export function selectPlayerAction(
     (isQuickAbility &&
       actor.statuses.some((status) => status.id === "stunned")) ||
     spiritActiveAlreadyQueued ||
+    (request.abilityId === "earthDemon" && state.earthDemon !== null) ||
     actor.pp < ppCost ||
     actor.hp < ghostHpCost ||
     !possessionTargetIsValid ||

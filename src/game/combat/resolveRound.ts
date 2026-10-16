@@ -986,7 +986,10 @@ function applyDamageLinkedAbilityHealing(
             ...nextState.characters,
             [healerId]: {
               ...nextState.characters[healerId],
-              passiveCombatState: { firstHealUsed: true },
+              passiveCombatState: {
+                ...nextState.characters[healerId].passiveCombatState,
+                firstHealUsed: true,
+              },
             },
           },
         };
@@ -1429,9 +1432,10 @@ function spendPp(
   };
 }
 
+const POST_COMBAT_HP_RECOVERY = 5;
 const POST_COMBAT_PP_RECOVERY = 5;
 
-function restoreLivingCharactersPpAfterCombat(
+function restoreLivingCharactersAfterCombat(
   state: CombatState,
 ): CombatState {
   return {
@@ -1439,6 +1443,14 @@ function restoreLivingCharactersPpAfterCombat(
     characters: {
       "character-1": {
         ...state.characters["character-1"],
+        hp:
+          state.characters["character-1"].form === "living"
+            ? Math.min(
+                getCharacterMaxHp(state.characters["character-1"]),
+                state.characters["character-1"].hp +
+                  POST_COMBAT_HP_RECOVERY,
+              )
+            : state.characters["character-1"].hp,
         pp:
           state.characters["character-1"].form === "living"
             ? Math.min(
@@ -1450,6 +1462,14 @@ function restoreLivingCharactersPpAfterCombat(
       },
       "character-2": {
         ...state.characters["character-2"],
+        hp:
+          state.characters["character-2"].form === "living"
+            ? Math.min(
+                getCharacterMaxHp(state.characters["character-2"]),
+                state.characters["character-2"].hp +
+                  POST_COMBAT_HP_RECOVERY,
+              )
+            : state.characters["character-2"].hp,
         pp:
           state.characters["character-2"].form === "living"
             ? Math.min(
@@ -1463,8 +1483,26 @@ function restoreLivingCharactersPpAfterCombat(
   };
 }
 
+function createPostCombatRecoveryEvent(
+  before: CombatState,
+  after: CombatState,
+): CombatEvent {
+  return {
+    type: "postCombatRecovery",
+    impacts: CHARACTER_ORDER.map((targetId) => ({
+      targetId,
+      hpRestored:
+        after.characters[targetId].hp - before.characters[targetId].hp,
+      ppRestored:
+        after.characters[targetId].pp - before.characters[targetId].pp,
+      remainingHp: after.characters[targetId].hp,
+      remainingPp: after.characters[targetId].pp,
+    })),
+  };
+}
+
 function completeVictory(state: CombatState, seed: number): CombatState {
-  const recoveredState = restoreLivingCharactersPpAfterCombat(state);
+  const recoveredState = restoreLivingCharactersAfterCombat(state);
   const nextEncounterId =
     ENCOUNTER_DEFINITIONS[recoveredState.encounterId].nextEncounterId;
 
@@ -1651,8 +1689,13 @@ function resolveItemUse(
           continue;
         }
 
+        const bombardierMultiplier =
+          (action.itemId === "blastBomb" || action.itemId === "razorBomb") &&
+          characterHasPassive(actor, "bombardier")
+            ? 1 + PASSIVE_VALUES.bombardierDamageBonus
+            : 1;
         let mitigatedDamage = calculateFixedDamage({
-          basePower: effect.amount,
+          basePower: Math.round(effect.amount * bombardierMultiplier),
           damageType: effect.damageType,
           defender: currentTarget.stats,
           defenderStatuses: currentTarget.statuses,
@@ -2726,6 +2769,10 @@ export function resolveRound(
       continue;
     }
 
+    if (action.abilityId === "earthDemon" && nextState.earthDemon) {
+      continue;
+    }
+
     const characterActorId = isCharacterInstanceId(action.actorId)
       ? action.actorId
       : null;
@@ -2817,6 +2864,34 @@ export function resolveRound(
 
     nextState = spendPp(nextState, action.actorId, abilityPpCost);
 
+    if (
+      characterActorId &&
+      !action.isChargeRelease &&
+      ability.category === "ability" &&
+      ability.ppCost >= PASSIVE_VALUES.manaWardMinimumBasePpCost &&
+      characterHasPassive(nextState.characters[characterActorId], "manaWard")
+    ) {
+      const barrierResult = grantBarrierToTarget(
+        nextState,
+        characterActorId,
+        PASSIVE_VALUES.manaWardBarrier,
+        characterActorId,
+      );
+      nextState = barrierResult.state;
+      if (barrierResult.grantedAmount > 0) {
+        events.push({
+          type: "manaWard",
+          actorId: characterActorId,
+          targetId: characterActorId,
+          passiveId: "manaWard",
+          abilityId: action.abilityId,
+          abilityRank: ability.rank,
+          barrierAmount: barrierResult.grantedAmount,
+          remainingBarrier: nextState.characters[characterActorId].barrier,
+        });
+      }
+    }
+
     if (!isCharacterInstanceId(action.actorId)) {
       const enemyActor = nextState.enemies.find(
         (enemy) => enemy.instanceId === action.actorId,
@@ -2892,6 +2967,36 @@ export function resolveRound(
       nextState = guardDogResult.state;
       randomSeed = guardDogResult.nextSeed;
       if (guardDogResult.event) events.push(guardDogResult.event);
+      continue;
+    }
+
+    const earthDemonEffect = ability.effects.find(
+      (effect) => effect.type === "summonEarthDemon",
+    );
+    if (earthDemonEffect && characterActorId) {
+      const earthPower = actor.stats.elementalPower.earth;
+      const maxHp = Math.round(
+        earthDemonEffect.baseHp + earthPower * earthDemonEffect.hpScaling,
+      );
+      const summon = {
+        ownerId: characterActorId,
+        rank: ability.rank,
+        hp: maxHp,
+        maxHp,
+        attackPower: Math.round(
+          earthDemonEffect.attackBasePower +
+            earthPower * earthDemonEffect.attackScaling,
+        ),
+      };
+      nextState = { ...nextState, earthDemon: summon };
+      events.push({
+        type: "earthDemonSummoned",
+        actorId: characterActorId,
+        targetId: characterActorId,
+        abilityId: "earthDemon",
+        abilityRank: ability.rank,
+        summon,
+      });
       continue;
     }
 
@@ -3157,7 +3262,11 @@ export function resolveRound(
                     ...nextState.characters,
                     [characterActorId]: {
                       ...nextState.characters[characterActorId],
-                      passiveCombatState: { firstHealUsed: true },
+                      passiveCombatState: {
+                        ...nextState.characters[characterActorId]
+                          .passiveCombatState,
+                        firstHealUsed: true,
+                      },
                     },
                   },
                 };
@@ -3460,8 +3569,39 @@ export function resolveRound(
           (SPIRIT_DEFINITIONS.ironquill.passive
             .steelDartAbilityAmplifier?.damageBonusPerDart ?? 0)
         : 0;
+    const tailwindPassiveOwned = Boolean(
+      characterActorId &&
+        characterHasPassive(
+          nextState.characters[characterActorId],
+          "tailwind",
+        ),
+    );
+    const tailwindWasActive = Boolean(
+      characterActorId &&
+        nextState.characters[characterActorId].passiveCombatState
+          .tailwindActive,
+    );
+    const tailwindEmpowersAction = Boolean(
+      tailwindWasActive &&
+        ability.category === "ability" &&
+        ability.element === "wind" &&
+        ability.effects.some((effect) => effect.type === "damage"),
+    );
+    const galeFocusCanTrigger = Boolean(
+      characterActorId &&
+        ability.category === "ability" &&
+        ability.element === "wind" &&
+        characterHasPassive(
+          nextState.characters[characterActorId],
+          "galeFocus",
+        ) &&
+        nextState.characters[characterActorId].passiveCombatState
+          .galeFocusLastUsedRound !== state.round,
+    );
     let firstDamageStatusChanges: StatusChange[] | null = null;
     let actionDealtDamage = false;
+    let actionLandedCritical = false;
+    let galeFocusTriggered = false;
     let partnerElementDamageBonusApplied = false;
     const damagedTargetIdsThisAction = new Set<CombatantId>();
     const bodyguardProtectedTargetIds = new Set<CombatantId>();
@@ -3804,6 +3944,14 @@ export function resolveRound(
         }
       }
 
+      const galeFocusAppliesToWave: boolean = Boolean(
+        galeFocusCanTrigger &&
+          !galeFocusTriggered &&
+          effect.criticalHit &&
+          targetIds.length > 0,
+      );
+      galeFocusTriggered ||= galeFocusAppliesToWave;
+
       const preHitStatusChanges = new Map<CombatantId, StatusChange[]>();
       const barrierRemovedBeforeHit = new Map<CombatantId, number>();
 
@@ -3880,6 +4028,13 @@ export function resolveRound(
 
         const damageReductions =
           activeDamageReductions.get(targetId) ?? [];
+        const earthDemonWillIntercept = Boolean(
+          nextState.earthDemon &&
+            !isCharacterInstanceId(action.actorId) &&
+            isCharacterInstanceId(targetId) &&
+            ability.target !== "allEnemies" &&
+            targetIds.length === 1,
+        );
         const hasLivingAllyBonus =
           effect.damagePerOtherLivingSameEnemy !== undefined &&
           !isCharacterInstanceId(action.actorId);
@@ -3905,7 +4060,9 @@ export function resolveRound(
           element: ability.element,
           effect: effectiveDamageEffect,
           additionalDamageReductions:
-            hasLivingAllyBonus ? [] : damageReductions,
+            hasLivingAllyBonus || earthDemonWillIntercept
+              ? []
+              : damageReductions,
         });
         let isCritical = false;
         let amount = normalDamage;
@@ -3974,9 +4131,11 @@ export function resolveRound(
             1,
             effect.criticalHit.chance + actor.stats.criticalChance,
           );
-          isCritical = randomResult.value < criticalChance;
+          isCritical =
+            galeFocusAppliesToWave || randomResult.value < criticalChance;
 
           if (isCritical) {
+            actionLandedCritical = true;
             amount = Math.round(
               amount * effect.criticalHit.damageMultiplier,
             );
@@ -4006,6 +4165,10 @@ export function resolveRound(
               (1 + bloodScentBonus) *
               (1 + passiveAbilityDamageBonus) *
               (1 + ironquillAbilityDamageBonus) *
+              (1 +
+                (tailwindEmpowersAction
+                  ? PASSIVE_VALUES.tailwindDamageBonus
+                  : 0)) *
               (1 + closerToTheVeilDamageBonus),
           ),
         );
@@ -4052,6 +4215,30 @@ export function resolveRound(
               });
             }
           }
+        }
+
+        if (earthDemonWillIntercept && nextState.earthDemon && amount > 0) {
+          const currentDemon = nextState.earthDemon;
+          const remainingHp = Math.max(0, currentDemon.hp - amount);
+          const destroyed = remainingHp === 0;
+          nextState = {
+            ...nextState,
+            earthDemon: destroyed
+              ? null
+              : { ...nextState.earthDemon, hp: remainingHp },
+          };
+          events.push({
+            type: "earthDemonHit",
+            actorId: action.actorId,
+            targetId: currentDemon.ownerId,
+            abilityId: action.abilityId,
+            abilityRank: ability.rank,
+            amount,
+            remainingHp,
+            maxHp: currentDemon.maxHp,
+            destroyed,
+          });
+          continue;
         }
 
         const bodyguardStatus = currentTarget.statuses.find(
@@ -4805,6 +4992,57 @@ export function resolveRound(
       }
     }
 
+    if (characterActorId && galeFocusTriggered) {
+      nextState = {
+        ...nextState,
+        characters: {
+          ...nextState.characters,
+          [characterActorId]: {
+            ...nextState.characters[characterActorId],
+            passiveCombatState: {
+              ...nextState.characters[characterActorId].passiveCombatState,
+              galeFocusLastUsedRound: state.round,
+            },
+          },
+        },
+      };
+    }
+
+    if (characterActorId && tailwindPassiveOwned) {
+      const tailwindWasConsumed =
+        tailwindEmpowersAction && actionDealtDamage;
+      const tailwindRearmed = tailwindWasConsumed && actionLandedCritical;
+      const tailwindActive = actionLandedCritical
+        ? true
+        : tailwindWasConsumed
+          ? false
+          : tailwindWasActive;
+
+      if (tailwindActive !== tailwindWasActive || tailwindRearmed) {
+        nextState = {
+          ...nextState,
+          characters: {
+            ...nextState.characters,
+            [characterActorId]: {
+              ...nextState.characters[characterActorId],
+              passiveCombatState: {
+                ...nextState.characters[characterActorId].passiveCombatState,
+                tailwindActive,
+              },
+            },
+          },
+        };
+        events.push({
+          type: "tailwind",
+          actorId: characterActorId,
+          targetId: characterActorId,
+          passiveId: "tailwind",
+          active: tailwindActive,
+          rearmed: tailwindRearmed,
+        });
+      }
+    }
+
     if (
       actionDealtDamage &&
       isCharacterInstanceId(action.actorId) &&
@@ -5064,7 +5302,9 @@ export function resolveRound(
     nextState = { ...nextState, randomSeed };
 
     if (!nextState.enemies.some((enemy) => enemy.hp > 0)) {
+      const stateBeforeRecovery = nextState;
       nextState = completeVictory(nextState, randomSeed);
+      events.push(createPostCombatRecoveryEvent(stateBeforeRecovery, nextState));
     }
 
     return { nextState, events };
@@ -5120,6 +5360,51 @@ export function resolveRound(
     }
   }
 
+  if (nextState.earthDemon) {
+    const demon = nextState.earthDemon;
+    const livingEnemies = nextState.enemies.filter(isEnemyTargetable);
+    if (livingEnemies.length > 0) {
+      let targetIndex = 0;
+      if (livingEnemies.length > 1) {
+        const targetRoll = nextRandom(randomSeed);
+        randomSeed = targetRoll.nextSeed;
+        targetIndex = Math.floor(targetRoll.value * livingEnemies.length);
+      }
+      const target = livingEnemies[targetIndex];
+      const varianceRoll = nextRandom(randomSeed);
+      randomSeed = varianceRoll.nextSeed;
+      const mitigatedDamage = calculateFixedDamage({
+        basePower: demon.attackPower,
+        damageType: "elemental",
+        defender: target.stats,
+        defenderStatuses: target.statuses,
+      });
+      const amount = applyDamageVariance(
+        mitigatedDamage,
+        varianceRoll.value,
+      );
+      const barrierResult = absorbDirectDamage(target.barrier, amount);
+      const remainingHp = Math.max(0, target.hp - barrierResult.hpDamage);
+      nextState = updateBarrier(
+        nextState,
+        target.instanceId,
+        barrierResult.remainingBarrier,
+      );
+      nextState = updateHp(nextState, target.instanceId, remainingHp);
+      events.push({
+        type: "earthDemonAttack",
+        actorId: demon.ownerId,
+        targetId: target.instanceId,
+        abilityId: "earthDemon",
+        abilityRank: demon.rank,
+        amount: barrierResult.hpDamage,
+        remainingHp,
+        absorbedByBarrier: barrierResult.absorbedByBarrier,
+        remainingBarrier: barrierResult.remainingBarrier,
+      });
+    }
+  }
+
   const statusResult = resolveEndOfRoundStatuses(
     nextState,
     events,
@@ -5164,7 +5449,9 @@ export function resolveRound(
       : "selectingActions";
 
   if (roundOutcome === "victory") {
+    const stateBeforeRecovery = nextState;
     nextState = completeVictory(nextState, randomSeed);
+    events.push(createPostCombatRecoveryEvent(stateBeforeRecovery, nextState));
     randomSeed = nextState.randomSeed;
   }
 

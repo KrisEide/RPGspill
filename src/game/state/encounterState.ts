@@ -85,7 +85,11 @@ export function startEncounter(
         ),
         itemDamageBonus: null,
         abilityDamageBonus: null,
-        passiveCombatState: { firstHealUsed: false },
+        passiveCombatState: {
+          firstHealUsed: false,
+          tailwindActive: false,
+          galeFocusLastUsedRound: null,
+        },
         statuses: [],
         barrier: 0,
       },
@@ -97,7 +101,11 @@ export function startEncounter(
         ),
         itemDamageBonus: null,
         abilityDamageBonus: null,
-        passiveCombatState: { firstHealUsed: false },
+        passiveCombatState: {
+          firstHealUsed: false,
+          tailwindActive: false,
+          galeFocusLastUsedRound: null,
+        },
         statuses: [],
         barrier: 0,
       },
@@ -120,6 +128,7 @@ export function startEncounter(
         }
       : null,
     itemRewards: null,
+    earthDemon: null,
   };
 
   return isRest

@@ -36,7 +36,9 @@ export default function CombatLog({ events, getCombatantName }: Props) {
       {events.map((event, index) => (
         <div
           key={
-            event.type === "statusDamage"
+            event.type === "postCombatRecovery"
+              ? `post-combat-recovery-${index}`
+              : event.type === "statusDamage"
               ? `${event.targetId}-${event.statusId}-${index}`
               : event.type === "phoenixRebirth"
                 ? `${event.targetId}-phoenix-rebirth-${index}`
@@ -48,10 +50,14 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                   ? `${event.actorId}-${event.itemId}-${index}`
                   : event.type === "skipTurn"
                     ? `${event.actorId}-stunned-${index}`
+                    : event.type === "tailwind"
+                      ? `${event.actorId}-tailwind-${index}`
                     : `${event.actorId}-${event.abilityId}-${index}`
           }
         >
-          {event.type === "phoenixRebirth" ? (
+          {event.type === "postCombatRecovery" ? (
+            <>The party recovered after the battle.</>
+          ) : event.type === "phoenixRebirth" ? (
             <>
               Phoenix returned {getCombatantName(event.targetId)} with {event.remainingHp} HP and {event.remainingBarrier} Barrier.
             </>
@@ -112,6 +118,16 @@ export default function CombatLog({ events, getCombatantName }: Props) {
               {event.barrierAmount > 0
                 ? ` Brace granted ${event.barrierAmount} Barrier.`
                 : ""}
+            </>
+          ) : event.type === "manaWard" ? (
+            <>
+              Mana Ward granted {getCombatantName(event.targetId)}{" "}
+              {event.barrierAmount} Barrier.
+            </>
+          ) : event.type === "tailwind" ? (
+            <>
+              Tailwind {event.active ? "is ready" : "was consumed"} for{" "}
+              {getCombatantName(event.actorId)}.
             </>
           ) : event.type === "selfDamage" ? (
             <>
@@ -253,6 +269,12 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 </>
               )}
             </>
+          ) : event.type === "earthDemonSummoned" ? (
+            <>{getCombatantName(event.actorId)} summoned an Earth Demon.</>
+          ) : event.type === "earthDemonHit" ? (
+            <>Earth Demon absorbed {event.amount} damage{event.destroyed ? " and was destroyed" : ""}.</>
+          ) : event.type === "earthDemonAttack" ? (
+            <>Earth Demon dealt {event.amount} damage to {getCombatantName(event.targetId)}.</>
           ) : (
             <>
               {event.isCritical ? "Critical hit! " : ""}

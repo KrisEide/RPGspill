@@ -11,6 +11,7 @@ import { resolveRound } from "../src/game/combat/resolveRound";
 import { PASSIVE_VALUES } from "../src/game/passives/passiveSystem";
 import { createInitialCombatState } from "../src/game/state/initialState";
 import type { GameSetup, PassiveId } from "../src/game/types";
+import { getDefendPassiveBonuses } from "../src/features/battle/data/defendBonuses";
 
 const setup: GameSetup = {
   mode: "singlePlayer",
@@ -151,4 +152,47 @@ test("Brace shows its Barrier gain during the Defend event", () => {
   assert.match(battleScreen, /const defendBarrierAmount/);
   assert.match(battleScreen, /supportNumber--brace/);
   assert.match(battleScreen, /defendBarrierAmount/);
+});
+
+test("Defend info lists only the active hero's direct passive bonuses", () => {
+  assert.deepEqual(getDefendPassiveBonuses({}), []);
+  assert.deepEqual(
+    getDefendPassiveBonuses({
+      brace: true,
+      counterguard: true,
+      thorns: true,
+    }),
+    [
+      { name: "Brace", effect: "+6 Barrier" },
+      { name: "Counterguard", effect: "Attackers take 4 Physical damage" },
+    ],
+  );
+  assert.deepEqual(
+    getDefendPassiveBonuses({ leaveItToMe: true }),
+    [
+      {
+        name: "Leave It to Me",
+        effect: "Ally's next damaging ability deals +25% damage",
+      },
+    ],
+  );
+});
+
+test("the command bar renders owned Defend bonuses beside its description", () => {
+  const commandBar = readFileSync(
+    new URL(
+      "../src/features/battle/components/CommandBar.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const battleScreen = readFileSync(
+    new URL("../src/features/battle/BattleScreen.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(commandBar, /defendBonuses/);
+  assert.match(commandBar, /cmdbar__defendBonuses/);
+  assert.match(battleScreen, /getDefendPassiveBonuses/);
+  assert.match(battleScreen, /defendBonuses={defendBonuses}/);
 });

@@ -248,12 +248,38 @@ export const EARTH_ABILITY_DEFINITIONS = {
       },
     },
   },
+  earthDemon: {
+    id: "earthDemon",
+    name: "Earth Demon",
+    category: "ability",
+    resolutionPriority: 0,
+    target: "self",
+    element: "earth",
+    ranks: {
+      1: {
+        shortDescription: "Summon a guardian that attacks and intercepts single-target attacks.",
+        description:
+          "Summon an Earth Demon with 30 + 100% of Earth Power as HP. It intercepts single-target enemy attacks against either hero and attacks one random enemy at the end of each round for 5 + 25% of Earth Power as Earth damage.",
+        ppCost: 20,
+        effects: [{ type: "summonEarthDemon", baseHp: 30, hpScaling: 1, attackBasePower: 5, attackScaling: 0.25 }],
+      },
+      2: {
+        shortDescription: "Summon a stronger guardian with more HP and damage.",
+        description:
+          "Summon an Earth Demon with 40 + 125% of Earth Power as HP. It intercepts single-target enemy attacks against either hero and attacks one random enemy at the end of each round for 7 + 30% of Earth Power as Earth damage.",
+        newEffectDescription: "The demon gains more HP and deals more damage.",
+        ppCost: 20,
+        effects: [{ type: "summonEarthDemon", baseHp: 40, hpScaling: 1.25, attackBasePower: 7, attackScaling: 0.3 }],
+      },
+    },
+  },
 } satisfies Record<
   | "earthquake"
   | "rootseed"
   | "stonebreaker"
   | "stonebloom"
   | "stoneguard"
-  | "fortify",
+  | "fortify"
+  | "earthDemon",
   AbilityDefinition
 >;

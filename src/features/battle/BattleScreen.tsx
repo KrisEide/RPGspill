@@ -16,6 +16,8 @@ import bleedEffect from "../../assets/Effect/bleed.png";
 import rebirthOne from "../../assets/Effect/rebirth1.png";
 import rebirthTwo from "../../assets/Effect/rebirth2.png";
 import rebirthThree from "../../assets/Effect/rebirth3.png";
+import earthDemonIdle from "../../assets/sprites/summons/earthsummon.png";
+import earthDemonAttack from "../../assets/sprites/summons/earthsummon_attack.png";
 import {
   getSpiritForActiveAbility,
   SPIRIT_DEFINITIONS,
@@ -27,6 +29,7 @@ import PartyStatusPanel from "./components/PartyStatusPanel";
 import UpgradeSelection from "./components/UpgradeSelection";
 import { CHARACTER_VISUALS } from "./data/characterVisuals";
 import { ABILITY_VISUALS } from "./data/abilityVisuals";
+import { getDefendPassiveBonuses } from "./data/defendBonuses";
 import { ENEMY_VISUALS } from "./data/enemyVisuals";
 import { ENCOUNTER_VISUALS } from "./data/encounterVisuals";
 import { getEnemyFormationPositions } from "./layout/enemyFormation";
@@ -157,6 +160,8 @@ const SOUL_TRANSFER_IMPACT_DELAY_MS = 1600;
 const SOUL_TRANSFER_EVENT_DURATION_MS = 5600;
 const PHOENIX_REBIRTH_IMPACT_DELAY_MS = 9400;
 const PHOENIX_REBIRTH_EVENT_DURATION_MS = 12000;
+const POST_COMBAT_RECOVERY_IMPACT_DELAY_MS = 1700;
+const POST_COMBAT_RECOVERY_EVENT_DURATION_MS = 6500;
 const POWER_TONIC_ACTIVATION_DURATION_MS = 2600;
 const MYSTERIOUS_POTION_ACTIVATION_DURATION_MS = 3400;
 const MYSTERIOUS_POTION_IMPACT_DELAY_MS = 1150;
@@ -300,6 +305,12 @@ function getDamageImpactForTarget(
     return event.targetId === targetId ? event : null;
   }
 
+  if (event?.type === "earthDemonAttack") {
+    return event.targetId === targetId
+      ? { ...event, isCritical: false as const, statusChanges: [] }
+      : null;
+  }
+
   if (event?.type === "multiTargetDamage") {
     const impact = event.impacts.find((candidate) => candidate.targetId === targetId);
     if (impact) return impact;
@@ -357,6 +368,10 @@ function combatEventDefeatsEnemy(event: CombatEvent) {
   }
 
   if (event.type === "statusDamage" || event.type === "spiritDamage") {
+    return isEnemyDefeated(event.targetId, event.remainingHp);
+  }
+
+  if (event.type === "earthDemonAttack") {
     return isEnemyDefeated(event.targetId, event.remainingHp);
   }
 
@@ -584,7 +599,7 @@ function getProjectileOrigin(
   event: CombatEvent | null,
   combatState: CombatState,
 ) {
-  if (event?.type !== "damage") {
+  if (event?.type !== "damage" && event?.type !== "earthDemonHit") {
     return null;
   }
 
@@ -686,6 +701,7 @@ export default function BattleScreen(props: Props) {
   const [projectilePath, setProjectilePath] =
     useState<ProjectilePath | null>(null);
   const battleSceneRef = useRef<HTMLDivElement>(null);
+  const earthDemonElementRef = useRef<HTMLDivElement>(null);
   const combatantElementRefs = useRef(
     new Map<CombatantId, HTMLDivElement>(),
   );
@@ -804,6 +820,9 @@ export default function BattleScreen(props: Props) {
   const commandCharacter = isMultiplayer
     ? localCharacter
     : (activeCharacter ?? combatState.characters["character-1"]);
+  const defendBonuses = getDefendPassiveBonuses(
+    commandCharacter?.passives ?? {},
+  );
   const abilitiesAvailable = commandCharacter
     ? commandCharacter.form === "ghost"
       ? getKnownGhostAbilityIds(commandCharacter).length > 0
@@ -861,7 +880,8 @@ export default function BattleScreen(props: Props) {
                     : undefined,
                   available:
                     commandCharacter.pp >= ppCost &&
-                    (!ghostHpCost || commandCharacter.hp >= ghostHpCost),
+                    (!ghostHpCost || commandCharacter.hp >= ghostHpCost) &&
+                    (ability.id !== "earthDemon" || combatState.earthDemon === null),
                 },
               ]
             : [];
@@ -931,6 +951,18 @@ export default function BattleScreen(props: Props) {
         gameState.pendingRound.nextEventIndex
       ]
     : null;
+  const visibleEarthDemon =
+    combatState.earthDemon ??
+    (currentCombatEvent?.type === "earthDemonHit" &&
+    currentCombatEvent.destroyed
+      ? {
+          ownerId: currentCombatEvent.targetId,
+          rank: 1 as const,
+          hp: 0,
+          maxHp: currentCombatEvent.maxHp,
+          attackPower: 0,
+        }
+      : null);
   const currentCombatEventKey = gameState.pendingRound
     ? `${combatState.encounterId}:${combatState.round}:${gameState.pendingRound.nextEventIndex}`
     : "";
@@ -972,13 +1004,16 @@ export default function BattleScreen(props: Props) {
       ? null
       : currentItemVisualEvent;
   const currentAbilityVisuals =
-    currentCombatEvent?.type === "damage" ||
+    currentCombatEvent?.type === "earthDemonHit"
+      ? ABILITY_VISUALS[currentCombatEvent.abilityId]
+      : currentCombatEvent?.type === "damage" ||
     currentCombatEvent?.type === "multiTargetDamage" ||
     currentCombatEvent?.type === "barrierRemoved" ||
     currentCombatEvent?.type === "support" ||
     currentCombatEvent?.type === "multiTargetSupport" ||
     currentCombatEvent?.type === "statusApplied" ||
     currentCombatEvent?.type === "charge" ||
+    currentCombatEvent?.type === "earthDemonSummoned" ||
     currentCombatEvent?.type === "wake" ||
     currentCombatEvent?.type === "wait"
       ? ABILITY_VISUALS[currentCombatEvent.abilityId]
@@ -1213,7 +1248,8 @@ export default function BattleScreen(props: Props) {
   useLayoutEffect(() => {
     const measurementFrame = window.requestAnimationFrame(() => {
       const abilityEvent =
-        currentCombatEvent?.type === "damage"
+        currentCombatEvent?.type === "damage" ||
+        currentCombatEvent?.type === "earthDemonHit"
           ? currentCombatEvent
           : null;
       const itemEvent = currentItemVisualEvent;
@@ -1225,6 +1261,7 @@ export default function BattleScreen(props: Props) {
         ? ABILITY_VISUALS[abilityEvent.abilityId]?.timing
         : null;
       const isBackwindEmpowered =
+        abilityEvent?.type === "damage" &&
         abilityEvent?.abilityId === "backwind" &&
         abilityEvent.backwindBonus === true;
       const actorId = abilityEvent?.actorId ?? itemEvent?.actorId;
@@ -1244,7 +1281,10 @@ export default function BattleScreen(props: Props) {
 
       const sceneElement = battleSceneRef.current;
       const actorElement = combatantElementRefs.current.get(actorId);
-      const targetElement = combatantElementRefs.current.get(targetId);
+      const targetElement =
+        abilityEvent?.type === "earthDemonHit"
+          ? earthDemonElementRef.current
+          : combatantElementRefs.current.get(targetId);
       const itemActor = isCharacterInstanceId(actorId)
         ? combatState.characters[actorId]
         : null;
@@ -1270,9 +1310,12 @@ export default function BattleScreen(props: Props) {
       const targetEnemy = combatState.enemies.find(
         (enemy) => enemy.instanceId === targetId,
       );
-      const targetImpactAnchor = targetEnemy
-        ? ENEMY_VISUALS[targetEnemy.enemyId].impactAnchor
-        : null;
+      const targetImpactAnchor =
+        abilityEvent?.type === "earthDemonHit"
+          ? { xRatio: 0.58, yRatio: 0.48 }
+          : targetEnemy
+            ? ENEMY_VISUALS[targetEnemy.enemyId].impactAnchor
+            : null;
       const startX =
         actorRect.left - sceneRect.left + actorRect.width * origin.xRatio;
       const startY =
@@ -1405,6 +1448,9 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "spiritDamage";
     const isSoulTransferEvent = currentCombatEvent.type === "soulTransfer";
     const isPhoenixRebirthEvent = currentCombatEvent.type === "phoenixRebirth";
+    const isPostCombatRecoveryEvent =
+      currentCombatEvent.type === "postCombatRecovery";
+    const isTailwindEvent = currentCombatEvent.type === "tailwind";
     const isCinderCurseTick =
       currentCombatEvent.type === "statusDamage" &&
       currentCombatEvent.statusId === "cinderCurse";
@@ -1438,7 +1484,11 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "itemUse"
         ? getItemProjectileVisual(currentCombatEvent)
         : null;
-    const impactDelay = isPhoenixRebirthEvent
+    const impactDelay = isPostCombatRecoveryEvent
+      ? POST_COMBAT_RECOVERY_IMPACT_DELAY_MS
+      : isTailwindEvent
+        ? 450
+      : isPhoenixRebirthEvent
       ? PHOENIX_REBIRTH_IMPACT_DELAY_MS
       : isSoulTransferEvent
       ? SOUL_TRANSFER_IMPACT_DELAY_MS
@@ -1473,7 +1523,11 @@ export default function BattleScreen(props: Props) {
             : 300)
         : (currentAbilityVisuals?.timing?.impactDelayMs ??
           COMBAT_IMPACT_DELAY_MS);
-    const baseEventDuration = isPhoenixRebirthEvent
+    const baseEventDuration = isPostCombatRecoveryEvent
+      ? POST_COMBAT_RECOVERY_EVENT_DURATION_MS
+      : isTailwindEvent
+        ? 1400
+      : isPhoenixRebirthEvent
       ? PHOENIX_REBIRTH_EVENT_DURATION_MS
       : isSoulTransferEvent
       ? SOUL_TRANSFER_EVENT_DURATION_MS
@@ -2114,7 +2168,9 @@ export default function BattleScreen(props: Props) {
       : gameState.phase === "defeat"
         ? "Defeat"
         : gameState.phase === "animating"
-          ? currentCombatEvent?.type === "skipTurn"
+          ? currentCombatEvent?.type === "postCombatRecovery"
+            ? "Victory · The party recovers..."
+          : currentCombatEvent?.type === "skipTurn"
             ? currentCombatEvent.reason === "chargeTargetUnavailable"
               ? `${getCombatantName(currentCombatEvent.actorId)} loses the Stonebreaker charge...`
               : `${getCombatantName(currentCombatEvent.actorId)} is Stunned and loses the action...`
@@ -2132,6 +2188,18 @@ export default function BattleScreen(props: Props) {
             ? `${getCombatantName(currentCombatEvent.actorId)} catches their breath...`
           : currentCombatEvent?.type === "defend"
             ? `${getCombatantName(currentCombatEvent.actorId)} defends...`
+          : currentCombatEvent?.type === "earthDemonSummoned"
+            ? `${getCombatantName(currentCombatEvent.actorId)} summons an Earth Demon...`
+          : currentCombatEvent?.type === "earthDemonHit"
+            ? `Earth Demon absorbs ${currentCombatEvent.amount} damage...`
+          : currentCombatEvent?.type === "earthDemonAttack"
+            ? "Earth Demon attacks..."
+          : currentCombatEvent?.type === "manaWard"
+            ? `${getCombatantName(currentCombatEvent.actorId)} activates Mana Ward...`
+          : currentCombatEvent?.type === "tailwind"
+            ? currentCombatEvent.active
+              ? `${getCombatantName(currentCombatEvent.actorId)} catches the Tailwind...`
+              : `${getCombatantName(currentCombatEvent.actorId)} spends the Tailwind...`
             : currentCombatEvent?.type === "statusDamage"
               ? `${getCombatantName(currentCombatEvent.targetId)} takes damage from ${STATUS_DEFINITIONS[currentCombatEvent.statusId].name}...`
             : currentCombatEvent?.type === "statusApplied"
@@ -2328,6 +2396,9 @@ export default function BattleScreen(props: Props) {
           characters={combatState.characters}
           activeCharacterId={activeCharacterId}
           lastLivingHeroName={lastLivingHeroName}
+          showResourceChanges={
+            currentCombatEvent?.type === "postCombatRecovery"
+          }
         />
       )}
 
@@ -2388,7 +2459,8 @@ export default function BattleScreen(props: Props) {
             currentCombatEvent?.type === "support" ||
             currentCombatEvent?.type === "multiTargetSupport" ||
             currentCombatEvent?.type === "statusApplied" ||
-            currentCombatEvent?.type === "charge") &&
+            currentCombatEvent?.type === "charge" ||
+            currentCombatEvent?.type === "earthDemonSummoned") &&
           currentCombatEvent.actorId === characterId &&
           !(
             currentCombatEvent.type === "support" &&
@@ -2417,6 +2489,9 @@ export default function BattleScreen(props: Props) {
           character.form === "living" &&
           character.itemDamageBonus !== null &&
           character.itemDamageBonus.expiresRound === combatState.round;
+        const hasTailwindBuff =
+          character.form === "living" &&
+          character.passiveCombatState.tailwindActive;
         const hasBodyguardProtection = character.statuses.some(
           (status) => status.id === "bodyguard",
         );
@@ -2507,6 +2582,11 @@ export default function BattleScreen(props: Props) {
           appliedCombatEvent.targetId === characterId
             ? appliedCombatEvent.barrierAmount
             : 0;
+        const manaWardBarrierAmount =
+          appliedCombatEvent?.type === "manaWard" &&
+          appliedCombatEvent.targetId === characterId
+            ? appliedCombatEvent.barrierAmount
+            : 0;
         const hasEarthBarrierImpact = Boolean(
           supportImpact &&
             supportImpact.barrierAmount > 0 &&
@@ -2565,7 +2645,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(characterId);
               }
             }}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${isBarrierAbilityCast ? "battleScene__playerUnit--stationaryCast" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""} ${isGhostTransitionCharacter && ghostTransitionIsRevealed ? "battleScene__playerUnit--ghostTransition" : ""} ${isSoulTransferGhost ? "battleScene__playerUnit--soulTransferGhost" : ""} ${isSoulTransferTarget ? "battleScene__playerUnit--soulTransferTarget" : ""} ${isPhoenixRebirthTarget ? "battleScene__playerUnit--phoenixRebirth" : ""} ${isTwinFlamesGhostRecovery ? "battleScene__playerUnit--twinFlamesGhostRecovery" : ""} ${hasPowerTonicBuff ? "battleScene__playerUnit--powerBuff" : ""} ${hasBodyguardProtection ? "battleScene__playerUnit--bodyguard" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${isBarrierAbilityCast ? "battleScene__playerUnit--stationaryCast" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""} ${isGhostTransitionCharacter && ghostTransitionIsRevealed ? "battleScene__playerUnit--ghostTransition" : ""} ${isSoulTransferGhost ? "battleScene__playerUnit--soulTransferGhost" : ""} ${isSoulTransferTarget ? "battleScene__playerUnit--soulTransferTarget" : ""} ${isPhoenixRebirthTarget ? "battleScene__playerUnit--phoenixRebirth" : ""} ${isTwinFlamesGhostRecovery ? "battleScene__playerUnit--twinFlamesGhostRecovery" : ""} ${hasPowerTonicBuff ? "battleScene__playerUnit--powerBuff" : ""} ${hasTailwindBuff ? "battleScene__playerUnit--tailwind" : ""} ${hasBodyguardProtection ? "battleScene__playerUnit--bodyguard" : ""}`}
             style={
               activeAbilityVisuals?.timing
                 ? ({
@@ -2613,8 +2693,14 @@ export default function BattleScreen(props: Props) {
             {hasBodyguardProtection && (
               <div className="bodyguardAura" aria-hidden="true" />
             )}
+            {hasTailwindBuff && (
+              <div className="tailwindAura" aria-hidden="true" />
+            )}
             {hasEarthBarrierImpact && (
               <div className="barrierAbilityGlow" aria-hidden="true" />
+            )}
+            {manaWardBarrierAmount > 0 && (
+              <div className="manaWardGlow" aria-hidden="true" />
             )}
             <img
               key={bloodpactEvent ? `bloodpact-${combatState.round}-${gameState.pendingRound?.nextEventIndex}` : "idle"}
@@ -2730,6 +2816,14 @@ export default function BattleScreen(props: Props) {
                 <span>🛡 +{defendBarrierAmount}</span>
               </div>
             )}
+            {manaWardBarrierAmount > 0 && (
+              <div
+                className="supportNumber supportNumber--manaWard"
+                aria-hidden="true"
+              >
+                <span>🛡 +{manaWardBarrierAmount}</span>
+              </div>
+            )}
             {supportImpact &&
               (supportImpact.healingAmount > 0 ||
                 supportImpact.barrierAmount > 0 ||
@@ -2802,6 +2896,39 @@ export default function BattleScreen(props: Props) {
           </div>
         );
       })}
+      {visibleEarthDemon && (
+        <div
+          ref={earthDemonElementRef}
+          className={`earthDemon${currentCombatEvent?.type === "earthDemonAttack" ? " earthDemon--attacking" : ""}${currentCombatEvent?.type === "earthDemonHit" && gameState.pendingRound?.currentEventApplied ? " earthDemon--hit" : ""}${currentCombatEvent?.type === "earthDemonHit" && currentCombatEvent.destroyed && gameState.pendingRound?.currentEventApplied ? " earthDemon--destroyed" : ""}`}
+          aria-label={`Earth Demon ${visibleEarthDemon.hp} of ${visibleEarthDemon.maxHp} HP`}
+        >
+          <div className="earthDemon__status">
+            <div className="earthDemon__hpTrack">
+              <div
+                className="earthDemon__hpFill"
+                style={{ width: `${Math.max(0, Math.min(100, visibleEarthDemon.hp / visibleEarthDemon.maxHp * 100))}%` }}
+              />
+            </div>
+            <span>{visibleEarthDemon.hp} / {visibleEarthDemon.maxHp}</span>
+          </div>
+          <img
+            className="earthDemon__sprite earthDemon__sprite--idle"
+            src={earthDemonIdle}
+            alt=""
+          />
+          <img
+            className="earthDemon__sprite earthDemon__sprite--attack"
+            src={earthDemonAttack}
+            alt=""
+          />
+          {displayedImpactEvent?.type === "earthDemonHit" && (
+            <DamageNumber
+              amount={displayedImpactEvent.amount}
+              isCritical={false}
+            />
+          )}
+        </div>
+      )}
       {combatState.enemies.map((enemy, index) => {
         const hpPercent = Math.max(
           0,
@@ -2817,6 +2944,7 @@ export default function BattleScreen(props: Props) {
           isEnemyTargetable(enemy);
         const isAttacking =
           (currentCombatEvent?.type === "damage" ||
+            currentCombatEvent?.type === "earthDemonHit" ||
             currentCombatEvent?.type === "multiTargetDamage" ||
             currentCombatEvent?.type === "support" ||
             currentCombatEvent?.type === "multiTargetSupport" ||
@@ -3449,6 +3577,7 @@ export default function BattleScreen(props: Props) {
           commandCharacter?.form === "ghost" &&
           commandCharacter.soulLinkActive
         }
+        defendBonuses={defendBonuses}
         abilities={knownAbilities}
         spirits={knownSpirits}
         items={inventoryItems}
@@ -3483,7 +3612,10 @@ export default function BattleScreen(props: Props) {
             return;
           }
 
-          if (ability?.target === "allEnemies") {
+          if (
+            ability?.target === "allEnemies" ||
+            ability?.target === "allAllies"
+          ) {
             void submitPlayerAction(abilityId, null);
             return;
           }

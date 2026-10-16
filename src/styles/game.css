@@ -150,7 +150,11 @@ body {
   transition: width 3000ms cubic-bezier(0.2, 0.72, 0.2, 1);
 }
 
-.partyStatus--camp .statusCard--recovering {
+.partyStatus--showResourceChanges .statusCard__barFill {
+  transition: width 2400ms cubic-bezier(0.2, 0.72, 0.2, 1);
+}
+
+.partyStatus--showResourceChanges .statusCard--recovering {
   animation: campResourceRecovery 4500ms ease-out both;
 }
 
@@ -734,6 +738,33 @@ body {
   line-height: 1.2rem;
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.55);
+}
+
+.cmdbar__text--withDefendBonuses {
+  max-width: 410px;
+  width: clamp(280px, 29vw, 410px);
+}
+
+.cmdbar__defendBonuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(255, 214, 91, 0.25);
+}
+
+.cmdbar__defendBonus {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+  font-size: 11px;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.cmdbar__defendBonus strong {
+  color: #ffd65b;
 }
 
 .cmdbar__panel {
@@ -2056,6 +2087,111 @@ battlescene bilde. */
   z-index: 13;
 }
 
+.earthDemon {
+  position: absolute;
+  left: 160px;
+  bottom: calc(var(--hud-height) + 120px);
+  width: 290px;
+  height: 290px;
+  z-index: 9;
+  pointer-events: none;
+  transform-origin: 50% 90%;
+  animation: earthDemonSummon 900ms cubic-bezier(0.18, 0.8, 0.25, 1) both;
+}
+
+.earthDemon__sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(0 13px 10px rgba(8, 15, 5, 0.52));
+}
+
+.earthDemon__sprite--attack {
+  opacity: 0;
+}
+
+.earthDemon--attacking .earthDemon__sprite--idle {
+  opacity: 0;
+}
+
+.earthDemon--attacking .earthDemon__sprite--attack {
+  opacity: 1;
+  animation: earthDemonAttack 1800ms ease-in-out both;
+}
+
+.earthDemon--hit {
+  animation: earthDemonHit 700ms ease-out;
+}
+
+.earthDemon > .damageNumberGroup {
+  top: 46%;
+}
+
+.earthDemon--destroyed {
+  animation: earthDemonDestroyed 1200ms ease-in forwards;
+}
+
+.earthDemon__status {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  z-index: 3;
+  width: 86px;
+  padding: 3px 5px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(214, 171, 57, 0.8);
+  border-radius: 5px;
+  background: rgba(8, 24, 15, 0.9);
+  color: #f5e2a0;
+  font-size: 9px;
+  line-height: 1;
+  text-align: center;
+}
+
+.earthDemon__status span {
+  display: block;
+}
+
+.earthDemon__hpTrack {
+  height: 4px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 221, 116, 0.72);
+  background: rgba(23, 13, 8, 0.9);
+}
+
+.earthDemon__hpFill {
+  height: 100%;
+  background: linear-gradient(90deg, #7da53e, #b9d660);
+  transition: width 320ms ease;
+}
+
+@keyframes earthDemonSummon {
+  0% { opacity: 0; transform: translateY(70px) scale(0.65); filter: brightness(1.8); }
+  65% { opacity: 1; transform: translateY(-6px) scale(1.04); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes earthDemonAttack {
+  0%, 100% { transform: translateX(0) scale(1); }
+  45% { transform: translateX(80px) scale(1.06); filter: brightness(1.3); }
+}
+
+@keyframes earthDemonHit {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  18% { transform: scale(0.96); filter: brightness(2); }
+  52% { transform: scale(1.015); filter: brightness(1.35); }
+}
+
+@keyframes earthDemonDestroyed {
+  0% { opacity: 1; transform: translateY(0) scale(1); filter: brightness(1.7); }
+  55% { opacity: 0.75; transform: translateY(18px) scale(1.06); filter: brightness(2.2) saturate(0.6); }
+  100% { opacity: 0; transform: translateY(75px) scale(0.72); filter: brightness(0.5) saturate(0); }
+}
+
 .battleScene__playerUnit--powerBuff::after {
   content: "";
   position: absolute;
@@ -2228,6 +2364,35 @@ battlescene bilde. */
   50% {
     opacity: 0.9;
     transform: scale(1.025);
+  }
+}
+
+.tailwindAura {
+  position: absolute;
+  inset: 10% 9% 0;
+  z-index: 4;
+  border-radius: 48%;
+  background: radial-gradient(
+    ellipse at 48% 58%,
+    rgba(151, 255, 225, 0.3) 0%,
+    rgba(94, 220, 202, 0.15) 43%,
+    rgba(79, 194, 190, 0) 74%
+  );
+  filter: blur(13px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: tailwindAuraPulse 2200ms ease-in-out infinite;
+}
+
+@keyframes tailwindAuraPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateX(-4px) scale(0.97);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateX(5px) scale(1.025);
   }
 }
 
@@ -6046,6 +6211,40 @@ battlescene bilde. */
   100% {
     opacity: 0;
     transform: scale(1.08);
+  }
+}
+
+.manaWardGlow {
+  position: absolute;
+  inset: 4% 8% -2%;
+  z-index: 0;
+  border-radius: 48%;
+  background: radial-gradient(
+    ellipse at 50% 62%,
+    rgba(111, 229, 255, 0.58) 0%,
+    rgba(64, 145, 255, 0.36) 38%,
+    rgba(72, 76, 212, 0.18) 58%,
+    rgba(42, 50, 145, 0) 78%
+  );
+  filter: blur(10px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: manaWardGlow 1700ms ease-out both;
+}
+
+@keyframes manaWardGlow {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  24%,
+  62% {
+    opacity: 0.94;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.1);
   }
 }
 

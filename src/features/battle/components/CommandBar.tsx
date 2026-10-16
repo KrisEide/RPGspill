@@ -20,6 +20,7 @@ import type {
   SpiritId,
 } from "../../../game/types";
 import { useShiftHeld } from "../hooks/useShiftHeld";
+import type { DefendPassiveBonus } from "../data/defendBonuses";
 
 type CommandId =
   | "attack"
@@ -74,6 +75,7 @@ type Props = {
   mysteriousPotionQuantity?: number;
   canReform?: boolean;
   soulLinkActive?: boolean;
+  defendBonuses?: DefendPassiveBonus[];
   abilities: {
     id: AbilityId;
     name: string;
@@ -133,6 +135,7 @@ export default function CommandBar({
   mysteriousPotionQuantity = 0,
   canReform = false,
   soulLinkActive = false,
+  defendBonuses = [],
   abilities,
   spirits,
   items,
@@ -625,9 +628,21 @@ export default function CommandBar({
               })}
               </div>
 
-              <div className="cmdbar__text">
+              <div
+                className={`cmdbar__text ${activeId === "defend" && defendBonuses.length > 0 ? "cmdbar__text--withDefendBonuses" : ""}`}
+              >
                 <div className="cmdbar__title">{active.title}</div>
                 <div className="cmdbar__desc">{active.desc}</div>
+                {activeId === "defend" && defendBonuses.length > 0 && (
+                  <div className="cmdbar__defendBonuses" aria-label="Defend bonuses">
+                    {defendBonuses.map((bonus) => (
+                      <div className="cmdbar__defendBonus" key={bonus.name}>
+                        <strong>{bonus.name}</strong>
+                        <span>{bonus.effect}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             {battleLog}

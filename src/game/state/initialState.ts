@@ -69,7 +69,11 @@ function createCharacterState(
     passives: createKnownPassives(
       usesDevelopmentLoadout ? developmentPassiveIds : [],
     ),
-    passiveCombatState: { firstHealUsed: false },
+    passiveCombatState: {
+      firstHealUsed: false,
+      tailwindActive: false,
+      galeFocusLastUsedRound: null,
+    },
     spirits: createKnownSpirits(
       usesDevelopmentLoadout ? preset.developmentSpiritIds : [],
     ),
@@ -147,6 +151,7 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
         }
       : null,
     itemRewards: null,
+    earthDemon: null,
   };
 
   return isRest

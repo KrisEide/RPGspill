@@ -59,3 +59,10 @@ test("Earth Barrier recipients receive a paced glow", () => {
   assert.match(stylesheet, /@keyframes barrierAbilityGlow/);
   assert.match(stylesheet, /animation:\s*barrierAbilityGlow 2200ms/);
 });
+
+test("all-allies abilities submit immediately without opening ally targeting", () => {
+  assert.match(
+    battleScreen,
+    /ability\?\.target === "allEnemies"\s*\|\|\s*ability\?\.target === "allAllies"/,
+  );
+});

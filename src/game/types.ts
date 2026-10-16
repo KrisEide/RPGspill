@@ -85,6 +85,7 @@ export type PassiveId =
   | "flashpoint"
   | "thorns"
   | "protectedCasting"
+  | "manaWard"
   | "shelteredRecovery"
   | "triage"
   | "sharedRecovery"
@@ -96,7 +97,10 @@ export type PassiveId =
   | "battleRhythm"
   | "brace"
   | "counterguard"
-  | "luckyHaul";
+  | "bombardier"
+  | "luckyHaul"
+  | "tailwind"
+  | "galeFocus";
 
 export type PassiveCategory =
   | "bleed"
@@ -105,7 +109,8 @@ export type PassiveCategory =
   | "healing"
   | "physical"
   | "coop"
-  | "items";
+  | "items"
+  | "wind";
 
 export type KnownPassives = Partial<Record<PassiveId, true>>;
 
@@ -300,6 +305,7 @@ export type AbilityId =
   | "stonebreaker"
   | "stoneguard"
   | "fortify"
+  | "earthDemon"
   | "crashingWave"
   | "tidalDrain"
   | "restoringCurrent"
@@ -495,6 +501,8 @@ export type AbilityDamageBonus = {
 
 export type PassiveCombatState = {
   firstHealUsed: boolean;
+  tailwindActive: boolean;
+  galeFocusLastUsedRound: number | null;
 };
 
 export type StatusStackingRule =
@@ -730,6 +738,14 @@ export type CountAsItemUseEffect = {
   count: number;
 };
 
+export type SummonEarthDemonEffect = {
+  type: "summonEarthDemon";
+  baseHp: number;
+  hpScaling: number;
+  attackBasePower: number;
+  attackScaling: number;
+};
+
 export type AbilityEffect =
   | { type: "bloodpact"; hpCost: number; barrierAmount: number }
   | DamageEffect
@@ -748,7 +764,8 @@ export type AbilityEffect =
   | WakeEnemyEffect
   | WaitEffect
   | GainRandomItemEffect
-  | CountAsItemUseEffect;
+  | CountAsItemUseEffect
+  | SummonEarthDemonEffect;
 
 export type AbilityRankDefinition = {
   shortDescription: string;
@@ -1044,6 +1061,26 @@ export type DefendEvent = {
   remainingBarrier: number;
 };
 
+export type ManaWardEvent = {
+  type: "manaWard";
+  actorId: CharacterInstanceId;
+  targetId: CharacterInstanceId;
+  passiveId: "manaWard";
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  barrierAmount: number;
+  remainingBarrier: number;
+};
+
+export type TailwindEvent = {
+  type: "tailwind";
+  actorId: CharacterInstanceId;
+  targetId: CharacterInstanceId;
+  passiveId: "tailwind";
+  active: boolean;
+  rearmed: boolean;
+};
+
 export type ChargeEvent = {
   type: "charge";
   actorId: CombatantId;
@@ -1252,10 +1289,63 @@ export type PhoenixRebirthEvent = {
   characterState: CharacterEventState;
 };
 
+export type PostCombatRecoveryEvent = {
+  type: "postCombatRecovery";
+  impacts: Array<{
+    targetId: CharacterInstanceId;
+    hpRestored: number;
+    ppRestored: number;
+    remainingHp: number;
+    remainingPp: number;
+  }>;
+};
+
+export type EarthDemonState = {
+  ownerId: CharacterInstanceId;
+  rank: AbilityRank;
+  hp: number;
+  maxHp: number;
+  attackPower: number;
+};
+
+export type EarthDemonEvent =
+  | {
+      type: "earthDemonSummoned";
+      actorId: CharacterInstanceId;
+      targetId: CharacterInstanceId;
+      abilityId: "earthDemon";
+      abilityRank: AbilityRank;
+      summon: EarthDemonState;
+    }
+  | {
+      type: "earthDemonHit";
+      actorId: CombatantId;
+      targetId: CharacterInstanceId;
+      abilityId: AbilityId;
+      abilityRank: AbilityRank;
+      amount: number;
+      remainingHp: number;
+      maxHp: number;
+      destroyed: boolean;
+    }
+  | {
+      type: "earthDemonAttack";
+      actorId: CharacterInstanceId;
+      targetId: CombatantId;
+      abilityId: "earthDemon";
+      abilityRank: AbilityRank;
+      amount: number;
+      remainingHp: number;
+      absorbedByBarrier: number;
+      remainingBarrier: number;
+    };
+
 export type CombatEvent =
   | BloodpactEvent
   | SoulTransferEvent
   | PhoenixRebirthEvent
+  | PostCombatRecoveryEvent
+  | EarthDemonEvent
   | BarrierRemovedEvent
   | DamageEvent
   | SelfDamageEvent
@@ -1266,6 +1356,8 @@ export type CombatEvent =
   | SupportEvent
   | MultiTargetSupportEvent
   | ItemUseEvent
+  | ManaWardEvent
+  | TailwindEvent
   | DefendEvent
   | ChargeEvent
   | WakeEvent
@@ -1294,6 +1386,7 @@ export type CombatState = {
   restStage: "choice" | "upgrade" | "complete" | null;
   rewardOffers: RewardOffers | null;
   itemRewards: ItemRewards | null;
+  earthDemon: EarthDemonState | null;
 };
 
 export type RoundResult = {

@@ -28,7 +28,9 @@ export type InventoryEntry = {
 };
 
 export function createItemRewardPool(): ItemId[] {
-  return [...ITEM_REWARD_POOL];
+  return ITEM_REWARD_POOL.flatMap((itemId) =>
+    Array.from({ length: getItemRewardWeight(itemId) }, () => itemId),
+  );
 }
 
 export function createTestingInventory(): Inventory {
@@ -82,10 +84,19 @@ export function grantEncounterItemRewards(
       continue;
     }
 
-    let updatedCharacter = character;
+    let updatedCharacter =
+      character.remainingItemRewardPool.length > 0
+        ? character
+        : {
+            ...character,
+            remainingItemRewardPool: createItemRewardPool(),
+          };
 
-    if (character.remainingItemRewardPool.length > 0) {
-      const draw = drawWeightedItem(character.remainingItemRewardPool, nextSeed);
+    if (updatedCharacter.remainingItemRewardPool.length > 0) {
+      const draw = drawItemFromBag(
+        updatedCharacter.remainingItemRewardPool,
+        nextSeed,
+      );
       nextSeed = draw.nextSeed;
 
       if (draw.itemId) {
@@ -108,7 +119,17 @@ export function grantEncounterItemRewards(
       nextSeed = chanceRoll.nextSeed;
 
       if (chanceRoll.value < PASSIVE_VALUES.luckyHaulChance) {
-        const bonusDraw = drawWeightedItem(ITEM_REWARD_POOL, nextSeed);
+        if (updatedCharacter.remainingItemRewardPool.length === 0) {
+          updatedCharacter = {
+            ...updatedCharacter,
+            remainingItemRewardPool: createItemRewardPool(),
+          };
+        }
+
+        const bonusDraw = drawItemFromBag(
+          updatedCharacter.remainingItemRewardPool,
+          nextSeed,
+        );
         nextSeed = bonusDraw.nextSeed;
 
         if (bonusDraw.itemId) {
@@ -120,6 +141,10 @@ export function grantEncounterItemRewards(
               [bonusDraw.itemId]:
                 (updatedCharacter.inventory[bonusDraw.itemId] ?? 0) + 1,
             },
+            remainingItemRewardPool:
+              updatedCharacter.remainingItemRewardPool.filter(
+                (_, index) => index !== bonusDraw.selectedIndex,
+              ),
           };
         }
       }
@@ -135,6 +160,24 @@ export function grantEncounterItemRewards(
   }
 
   return { state: nextState, rewards, nextSeed };
+}
+
+function drawItemFromBag(pool: readonly ItemId[], seed: number) {
+  if (pool.length === 0) {
+    return { itemId: null, selectedIndex: -1, nextSeed: seed };
+  }
+
+  const roll = nextRandom(seed);
+  const selectedIndex = Math.min(
+    pool.length - 1,
+    Math.floor(roll.value * pool.length),
+  );
+
+  return {
+    itemId: pool[selectedIndex] ?? null,
+    selectedIndex,
+    nextSeed: roll.nextSeed,
+  };
 }
 
 function drawWeightedItem(pool: readonly ItemId[], seed: number) {

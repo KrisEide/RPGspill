@@ -108,6 +108,16 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
       "While you have Barrier, your abilities cost 1 less PP, to a minimum of 1 PP.",
     unique: true,
   },
+  manaWard: {
+    id: "manaWard",
+    name: "Mana Ward",
+    icon: "🔷",
+    category: "barrier",
+    tags: ["magical", "pp", "barrier"],
+    description:
+      "Using an ability with a base cost of at least 8 PP grants 6 Barrier.",
+    unique: true,
+  },
   shelteredRecovery: {
     id: "shelteredRecovery",
     name: "Sheltered Recovery",
@@ -215,6 +225,15 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
       "Enemies that hit you while you are Defending take 4 Physical damage.",
     unique: true,
   },
+  bombardier: {
+    id: "bombardier",
+    name: "Bombardier",
+    icon: "💣",
+    category: "items",
+    tags: ["items", "damage", "aoe"],
+    description: "Blast Bomb and Razor Bomb deal 35% more direct damage.",
+    unique: true,
+  },
   luckyHaul: {
     id: "luckyHaul",
     name: "Lucky Haul",
@@ -222,6 +241,26 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     category: "items",
     tags: ["items"],
     description: "After combat, gain a 25% chance to find an additional item.",
+    unique: true,
+  },
+  tailwind: {
+    id: "tailwind",
+    name: "Tailwind",
+    icon: "🌬️",
+    category: "wind",
+    tags: ["wind", "crit", "damage"],
+    description:
+      "Critical hits ready Tailwind. Your next Wind ability deals 25% more damage. Tailwind does not stack.",
+    unique: true,
+  },
+  galeFocus: {
+    id: "galeFocus",
+    name: "Gale Focus",
+    icon: "🎯",
+    category: "wind",
+    tags: ["wind", "crit", "opener", "damage"],
+    description:
+      "The first damage wave of your first Wind ability each round is guaranteed to critically hit.",
     unique: true,
   },
 };

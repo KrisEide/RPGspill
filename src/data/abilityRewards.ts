@@ -83,6 +83,12 @@ export const ABILITY_REWARD_POOL: readonly AbilityRewardDefinition[] = [
     tags: ["earth", "barrier", "aoe", "partner"],
   },
   {
+    abilityId: "earthDemon",
+    icon: "🗿",
+    tags: ["earth", "damage", "defense", "partner", "high_cost"],
+    availableInOpeningRewards: false,
+  },
+  {
     abilityId: "whirlwind",
     icon: "🌪️",
     tags: ["physical", "damage", "aoe", "burn"],

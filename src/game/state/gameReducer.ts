@@ -529,7 +529,22 @@ function applyCurrentCombatEvent(
   }
 
   let combatAfterEvent =
-    event.type === "barrierRemoved"
+    event.type === "postCombatRecovery"
+      ? {
+          ...state.combat,
+          characters: event.impacts.reduce(
+            (characters, impact) => ({
+              ...characters,
+              [impact.targetId]: {
+                ...characters[impact.targetId],
+                hp: impact.remainingHp,
+                pp: impact.remainingPp,
+              },
+            }),
+            state.combat.characters,
+          ),
+        }
+      : event.type === "barrierRemoved"
       ? {
           ...state.combat,
           characters: event.impacts.reduce(
@@ -605,6 +620,54 @@ function applyCurrentCombatEvent(
                 barrier: event.remainingBarrier,
               },
             },
+          }
+      : event.type === "manaWard"
+        ? {
+            ...state.combat,
+            characters: {
+              ...state.combat.characters,
+              [event.targetId]: {
+                ...state.combat.characters[event.targetId],
+                barrier: event.remainingBarrier,
+              },
+            },
+          }
+      : event.type === "tailwind"
+        ? {
+            ...state.combat,
+            characters: {
+              ...state.combat.characters,
+              [event.targetId]: {
+                ...state.combat.characters[event.targetId],
+                passiveCombatState: {
+                  ...state.combat.characters[event.targetId]
+                    .passiveCombatState,
+                  tailwindActive: event.active,
+                },
+              },
+            },
+          }
+      : event.type === "earthDemonSummoned"
+        ? { ...state.combat, earthDemon: event.summon }
+      : event.type === "earthDemonHit"
+        ? {
+            ...state.combat,
+            earthDemon: state.combat.earthDemon && !event.destroyed
+              ? { ...state.combat.earthDemon, hp: event.remainingHp }
+              : null,
+          }
+      : event.type === "earthDemonAttack"
+        ? {
+            ...state.combat,
+            enemies: state.combat.enemies.map((enemy) =>
+              enemy.instanceId === event.targetId
+                ? {
+                    ...enemy,
+                    hp: event.remainingHp,
+                    barrier: event.remainingBarrier,
+                  }
+                : enemy,
+            ),
           }
       : event.type === "damage" ||
     event.type === "selfDamage" ||

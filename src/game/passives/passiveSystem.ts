@@ -15,6 +15,8 @@ export const PASSIVE_VALUES = {
   jaggedStrikesChance: 0.2,
   thornsDamage: 3,
   protectedCastingPpReduction: 1,
+  manaWardBarrier: 6,
+  manaWardMinimumBasePpCost: 8,
   shelteredRecoveryHealing: 5,
   triageThreshold: 0.3,
   triageHealing: 6,
@@ -27,7 +29,9 @@ export const PASSIVE_VALUES = {
   battleRhythmPp: 3,
   braceBarrier: 6,
   counterguardDamage: 4,
+  bombardierDamageBonus: 0.35,
   luckyHaulChance: 0.25,
+  tailwindDamageBonus: 0.25,
 } as const;
 
 export function characterHasPassive(

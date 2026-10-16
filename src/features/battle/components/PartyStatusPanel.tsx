@@ -77,6 +77,10 @@ function CharacterStatusCard({
     character.form === "living"
       ? (character.spirits.ironquill?.steelDartAbilityBonusStacks ?? 0)
       : 0;
+  const tailwindIsActive = Boolean(
+    character.form === "living" &&
+      character.passiveCombatState.tailwindActive,
+  );
   const chargedAbility = abilityCharge?.readiedAbilityId
     ? ABILITIES[abilityCharge.readiedAbilityId]
     : null;
@@ -151,6 +155,15 @@ function CharacterStatusCard({
                 title={`Ironquill: Your next damaging ability deals ${ironquillStacks * 10}% more damage.`}
               >
                 📍+{ironquillStacks * 10}%
+              </span>
+            )}
+            {tailwindIsActive && (
+              <span
+                className="statusCard__turnPriority statusCard__tailwind"
+                aria-label="Tailwind: the next Wind ability deals 25% more damage"
+                title="Tailwind: Your next Wind ability deals 25% more damage."
+              >
+                🌬️ +25%
               </span>
             )}
             {poisonStatus && (
@@ -270,7 +283,7 @@ export default function PartyStatusPanel({
 }: Props) {
   return (
     <aside
-      className={`partyStatus partyStatus--${variant}`}
+      className={`partyStatus partyStatus--${variant} ${showResourceChanges ? "partyStatus--showResourceChanges" : ""}`}
       aria-label="Party status"
     >
       {CHARACTER_ORDER.map((characterId) => (
