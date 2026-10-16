@@ -455,14 +455,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 12 raw Physical damage.",
-        description: "Strike one random hero for 12 raw Physical damage.",
+        shortDescription: "Deal 15 raw Physical damage.",
+        description: "Strike one random hero for 15 raw Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 12,
+            basePower: 15,
             attackScaling: 0,
             elementalPowerScaling: 0,
             criticalHit: {
@@ -484,15 +484,15 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 16 raw Physical damage and Stun on HP damage.",
+        shortDescription: "Deal 19 raw Physical damage and Stun on HP damage.",
         description:
-          "Strike one random hero for 16 raw Physical damage. If the hit damages HP, Stun them for their next action.",
+          "Strike one random hero for 19 raw Physical damage. If the hit damages HP, Stun them for their next action.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 16,
+            basePower: 19,
             attackScaling: 0,
             elementalPowerScaling: 0,
             statusOnHpDamage: { statusId: "stunned" },
@@ -526,18 +526,18 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Deal 14 raw Physical damage to both heroes.",
+        shortDescription: "Deal 17 raw Physical damage to both heroes.",
         description:
-          "Deal 14 raw Physical damage to both heroes. HP damage applies Bleed.",
+          "Deal 17 raw Physical damage to both heroes. HP damage always applies Bleed.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 14,
+            basePower: 17,
             attackScaling: 0,
             elementalPowerScaling: 0,
-            statusOnHpDamage: { statusId: "bleed" },
+            statusOnHpDamage: { statusId: "bleed", chance: 1 },
           },
         ],
       },
@@ -553,14 +553,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 24 raw Physical damage.",
-        description: "Smash one random hero for 24 raw Physical damage.",
+        shortDescription: "Deal 28 raw Physical damage.",
+        description: "Smash one random hero for 28 raw Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 24,
+            basePower: 28,
             attackScaling: 0,
             elementalPowerScaling: 0,
           },

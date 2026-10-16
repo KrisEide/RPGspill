@@ -287,7 +287,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 1,
     isBoss: true,
     stats: {
-      maxHp: 180,
+      maxHp: 220,
       maxPp: 0,
       criticalChance: 0,
       attack: 0,
@@ -317,7 +317,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 1,
     isBoss: true,
     stats: {
-      maxHp: 140,
+      maxHp: 180,
       maxPp: 0,
       criticalChance: 0,
       attack: 0,

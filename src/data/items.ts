@@ -1,8 +1,4 @@
-import type {
-  CharacterState,
-  ItemDefinition,
-  ItemId,
-} from "../game/types";
+import type { CharacterState, ItemDefinition, ItemId } from "../game/types";
 
 const items = [
   {
@@ -88,7 +84,7 @@ const items = [
     icon: "🧨",
     shortDescription: "Damage all enemies and apply Bleed.",
     description:
-      "Deal 9 raw Physical damage to all enemies and apply Bleed for 3 rounds.",
+      "Deal 14 raw Physical damage to all enemies and apply Bleed for 3 rounds.",
     tags: ["items", "physical", "damage", "aoe", "bleed"],
     rarity: "uncommon",
     useTiming: "action",
@@ -97,7 +93,7 @@ const items = [
     effects: [
       {
         type: "damage",
-        amount: 9,
+        amount: 14,
         damageType: "physical",
         element: null,
         usesDamageVariance: true,
@@ -274,7 +270,7 @@ export function getItemUseProfile(
     };
   }
 
-  return form === "ghost" ? definition.ghostUse ?? null : null;
+  return form === "ghost" ? (definition.ghostUse ?? null) : null;
 }
 
 // Each character receives an independent copy of this pool for a run.

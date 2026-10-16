@@ -92,6 +92,51 @@ test("Phoenix heals its living owner for 2 at round start even after Rebirth is 
   assert.equal(result.nextState.characters["character-1"].hp, 52);
 });
 
+test("Phoenix round-start healing never scales with healing bonuses", () => {
+  const state = createInitialCombatState(setup);
+  const owner = state.characters["character-1"];
+  owner.spirits = createKnownSpirits(["phoenix"]);
+  owner.hp = 20;
+  owner.barrier = 10;
+  owner.passives = {
+    shelteredRecovery: true,
+    triage: true,
+    sharedRecovery: true,
+    lifeCurrent: true,
+    lastingCare: true,
+  };
+  owner.statuses = [
+    {
+      id: "cinderCurse",
+      sourceId: "enemy-1",
+      appliedRound: state.round,
+      healingReceivedMultiplier: 0.5,
+    },
+  ];
+  state.characters["character-2"].spirits = createKnownSpirits([
+    "riverheart",
+  ]);
+  state.enemyIntents = {};
+
+  const result = resolveRound(state, chooseDefend(state));
+  const phoenixHealing = result.events.find(
+    (event) =>
+      event.type === "support" &&
+      event.abilityId === "phoenixRebirth" &&
+      event.targetId === "character-1",
+  );
+
+  assert.ok(phoenixHealing && phoenixHealing.type === "support");
+  assert.equal(phoenixHealing.healingAmount, 2);
+  assert.equal(phoenixHealing.remainingHp, 22);
+  assert.equal(result.nextState.characters["character-1"].barrier, 10);
+  assert.equal(
+    result.nextState.characters["character-1"].passiveCombatState
+      .firstHealUsed,
+    false,
+  );
+});
+
 test("Phoenix Rebirth resolves before Soul Link", () => {
   const state = createInitialCombatState(setup);
   state.characters["character-1"] = applyCharacterHp(
