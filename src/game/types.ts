@@ -32,7 +32,9 @@ export type EnemyId =
   | "orcMauler"
   | "orcGuard"
   | "brakkBoss"
-  | "gorakBoss";
+  | "gorakBoss"
+  | "goat1"
+  | "goat2";
 
 export type EncounterId =
   | "slimeTrail"
@@ -48,7 +50,8 @@ export type EncounterId =
   | "guardPatrol"
   | "mightAndMending"
   | "forestRest"
-  | "orcBrothers";
+  | "orcBrothers"
+  | "mountainPass";
 
 export type StatUpgradeId =
   | "vitality"
@@ -72,6 +75,7 @@ export type GhostUpgradeId = "heavyHaunt" | "closerToTheVeil";
 export type GhostUpgradeRewardChoiceId = `ghostUpgrade:${GhostUpgradeId}`;
 
 export type SpiritRewardChoiceId = `spirit:${SpiritId}`;
+export type SpiritRankRewardChoiceId = `spiritRank:${SpiritId}:2`;
 
 export type PassiveId =
   | "bloodScent"
@@ -129,6 +133,7 @@ export type RewardChoiceId =
   | GhostAbilityRewardChoiceId
   | GhostUpgradeRewardChoiceId
   | SpiritRewardChoiceId
+  | SpiritRankRewardChoiceId
   | PassiveRewardChoiceId
   | RestChoiceId;
 
@@ -256,6 +261,18 @@ export type SpiritRewardOffer = RewardOfferBase & {
   automaticActive?: boolean;
 };
 
+export type SpiritRankRewardOffer = RewardOfferBase & {
+  id: SpiritRankRewardChoiceId;
+  type: "spiritRank";
+  spiritId: SpiritId;
+  rank: 2;
+  passiveName: string;
+  passiveDescription: string;
+  activeName: string;
+  activeDescription: string;
+  automaticActive?: boolean;
+};
+
 export type RestRewardOffer = RewardOfferBase & {
   id: RestChoiceId;
   type: "rest";
@@ -276,6 +293,7 @@ export type RewardOffer =
   | GhostAbilityRewardOffer
   | GhostUpgradeRewardOffer
   | SpiritRewardOffer
+  | SpiritRankRewardOffer
   | PassiveRewardOffer
   | RestRewardOffer;
 
@@ -283,7 +301,7 @@ export type RewardOffers = Record<CharacterInstanceId, RewardOffer[]>;
 
 export type Element = "fire" | "water" | "earth" | "wind";
 
-export type DamageType = "physical" | "elemental" | "magical";
+export type DamageType = "physical" | "elemental" | "magical" | "true";
 
 export type ElementalPower = Record<Element, number>;
 
@@ -336,6 +354,8 @@ export type AbilityId =
   | "bloodCleave"
   | "smash"
   | "catchBreath"
+  | "goatStomp"
+  | "goatCharge"
   | "cinderburst"
   | "stoneback"
   | "swiftWing"
@@ -376,6 +396,7 @@ export type KnownAbilities = Partial<Record<AbilityId, AbilityRank>>;
 
 export type SpiritState = {
   id: SpiritId;
+  rank: AbilityRank;
   activeUsesRemaining: number;
   passiveTriggeredThisEncounter: boolean;
   roundPriorityActive: boolean;
@@ -724,11 +745,13 @@ export type WakeEnemyEffect = {
 
 export type WaitEffect = {
   type: "wait";
+  cleansesDamageStatuses?: boolean;
 };
 
 export type GainRandomItemEffect = {
   type: "gainRandomItem";
   pool: "normal";
+  drawCount?: number;
   bonusDrawChance?: number;
 };
 
@@ -797,44 +820,50 @@ export type AbilityDefinition = {
   };
 };
 
+export type SpiritPassiveDefinition = {
+  name: string;
+  shortDescription: string;
+  description: string;
+  firstDamageActionEachEncounter?: {
+    basePower: number;
+    damageType: DamageType;
+    element: Element;
+    elementalPowerScaling: number;
+    statusOnHit?: StatusId;
+  };
+  firstBarrierGainEachEncounter?: {
+    additionalBarrier: number;
+  };
+  roundStartTurnPriority?: {
+    chance: number;
+    resolutionPriority: number;
+  };
+  allHealingReceived?: {
+    flatIncrease: number;
+  };
+  firstAutoAttackEachEncounterIsQuick?: true;
+  firstAutoAttackDamageMultiplier?: number;
+  nonDamagingActionSpiritAttack?: {
+    basePower: number;
+    damageType: DamageType;
+  };
+  bodyguardCounterDamage?: number;
+  steelDartAbilityAmplifier?: {
+    damageBonusPerDart: number;
+  };
+  roundStartBloodpact?: { hpCost: number; barrierAmount: number };
+  roundStartHealing?: { amount: number };
+  phoenixTonicReviveBonus?: { amount: number };
+};
+
 export type SpiritDefinition = {
   id: SpiritId;
   name: string;
   icon: string;
   element: Element | null;
   tags: readonly RewardTag[];
-  passive: {
-    name: string;
-    shortDescription: string;
-    description: string;
-    firstDamageActionEachEncounter?: {
-      basePower: number;
-      damageType: DamageType;
-      element: Element;
-      elementalPowerScaling: number;
-    };
-    firstBarrierGainEachEncounter?: {
-      additionalBarrier: number;
-    };
-    roundStartTurnPriority?: {
-      chance: number;
-      resolutionPriority: number;
-    };
-    allHealingReceived?: {
-      flatIncrease: number;
-    };
-    firstAutoAttackEachEncounterIsQuick?: true;
-    nonDamagingActionSpiritAttack?: {
-      basePower: number;
-      damageType: DamageType;
-    };
-    steelDartAbilityAmplifier?: {
-      damageBonusPerDart: number;
-    };
-    roundStartBloodpact?: { hpCost: number; barrierAmount: number };
-    roundStartHealing?: { amount: number };
-    phoenixTonicReviveBonus?: { amount: number };
-  };
+  passive: SpiritPassiveDefinition;
+  rankTwoPassive: SpiritPassiveDefinition;
   activeAbilityId: AbilityId;
   activeUsesPerEncounter: number;
   automaticActive?: true;
@@ -942,6 +971,7 @@ export type CharacterState = CharacterDraft & {
   spirits: KnownSpirits;
   inventory: Inventory;
   remainingItemRewardPool: ItemId[];
+  magicBagLastUsedRound: number | null;
   itemDamageBonus: ItemDamageBonus | null;
   abilityDamageBonus: AbilityDamageBonus | null;
   statuses: ActiveStatus[];
@@ -1043,7 +1073,7 @@ export type SelfDamageEvent = {
 export type ReflectedDamage = {
   sourceId: CharacterInstanceId;
   targetId: CombatantId;
-  passiveIds: Array<"thorns" | "counterguard">;
+  passiveIds: Array<"thorns" | "counterguard" | "guardDog">;
   amount: number;
   remainingHp: number;
   absorbedByBarrier: number;
@@ -1106,6 +1136,7 @@ export type WaitEvent = {
   targetId: CombatantId;
   abilityId: AbilityId;
   abilityRank: AbilityRank;
+  statusChanges: StatusChange[];
 };
 
 export type SkipTurnEvent = {
@@ -1384,6 +1415,7 @@ export type CombatState = {
   enemies: EnemyState[];
   enemyIntents: Partial<Record<EnemyInstanceId, EnemyIntent>>;
   restStage: "choice" | "upgrade" | "complete" | null;
+  actTransitionStage: "spiritRank2" | "restoration" | null;
   rewardOffers: RewardOffers | null;
   itemRewards: ItemRewards | null;
   earthDemon: EarthDemonState | null;

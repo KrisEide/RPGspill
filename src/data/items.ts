@@ -34,9 +34,9 @@ const items = [
     name: "Throwing Knife",
     menuName: "Knife",
     icon: "🗡️",
-    shortDescription: "Deal 30 raw Physical damage.",
+    shortDescription: "Deal 30 True damage.",
     description:
-      "Deal 30 raw Physical damage to one enemy. Does not scale or critically hit.",
+      "Deal exactly 30 True damage to one enemy, ignoring Defense, Resistance, and damage variance. Does not scale or critically hit.",
     tags: ["items", "physical", "damage", "single_target"],
     rarity: "common",
     useTiming: "action",
@@ -46,9 +46,9 @@ const items = [
       {
         type: "damage",
         amount: 30,
-        damageType: "physical",
+        damageType: "true",
         element: null,
-        usesDamageVariance: true,
+        usesDamageVariance: false,
         canCrit: false,
       },
     ],

@@ -6,14 +6,15 @@ export const UTILITY_ABILITY_DEFINITIONS = {
     name: "Magic Bag",
     category: "ability",
     resolutionPriority: 0,
+    useTiming: "quickAction",
     target: "self",
     element: null,
     ranks: {
       1: {
-        shortDescription: "Gain one random item.",
+        shortDescription: "Quick. Gain one random item.",
         description:
-          "Spend your action to gain one random item from the normal item pool.",
-        ppCost: 5,
+          "Quick. Once per round, gain one random item from the normal item pool.",
+        ppCost: 7,
         effects: [
           {
             type: "gainRandomItem",
@@ -22,17 +23,17 @@ export const UTILITY_ABILITY_DEFINITIONS = {
         ],
       },
       2: {
-        shortDescription: "Gain one random item, with a chance for another.",
+        shortDescription: "Quick. Gain two random items.",
         description:
-          "Spend your action to gain one random item from the normal item pool, with a 30% chance to gain a second random item.",
+          "Quick. Once per round, gain two random items from the normal item pool.",
         newEffectDescription:
-          "Magic Bag has a 30% chance to grant a second random item.",
-        ppCost: 5,
+          "Magic Bag now grants two random items.",
+        ppCost: 7,
         effects: [
           {
             type: "gainRandomItem",
             pool: "normal",
-            bonusDrawChance: 0.3,
+            drawCount: 2,
           },
         ],
       },

@@ -692,6 +692,7 @@ function applyCurrentCombatEvent(
                     state.combat,
                   )
                 : event.type === "wake" ||
+                    event.type === "wait" ||
                     event.type === "skipTurn" ||
                     event.type === "statusApplied" ||
                     event.type === "charge"

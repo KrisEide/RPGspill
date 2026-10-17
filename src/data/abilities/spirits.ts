@@ -17,6 +17,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
         ppCost: 0,
         effects: [{ type: "bloodpact", hpCost: 10, barrierAmount: 30 }],
       },
+      2: {
+        newEffectDescription: "Protected gains 45 Barrier.",
+        shortDescription: "Sacrifice loses 10 HP. Protected gains 45 Barrier.",
+        description:
+          "0 PP · Once per encounter · Uses Action. The locked Sacrifice loses 10 HP, ignoring Barrier, then the locked Protected gains 45 Barrier.",
+        ppCost: 0,
+        effects: [{ type: "bloodpact", hpCost: 10, barrierAmount: 45 }],
+      },
     },
   },
   cinderburst: {
@@ -45,6 +53,23 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
           },
         ],
       },
+      2: {
+        newEffectDescription: "Higher damage to all enemies.",
+        shortDescription: "Stronger damage and Burn to all enemies.",
+        description:
+          "Deal 10 + 45% of Fire Power as Spirit Fire damage to all enemies and apply Burn.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "elemental",
+            basePower: 10,
+            attackScaling: 0,
+            elementalPowerScaling: 0.45,
+            statusOnHit: { statusId: "burn" },
+          },
+        ],
+      },
     },
   },
   stoneback: {
@@ -58,15 +83,23 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Grant Barrier to both heroes.",
         description:
-          "Grant 12 + 40% of Earth Power as Barrier to both heroes.",
+          "Grant 8 + 25% of Earth Power as Barrier to both heroes.",
         ppCost: 0,
         effects: [
           {
             type: "barrier",
-            amount: 12,
-            elementalPowerScaling: 0.4,
+            amount: 8,
+            elementalPowerScaling: 0.25,
           },
         ],
+      },
+      2: {
+        newEffectDescription: "Stronger Barrier for both heroes.",
+        shortDescription: "Grant stronger Barrier to both heroes.",
+        description:
+          "Grant 12 + 35% of Earth Power as Barrier to both heroes.",
+        ppCost: 0,
+        effects: [{ type: "barrier", amount: 12, elementalPowerScaling: 0.35 }],
       },
     },
   },
@@ -93,6 +126,22 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
           },
         ],
       },
+      2: {
+        newEffectDescription: "Higher Spirit Wind damage.",
+        shortDescription: "Act first and deal stronger damage to one enemy.",
+        description:
+          "Act first this round and deal 28 + 80% of Wind Power as Spirit Wind damage to one enemy.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "elemental",
+            basePower: 28,
+            attackScaling: 0,
+            elementalPowerScaling: 0.8,
+          },
+        ],
+      },
     },
   },
   riverheart: {
@@ -115,6 +164,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
             elementalPowerScaling: 0.5,
           },
         ],
+      },
+      2: {
+        newEffectDescription: "Restores substantially more HP.",
+        shortDescription: "Restore more HP to one hero.",
+        description:
+          "Restore 28 + 65% of Water Power as HP to one hero.",
+        ppCost: 0,
+        effects: [{ type: "healing", basePower: 28, elementalPowerScaling: 0.65 }],
       },
     },
   },
@@ -141,6 +198,22 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
           },
         ],
       },
+      2: {
+        newEffectDescription: "Higher base damage and full Attack scaling.",
+        shortDescription: "Deal heavier Spirit Physical damage.",
+        description:
+          "Deal 28 + 110% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 28,
+            attackScaling: 1.1,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
     },
   },
   bodyguard: {
@@ -148,14 +221,29 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
     name: "Bodyguard",
     category: "spirit",
     resolutionPriority: 1000,
-    useTiming: "quickAction",
+    useTiming: "action",
     target: "allAllies",
     element: null,
     ranks: {
       1: {
         shortDescription: "Both heroes negate the next enemy attack.",
         description:
-          "Quick · Priority. Both heroes negate the next enemy attack that would damage them.",
+          "Uses Action · Priority. Both heroes negate the next enemy attack that would damage them.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "applyStatus",
+            statusId: "bodyguard",
+            tickBasePower: 0,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+      2: {
+        newEffectDescription: "The first blocked attack is countered.",
+        shortDescription: "Both heroes negate the next attack and counter once.",
+        description:
+          "Uses Action · Priority. Both heroes negate the next enemy attack that would damage them. The first blocked attack is countered for 12 Spirit Physical damage.",
         ppCost: 0,
         effects: [
           {
@@ -198,6 +286,24 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
           })),
         ],
       },
+      2: {
+        newEffectDescription: "Each spectral dart deals 8 damage.",
+        shortDescription: "Throw three stronger spectral Steel Darts.",
+        description:
+          "Quick. Throw 3 spectral Steel Darts at one enemy. Each deals 8 damage and grants one 15% Ironquill stack. Does not consume items.",
+        ppCost: 0,
+        effects: [
+          { type: "countAsItemUse", itemId: "steelDart", count: 3 },
+          ...Array.from({ length: 3 }, () => ({
+            type: "damage" as const,
+            damageType: "physical" as const,
+            basePower: 8,
+            attackScaling: 0,
+            elementalPowerScaling: 0,
+            usesDamageVariance: false,
+          })),
+        ],
+      },
     },
   },
   phoenixRebirth: {
@@ -212,6 +318,14 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
         shortDescription: "Survive one lethal blow with 40 HP and 10 Barrier.",
         description:
           "Automatic · Once per run. When you would die, remain in living form with 40 HP, gain 10 Barrier, and remove ongoing damaging effects.",
+        ppCost: 0,
+        effects: [],
+      },
+      2: {
+        newEffectDescription: "Rebirth returns with more HP and Barrier.",
+        shortDescription: "Survive one lethal blow with 55 HP and 20 Barrier.",
+        description:
+          "Automatic · Once per run. When you would die, remain in living form with 55 HP, gain 20 Barrier, and remove ongoing damaging effects.",
         ppCost: 0,
         effects: [],
       },

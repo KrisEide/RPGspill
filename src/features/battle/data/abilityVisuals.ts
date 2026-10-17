@@ -656,9 +656,9 @@ export const ABILITY_VISUALS: Partial<
     icon: "💨",
     animation: "melee",
     timing: {
-      animationDurationMs: 4000,
-      impactDelayMs: 900,
-      eventDurationMs: 4600,
+      animationDurationMs: 4400,
+      impactDelayMs: 2500,
+      eventDurationMs: 5200,
     },
   },
   cinderburst: {

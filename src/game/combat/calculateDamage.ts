@@ -47,6 +47,10 @@ export function calculateFixedDamage({
   defender,
   defenderStatuses = [],
 }: CalculateFixedDamageParams) {
+  if (damageType === "true") {
+    return Math.max(1, Math.round(basePower));
+  }
+
   const defensiveStat =
     damageType === "physical"
       ? getEffectiveDefensiveStat(defender, defenderStatuses, "defense")
@@ -70,6 +74,10 @@ export function calculateDamage({
       ? 0
       : attacker.elementalPower[element] * effect.elementalPowerScaling;
   const rawDamage = effect.basePower + attackPower + elementalPower;
+  if (effect.damageType === "true") {
+    return Math.max(1, Math.round(rawDamage));
+  }
+
   const defensiveStat =
     effect.damageType === "physical"
       ? getEffectiveDefensiveStat(defender, defenderStatuses, "defense")

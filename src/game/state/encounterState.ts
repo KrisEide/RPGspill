@@ -8,6 +8,7 @@ import { prepareBloodpactSelection } from "../combat/bloodpact";
 import type {
   CombatState,
   CombatStats,
+  CharacterState,
   EncounterId,
   EnemyId,
   EnemyInstanceId,
@@ -60,6 +61,41 @@ export function createEncounterEnemies(encounterId: EncounterId) {
   );
 }
 
+function prepareCharacterForEncounter(
+  character: CharacterState,
+  levelIncrease: number,
+  fullPartyRestore: boolean,
+): CharacterState {
+  const restoredCharacter =
+    fullPartyRestore && character.form !== "permanentlyDead"
+      ? {
+          ...character,
+          form: "living" as const,
+          hp: character.stats.maxHp,
+          pp: character.stats.maxPp,
+          savedLivingPp: null,
+          ghostReformReady: false,
+          soulLinkActive: false,
+        }
+      : character;
+
+  return {
+    ...restoredCharacter,
+    level: restoredCharacter.level + levelIncrease,
+    spirits: refreshSpiritActiveUses(restoredCharacter.spirits),
+    magicBagLastUsedRound: null,
+    itemDamageBonus: null,
+    abilityDamageBonus: null,
+    passiveCombatState: {
+      firstHealUsed: false,
+      tailwindActive: false,
+      galeFocusLastUsedRound: null,
+    },
+    statuses: [],
+    barrier: 0,
+  };
+}
+
 export function startEncounter(
   currentState: CombatState,
   encounterId: EncounterId,
@@ -77,42 +113,21 @@ export function startEncounter(
     round: 1,
     phase: isRest ? "rest" : "selectingActions",
     characters: {
-      "character-1": {
-        ...currentState.characters["character-1"],
-        level: currentState.characters["character-1"].level + levelIncrease,
-        spirits: refreshSpiritActiveUses(
-          currentState.characters["character-1"].spirits,
-        ),
-        itemDamageBonus: null,
-        abilityDamageBonus: null,
-        passiveCombatState: {
-          firstHealUsed: false,
-          tailwindActive: false,
-          galeFocusLastUsedRound: null,
-        },
-        statuses: [],
-        barrier: 0,
-      },
-      "character-2": {
-        ...currentState.characters["character-2"],
-        level: currentState.characters["character-2"].level + levelIncrease,
-        spirits: refreshSpiritActiveUses(
-          currentState.characters["character-2"].spirits,
-        ),
-        itemDamageBonus: null,
-        abilityDamageBonus: null,
-        passiveCombatState: {
-          firstHealUsed: false,
-          tailwindActive: false,
-          galeFocusLastUsedRound: null,
-        },
-        statuses: [],
-        barrier: 0,
-      },
+      "character-1": prepareCharacterForEncounter(
+        currentState.characters["character-1"],
+        levelIncrease,
+        encounter.fullPartyRestore ?? false,
+      ),
+      "character-2": prepareCharacterForEncounter(
+        currentState.characters["character-2"],
+        levelIncrease,
+        encounter.fullPartyRestore ?? false,
+      ),
     },
     enemies: createEncounterEnemies(encounterId),
     enemyIntents: {},
     restStage: isRest ? "choice" : null,
+    actTransitionStage: null,
     rewardOffers: isRest
       ? {
           "character-1":

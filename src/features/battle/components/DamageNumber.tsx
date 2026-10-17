@@ -7,6 +7,7 @@ type Props = {
   absorbedByBarrier?: number;
   durationMs?: number;
   isBlocked?: boolean;
+  variant?: "embertail";
 };
 
 export default function DamageNumber({
@@ -15,6 +16,7 @@ export default function DamageNumber({
   absorbedByBarrier = 0,
   durationMs,
   isBlocked = false,
+  variant,
 }: Props) {
   return (
     <div
@@ -34,7 +36,7 @@ export default function DamageNumber({
       )}
       {amount > 0 && (
         <div
-          className={`damageNumber ${isCritical ? "damageNumber--critical" : ""}`}
+          className={`damageNumber ${isCritical ? "damageNumber--critical" : ""}${variant ? ` damageNumber--${variant}` : ""}`}
         >
           <img
             className="damageNumber__frame"

@@ -255,7 +255,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
           {
             type: "damage",
             damageType: "physical",
-            basePower: 6,
+            basePower: 7,
             attackScaling: 0.25,
             elementalPowerScaling: 0,
           },
@@ -572,15 +572,66 @@ export const ACTION_ABILITY_DEFINITIONS = {
     id: "catchBreath",
     name: "Catch Breath",
     category: "action",
-    resolutionPriority: 0,
+    resolutionPriority: 500,
     target: "self",
     element: null,
     ranks: {
       1: {
-        shortDescription: "Take no offensive action this turn.",
-        description: "Brakk pauses to catch his breath.",
+        shortDescription: "Rest.",
+        description: "Brakk rests and sheds ongoing damage effects.",
         ppCost: 0,
-        effects: [{ type: "wait" }],
+        effects: [{ type: "wait", cleansesDamageStatuses: true }],
+      },
+    },
+  },
+  goatStomp: {
+    id: "goatStomp",
+    name: "Stomp",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Damage both heroes and Crack HP targets.",
+        description:
+          "Deal Physical damage to both heroes. HP damage applies Cracked.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 6,
+            attackScaling: 0.6,
+            elementalPowerScaling: 0,
+            statusOnHpDamage: { statusId: "cracked" },
+          },
+        ],
+      },
+    },
+  },
+  goatCharge: {
+    id: "goatCharge",
+    name: "Charge",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Heavy Physical damage to one hero.",
+        description: "Charge one random hero for heavy Physical damage.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 13,
+            attackScaling: 1,
+            elementalPowerScaling: 0,
+          },
+        ],
       },
     },
   },
@@ -609,6 +660,8 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "wakeUp"
   | "bloodCleave"
   | "smash"
-  | "catchBreath",
+  | "catchBreath"
+  | "goatStomp"
+  | "goatCharge",
   AbilityDefinition
 >;

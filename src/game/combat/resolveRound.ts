@@ -50,7 +50,7 @@ import {
 } from "../passives/passiveSystem";
 import {
   getSpiritForActiveAbility,
-  SPIRIT_DEFINITIONS,
+  getSpiritPassive,
 } from "../../data/spirits";
 import {
   CHARACTER_ORDER,
@@ -118,7 +118,7 @@ function getCombatantAbility(
     ? canCharacterUseGhostAbility(state.characters[actorId], abilityId)
       ? 1
       : null
-    : knownRank ?? (activeSpirit ? 1 : null);
+    : knownRank ?? activeSpirit?.rank ?? null;
 
   return rank ? resolveAbility(abilityId, rank) : null;
 }
@@ -513,7 +513,7 @@ function addSteelDartAbilityBonusStacks(
   const character = state.characters[characterId];
   const ironquill = character.spirits.ironquill;
   const amplifier = ironquill
-    ? SPIRIT_DEFINITIONS.ironquill.passive.steelDartAbilityAmplifier
+    ? getSpiritPassive(ironquill).steelDartAbilityAmplifier
     : undefined;
 
   if (character.form !== "living" || !ironquill || !amplifier || count <= 0) {
@@ -628,7 +628,7 @@ function resolveGuardDogPassive(
   const character = state.characters[characterId];
   const spirit = character.spirits.guardDog;
   const passive = spirit
-    ? SPIRIT_DEFINITIONS.guardDog.passive.nonDamagingActionSpiritAttack
+    ? getSpiritPassive(spirit).nonDamagingActionSpiritAttack
     : undefined;
   const eligibleEnemies = state.enemies.filter(isEnemyTargetable);
 
@@ -766,8 +766,7 @@ function grantBarrierToTarget(
         }
 
         return Boolean(
-          SPIRIT_DEFINITIONS[spirit.id].passive
-            .firstBarrierGainEachEncounter,
+          getSpiritPassive(spirit).firstBarrierGainEachEncounter,
         );
       },
     );
@@ -777,9 +776,7 @@ function grantBarrierToTarget(
         continue;
       }
 
-      const passive =
-        SPIRIT_DEFINITIONS[spirit.id].passive
-          .firstBarrierGainEachEncounter;
+      const passive = getSpiritPassive(spirit).firstBarrierGainEachEncounter;
 
       if (!passive) {
         continue;
@@ -1709,6 +1706,7 @@ function resolveItemUse(
           );
         }
         if (
+          effect.damageType !== "true" &&
           characterHasPassive(actor, "bloodScent") &&
           currentTarget.statuses.some((status) => status.id === "bleed")
         ) {
@@ -1980,8 +1978,8 @@ function resolveItemUse(
 
         const phoenixTonicBonus =
           actor.spirits.phoenix
-            ? (SPIRIT_DEFINITIONS.phoenix.passive.phoenixTonicReviveBonus
-                ?.amount ?? 0)
+            ? (getSpiritPassive(actor.spirits.phoenix)
+                .phoenixTonicReviveBonus?.amount ?? 0)
             : 0;
         const revivedState = reviveGhost(
           nextState,
@@ -2155,8 +2153,7 @@ export function resolveImmediateWarhoundAutoAttack(
     !getKnownAbilityRank(actor.abilityRanks, "autoAttack") ||
     !warhound ||
     warhound.passiveTriggeredThisEncounter ||
-    !SPIRIT_DEFINITIONS.warhound.passive
-      .firstAutoAttackEachEncounterIsQuick ||
+    !getSpiritPassive(warhound).firstAutoAttackEachEncounterIsQuick ||
     !target ||
     !isEnemyTargetable(target)
   ) {
@@ -2389,9 +2386,12 @@ export function resolveRound(
   const stunnedActorIds = new Set<CombatantId>();
   const resolvedStunnedActorIds = new Set<CombatantId>();
   if (!options.immediateActionsOnly) {
-    const bloodpactPassive =
-      SPIRIT_DEFINITIONS.bloodpact.passive.roundStartBloodpact!;
     for (const ownerId of CHARACTER_ORDER) {
+      const bloodpact = nextState.characters[ownerId].spirits.bloodpact;
+      const bloodpactPassive = bloodpact
+        ? getSpiritPassive(bloodpact).roundStartBloodpact
+        : undefined;
+      if (!bloodpactPassive) continue;
       nextState = resolveBloodpact(
         nextState,
         ownerId,
@@ -2402,14 +2402,16 @@ export function resolveRound(
       );
     }
 
-    const phoenixHealing =
-      SPIRIT_DEFINITIONS.phoenix.passive.roundStartHealing!.amount;
     for (const ownerId of CHARACTER_ORDER) {
       const owner = nextState.characters[ownerId];
+      const phoenix = owner.spirits.phoenix;
+      const phoenixHealing = phoenix
+        ? getSpiritPassive(phoenix).roundStartHealing?.amount ?? 0
+        : 0;
 
       if (
         owner.form !== "living" ||
-        !owner.spirits.phoenix ||
+          !phoenix ||
         owner.hp >= owner.stats.maxHp
       ) {
         continue;
@@ -2769,6 +2771,15 @@ export function resolveRound(
       continue;
     }
 
+    if (
+      action.abilityId === "magicBag" &&
+      isCharacterInstanceId(action.actorId) &&
+      nextState.characters[action.actorId].magicBagLastUsedRound ===
+        nextState.round
+    ) {
+      continue;
+    }
+
     if (action.abilityId === "earthDemon" && nextState.earthDemon) {
       continue;
     }
@@ -2863,6 +2874,19 @@ export function resolveRound(
     }
 
     nextState = spendPp(nextState, action.actorId, abilityPpCost);
+
+    if (action.abilityId === "magicBag" && characterActorId) {
+      nextState = {
+        ...nextState,
+        characters: {
+          ...nextState.characters,
+          [characterActorId]: {
+            ...nextState.characters[characterActorId],
+            magicBagLastUsedRound: nextState.round,
+          },
+        },
+      };
+    }
 
     if (
       characterActorId &&
@@ -3429,7 +3453,7 @@ export function resolveRound(
             effect.pool === "normal" &&
             isCharacterInstanceId(supportTargetId)
           ) {
-            let drawCount = 1;
+            let drawCount = effect.drawCount ?? 1;
 
             if (effect.bonusDrawChance !== undefined) {
               const bonusRoll = nextRandom(randomSeed);
@@ -3566,8 +3590,11 @@ export function resolveRound(
       ability.category === "ability"
         ? (nextState.characters[action.actorId].spirits.ironquill
             ?.steelDartAbilityBonusStacks ?? 0) *
-          (SPIRIT_DEFINITIONS.ironquill.passive
-            .steelDartAbilityAmplifier?.damageBonusPerDart ?? 0)
+          (nextState.characters[action.actorId].spirits.ironquill
+            ? getSpiritPassive(
+                nextState.characters[action.actorId].spirits.ironquill!,
+              ).steelDartAbilityAmplifier?.damageBonusPerDart ?? 0
+            : 0)
         : 0;
     const tailwindPassiveOwned = Boolean(
       characterActorId &&
@@ -3604,7 +3631,8 @@ export function resolveRound(
     let galeFocusTriggered = false;
     let partnerElementDamageBonusApplied = false;
     const damagedTargetIdsThisAction = new Set<CombatantId>();
-    const bodyguardProtectedTargetIds = new Set<CombatantId>();
+  const bodyguardProtectedTargetIds = new Set<CombatantId>();
+  const bodyguardCounteredSourceIds = new Set<CharacterInstanceId>();
 
     const effectsForAction = ability.effects.flatMap((effect) => {
       if (
@@ -3681,12 +3709,42 @@ export function resolveRound(
       }
 
       if (effect.type === "wait") {
+        const waitingActor = getCombatant(nextState, action.actorId);
+        const statusesToCleanse = effect.cleansesDamageStatuses
+          ? (waitingActor?.statuses.filter(
+              (status) =>
+                STATUS_DEFINITIONS[status.id].endOfRoundDamage !== undefined,
+            ) ?? [])
+          : [];
+        const statusChanges: StatusChange[] = statusesToCleanse.map(
+          (status) => ({
+            type: "removed",
+            combatantId: action.actorId,
+            statusId: status.id,
+            sourceId: status.sourceId,
+          }),
+        );
+
+        if (waitingActor && statusesToCleanse.length > 0) {
+          nextState = updateStatuses(
+            nextState,
+            action.actorId,
+            waitingActor.statuses.filter(
+              (status) =>
+                !statusesToCleanse.some(
+                  (cleansedStatus) => cleansedStatus === status,
+                ),
+            ),
+          );
+        }
+
         events.push({
           type: "wait",
           actorId: action.actorId,
           targetId: action.actorId,
           abilityId: action.abilityId,
           abilityRank: ability.rank,
+          statusChanges,
         });
         continue;
       }
@@ -4088,6 +4146,13 @@ export function resolveRound(
             action.abilityId === "ghostBolt")
             ? GHOST_UPGRADE_VALUES.closerToTheVeilDamageBonus
             : 0;
+        const warhoundQuickDamageMultiplier =
+          options.immediateActionsOnly &&
+          action.abilityId === "autoAttack" &&
+          characterActor?.spirits.warhound
+            ? (getSpiritPassive(characterActor.spirits.warhound)
+                .firstAutoAttackDamageMultiplier ?? 1)
+            : 1;
 
         if (effect.usesDamageVariance !== false) {
           const varianceResult = nextRandom(randomSeed);
@@ -4169,7 +4234,8 @@ export function resolveRound(
                 (tailwindEmpowersAction
                   ? PASSIVE_VALUES.tailwindDamageBonus
                   : 0)) *
-              (1 + closerToTheVeilDamageBonus),
+              (1 + closerToTheVeilDamageBonus) *
+              warhoundQuickDamageMultiplier,
           ),
         );
 
@@ -4241,6 +4307,7 @@ export function resolveRound(
           continue;
         }
 
+        let bodyguardCounterSourceId: CharacterInstanceId | null = null;
         const bodyguardStatus = currentTarget.statuses.find(
           (status) => status.id === "bodyguard",
         );
@@ -4255,6 +4322,20 @@ export function resolveRound(
           amount = 0;
 
           if (bodyguardStatus) {
+            if (
+              isCharacterInstanceId(bodyguardStatus.sourceId) &&
+              !bodyguardCounteredSourceIds.has(bodyguardStatus.sourceId)
+            ) {
+              const guardDog =
+                nextState.characters[bodyguardStatus.sourceId].spirits.guardDog;
+              if (
+                guardDog &&
+                (getSpiritPassive(guardDog).bodyguardCounterDamage ?? 0) > 0
+              ) {
+                bodyguardCounterSourceId = bodyguardStatus.sourceId;
+                bodyguardCounteredSourceIds.add(bodyguardStatus.sourceId);
+              }
+            }
             bodyguardProtectedTargetIds.add(targetId);
             const protectedTarget = getCombatant(nextState, targetId);
             if (protectedTarget) {
@@ -4525,7 +4606,7 @@ export function resolveRound(
           isCharacterInstanceId(targetId)
         ) {
           const defendingCharacter = state.characters[targetId];
-          const passiveIds: Array<"thorns" | "counterguard"> = [];
+          const passiveIds: Array<"thorns" | "counterguard" | "guardDog"> = [];
 
           if (
             currentTarget.barrier > 0 &&
@@ -4539,14 +4620,26 @@ export function resolveRound(
           ) {
             passiveIds.push("counterguard");
           }
+          if (bodyguardCounterSourceId) {
+            passiveIds.push("guardDog");
+          }
 
           const reflectedTarget = getCombatant(nextState, action.actorId);
 
           if (reflectedTarget && reflectedTarget.hp > 0 && passiveIds.length > 0) {
             const totalReflectedDamage = passiveIds.reduce(
-              (total, passiveId) =>
-                total +
-                calculateFixedDamage({
+              (total, passiveId) => {
+                if (passiveId === "guardDog") {
+                  return total +
+                    (bodyguardCounterSourceId
+                      ? (getSpiritPassive(
+                          nextState.characters[bodyguardCounterSourceId]
+                            .spirits.guardDog!,
+                        ).bodyguardCounterDamage ?? 0)
+                      : 0);
+                }
+
+                return total + calculateFixedDamage({
                   basePower:
                     passiveId === "thorns"
                       ? PASSIVE_VALUES.thornsDamage
@@ -4554,7 +4647,8 @@ export function resolveRound(
                   damageType: "physical",
                   defender: reflectedTarget.stats,
                   defenderStatuses: reflectedTarget.statuses,
-                }),
+                });
+              },
               0,
             );
             const reflectedBarrierResult = absorbDirectDamage(
@@ -4590,7 +4684,7 @@ export function resolveRound(
               }
             }
             reflectedDamage = {
-              sourceId: targetId,
+              sourceId: bodyguardCounterSourceId ?? targetId,
               targetId: action.actorId,
               passiveIds,
               amount: reflectedBarrierResult.hpDamage,
@@ -5138,15 +5232,13 @@ export function resolveRound(
       const passiveSpirit = Object.values(characterAfterAction.spirits).find(
         (spirit) =>
           spirit &&
-          SPIRIT_DEFINITIONS[spirit.id].passive
-            .firstDamageActionEachEncounter !== undefined &&
+          getSpiritPassive(spirit).firstDamageActionEachEncounter !== undefined &&
           !spirit.passiveTriggeredThisEncounter,
       );
 
       if (passiveSpirit) {
-        const passive =
-          SPIRIT_DEFINITIONS[passiveSpirit.id].passive
-            .firstDamageActionEachEncounter;
+        const passive = getSpiritPassive(passiveSpirit)
+          .firstDamageActionEachEncounter;
 
         if (!passive) {
           continue;
@@ -5221,6 +5313,26 @@ export function resolveRound(
             );
             nextState = updateHp(nextState, passiveTargetId, remainingHp);
             const spiritStatusChanges: StatusChange[] = [];
+
+            if (remainingHp > 0 && passive.statusOnHit) {
+              const statusResult = applyStatusToTarget(
+                nextState,
+                passiveTargetId,
+                createStatusFromSource(
+                  nextState,
+                  action.actorId,
+                  passive.statusOnHit,
+                ),
+              );
+              nextState = statusResult.state;
+              if (statusResult.status) {
+                spiritStatusChanges.push({
+                  type: "applied",
+                  combatantId: passiveTargetId,
+                  status: statusResult.status,
+                });
+              }
+            }
 
             if (remainingHp <= 0) {
               const wildfire = spreadWildfireAfterEnemyDeath(

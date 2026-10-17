@@ -285,7 +285,7 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 : ""}
               .
               {event.reflectedDamage
-                ? ` ${event.reflectedDamage.passiveIds.map((passiveId) => PASSIVE_DEFINITIONS[passiveId].name).join(" and ")} dealt ${event.reflectedDamage.amount} damage to ${getCombatantName(event.reflectedDamage.targetId)}.`
+                ? ` ${event.reflectedDamage.passiveIds.map((passiveId) => passiveId === "guardDog" ? "Guard Dog" : PASSIVE_DEFINITIONS[passiveId].name).join(" and ")} dealt ${event.reflectedDamage.amount} damage to ${getCombatantName(event.reflectedDamage.targetId)}.`
                 : ""}
               {event.statusChanges.some(
                 (change) =>

@@ -16,6 +16,7 @@ import type {
   ServerToClientEvents,
   UpgradeReadinessState,
   UpgradeSelectionRequest,
+  ActTransitionReadinessState,
 } from "./protocol";
 import type {
   CharacterDraft,
@@ -180,6 +181,14 @@ export async function submitMultiplayerUpgrade(
   });
 }
 
+export async function submitMultiplayerActTransitionReady() {
+  await connect();
+
+  return new Promise<boolean>((resolve) => {
+    socket.emit("actTransitionReady", resolve);
+  });
+}
+
 export function subscribeToLobby(
   handleLobbyUpdated: (lobby: LobbyState) => void,
 ) {
@@ -265,6 +274,16 @@ export function subscribeToUpgradeReadiness(
 
   return () => {
     socket.off("upgradeReadinessUpdated", handleReadinessUpdated);
+  };
+}
+
+export function subscribeToActTransitionReadiness(
+  handleReadinessUpdated: (state: ActTransitionReadinessState) => void,
+) {
+  socket.on("actTransitionReadinessUpdated", handleReadinessUpdated);
+
+  return () => {
+    socket.off("actTransitionReadinessUpdated", handleReadinessUpdated);
   };
 }
 

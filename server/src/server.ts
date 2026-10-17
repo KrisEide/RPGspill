@@ -56,6 +56,7 @@ import type {
   ServerToClientEvents,
   SocketData,
   UpgradeReadinessState,
+  ActTransitionReadinessState,
 } from "../../src/network/protocol";
 
 type ConnectedPlayer = {
@@ -71,6 +72,7 @@ type GameRoom = {
   combatState: CombatState | null;
   roundSelections: RoundSelections;
   upgradeSelections: Record<PlayerId, RewardChoiceId | null>;
+  actTransitionReadyPlayerIds: PlayerId[];
 };
 
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -236,6 +238,19 @@ function createUpgradeReadinessState(
   };
 }
 
+function createActTransitionReadinessState(
+  room: GameRoom,
+): ActTransitionReadinessState {
+  if (!room.combatState) {
+    throw new Error("Cannot create Act transition readiness without combat state.");
+  }
+
+  return {
+    completedEncounterId: room.combatState.encounterId,
+    readyPlayerIds: [...room.actTransitionReadyPlayerIds],
+  };
+}
+
 function startBattleIfReady(room: GameRoom) {
   if (
     room.combatState ||
@@ -303,6 +318,7 @@ io.on("connection", (socket) => {
         player1: null,
         player2: null,
       },
+      actTransitionReadyPlayerIds: [],
     };
 
     rooms.set(roomCode, room);
@@ -717,6 +733,19 @@ io.on("connection", (socket) => {
     };
 
     if (currentPhase === "victory" && nextEncounterId) {
+      if (upgradedCombatState.actTransitionStage === "spiritRank2") {
+        room.combatState = upgradedCombatState;
+        io.to(room.code).emit("rewardStageUpdated", room.combatState);
+        return;
+      }
+
+      if (upgradedCombatState.actTransitionStage === "restoration") {
+        room.combatState = upgradedCombatState;
+        room.actTransitionReadyPlayerIds = [];
+        io.to(room.code).emit("rewardStageUpdated", room.combatState);
+        return;
+      }
+
       room.combatState = startEncounter(
         upgradedCombatState,
         nextEncounterId,
@@ -759,6 +788,47 @@ io.on("connection", (socket) => {
 
     room.combatState = upgradedCombatState;
     io.to(room.code).emit("rewardStageUpdated", room.combatState);
+  });
+
+  socket.on("actTransitionReady", (respond) => {
+    const roomCode = socket.data.roomCode;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+    const playerId = socket.data.playerId;
+
+    if (
+      !room?.combatState ||
+      !playerId ||
+      room.combatState.phase !== "victory" ||
+      room.combatState.actTransitionStage !== "restoration"
+    ) {
+      respond(false);
+      return;
+    }
+
+    if (!room.actTransitionReadyPlayerIds.includes(playerId)) {
+      room.actTransitionReadyPlayerIds.push(playerId);
+    }
+    respond(true);
+    io.to(room.code).emit(
+      "actTransitionReadinessUpdated",
+      createActTransitionReadinessState(room),
+    );
+
+    if (
+      !PLAYER_ORDER.every((id) =>
+        room.actTransitionReadyPlayerIds.includes(id),
+      )
+    ) {
+      return;
+    }
+
+    const nextEncounterId =
+      ENCOUNTER_DEFINITIONS[room.combatState.encounterId].nextEncounterId;
+    if (!nextEncounterId) return;
+
+    room.actTransitionReadyPlayerIds = [];
+    room.combatState = startEncounter(room.combatState, nextEncounterId);
+    io.to(room.code).emit("encounterStarted", room.combatState);
   });
 
   socket.on("disconnect", () => {

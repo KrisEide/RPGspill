@@ -1,9 +1,9 @@
-import { SPIRIT_DEFINITIONS } from "../../data/spirits";
+import { getSpiritPassive } from "../../data/spirits";
 import { CHARACTER_ORDER } from "../playerControl";
 import type { CombatState, SpiritId } from "../types";
 
 export function getPartyHealingReceivedBonus(state: CombatState) {
-  const activeSpiritIds = new Set<SpiritId>();
+  const activeSpirits = new Map<SpiritId, NonNullable<CombatState["characters"]["character-1"]["spirits"][SpiritId]>>();
 
   for (const characterId of CHARACTER_ORDER) {
     if (state.characters[characterId].form !== "living") {
@@ -12,16 +12,15 @@ export function getPartyHealingReceivedBonus(state: CombatState) {
 
     for (const spirit of Object.values(state.characters[characterId].spirits)) {
       if (spirit) {
-        activeSpiritIds.add(spirit.id);
+        activeSpirits.set(spirit.id, spirit);
       }
     }
   }
 
-  return [...activeSpiritIds].reduce(
-    (totalBonus, spiritId) =>
+  return [...activeSpirits.values()].reduce(
+    (totalBonus, spirit) =>
       totalBonus +
-      (SPIRIT_DEFINITIONS[spiritId].passive.allHealingReceived
-        ?.flatIncrease ?? 0),
+      (getSpiritPassive(spirit).allHealingReceived?.flatIncrease ?? 0),
     0,
   );
 }

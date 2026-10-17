@@ -47,6 +47,9 @@ export default function UpgradeSelection({
   const isSpiritChoice =
     choices.length > 0 &&
     choices.every((choice) => choice.type === "newSpirit");
+  const isSpiritRank =
+    choices.length > 0 &&
+    choices.every((choice) => choice.type === "spiritRank");
   const isGhostChoice =
     choices.length > 0 &&
     choices.every(
@@ -56,7 +59,7 @@ export default function UpgradeSelection({
 
   return (
     <section
-      className={`upgradeSelection ${isGhostChoice ? "upgradeSelection--ghost" : ""}`}
+      className={`upgradeSelection ${isGhostChoice ? "upgradeSelection--ghost" : ""}${isSpiritRank ? " upgradeSelection--spiritRank" : ""}`}
       aria-labelledby="upgrade-title"
     >
       <div className="upgradeSelection__panel">
@@ -74,12 +77,14 @@ export default function UpgradeSelection({
         </span>
         {!isGhostChoice && (
           <div className="upgradeSelection__victory">
-            {isRest ? restEyebrow : "Victory"}
+            {isRest ? restEyebrow : isSpiritRank ? "Act I Complete" : "Victory"}
           </div>
         )}
         <h1 id="upgrade-title" className="upgradeSelection__title">
           {isRest
             ? restTitle
+            : isSpiritRank
+              ? "Spirit Rank 2"
             : isSpiritChoice
               ? "Choose a Spirit"
               : isGhostChoice
@@ -126,7 +131,7 @@ export default function UpgradeSelection({
           </div>
         ))}
 
-        <div className="upgradeSelection__choices">
+        <div className={`upgradeSelection__choices${isSpiritRank ? " upgradeSelection__choices--single" : ""}`}>
           {choices.map((choice, index) => {
             const isSelected = choice.id === selectedChoiceId;
             const isAbilityChoice =
@@ -156,7 +161,7 @@ export default function UpgradeSelection({
                 <span className="upgradeSelection__cardIcon" aria-hidden="true">
                   {choice.icon}
                 </span>
-                {choice.type !== "newSpirit" && (
+                {choice.type !== "newSpirit" && choice.type !== "spiritRank" && (
                   <span className="upgradeSelection__cardType">
                     {choice.type === "newAbility"
                       ? "New Ability"
@@ -184,6 +189,17 @@ export default function UpgradeSelection({
                     </span>
                     <span>
                       <strong>{choice.automaticActive ? "Automatic" : "Active"}</strong>
+                      {choice.activeDescription}
+                    </span>
+                  </span>
+                ) : choice.type === "spiritRank" ? (
+                  <span className="upgradeSelection__cardDescription upgradeSelection__cardDescription--spiritRank">
+                    <span>
+                      <strong>Passive</strong>
+                      {choice.passiveDescription}
+                    </span>
+                    <span>
+                      <strong>{choice.automaticActive ? "Automatic" : "Active"} — {choice.activeName}</strong>
                       {choice.activeDescription}
                     </span>
                   </span>
@@ -237,7 +253,7 @@ export default function UpgradeSelection({
                   </span>
                 )}
                 <span className="upgradeSelection__cardAction">
-                  {isSelected ? "Selected" : "Choose"}
+                  {isSelected ? "Selected" : isSpiritRank ? "Continue" : "Choose"}
                 </span>
               </button>
             );

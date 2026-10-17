@@ -93,6 +93,11 @@ export type UpgradeReadinessState = {
   readyPlayerIds: PlayerId[];
 };
 
+export type ActTransitionReadinessState = {
+  completedEncounterId: EncounterId;
+  readyPlayerIds: PlayerId[];
+};
+
 export type JoinRoomResult =
   | {
       ok: true;
@@ -113,6 +118,7 @@ export interface ServerToClientEvents {
   immediateItemResolved: (result: ImmediateItemResult) => void;
   ghostReformed: (state: CombatState) => void;
   upgradeReadinessUpdated: (state: UpgradeReadinessState) => void;
+  actTransitionReadinessUpdated: (state: ActTransitionReadinessState) => void;
   rewardStageUpdated: (state: CombatState) => void;
   encounterStarted: (state: CombatState) => void;
   sessionEnded: () => void;
@@ -149,6 +155,7 @@ export interface ClientToServerEvents {
     request: UpgradeSelectionRequest,
     respond: (accepted: boolean) => void,
   ) => void;
+  actTransitionReady: (respond: (accepted: boolean) => void) => void;
 }
 
 export type InterServerEvents = Record<never, never>;

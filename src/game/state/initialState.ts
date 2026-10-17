@@ -81,6 +81,7 @@ function createCharacterState(
       ? createTestingInventory()
       : createEmptyInventory(),
     remainingItemRewardPool: createItemRewardPool(),
+    magicBagLastUsedRound: null,
     itemDamageBonus: null,
     abilityDamageBonus: null,
     statuses: [],
@@ -144,6 +145,7 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
     enemies: createEncounterEnemies(encounterId),
     enemyIntents: {},
     restStage: isRest ? "choice" : null,
+    actTransitionStage: null,
     rewardOffers: isRest
       ? {
           "character-1": createRestOffers(encounterId),

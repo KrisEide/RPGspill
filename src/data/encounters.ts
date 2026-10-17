@@ -14,6 +14,7 @@ export type EncounterDefinition = {
   title: string;
   enemies: EncounterEnemy[];
   nextEncounterId: EncounterId | null;
+  fullPartyRestore?: boolean;
 };
 
 export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
@@ -175,10 +176,22 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     kind: "combat",
     number: 13,
     title: "The Orc Brothers",
-    nextEncounterId: null,
+    nextEncounterId: "mountainPass",
     enemies: [
       { enemyId: "brakkBoss", instanceId: "enemy-1" },
       { enemyId: "gorakBoss", instanceId: "enemy-2" },
+    ],
+  },
+  mountainPass: {
+    id: "mountainPass",
+    kind: "combat",
+    number: 14,
+    title: "The Mountain Pass",
+    nextEncounterId: null,
+    fullPartyRestore: true,
+    enemies: [
+      { enemyId: "goat1", instanceId: "enemy-1" },
+      { enemyId: "goat2", instanceId: "enemy-2" },
     ],
   },
 };

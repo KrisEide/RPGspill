@@ -30,7 +30,11 @@ const setup: GameSetup = {
   },
 };
 
-function useLacerate(rank: AbilityRank, targetStartsBleeding = false) {
+function useLacerate(
+  rank: AbilityRank,
+  targetStartsBleeding = false,
+  criticalChance = 0,
+) {
   const state = createInitialCombatState(setup);
   state.enemyIntents = {};
   state.enemies = [
@@ -54,6 +58,7 @@ function useLacerate(rank: AbilityRank, targetStartsBleeding = false) {
   ];
   state.characters["character-1"].abilityRanks.lacerate = rank;
   state.characters["character-1"].pp = 50;
+  state.characters["character-1"].stats.criticalChance = criticalChance;
 
   let selections = createEmptyRoundSelections();
   selections = selectPlayerAction(state, selections, {
@@ -73,8 +78,12 @@ test("Lacerate defines both ranks and improves the base Bleed tick", () => {
     type: "damage",
     damageType: "physical",
     basePower: 11,
-    attackScaling: 0.6,
+    attackScaling: 1,
     elementalPowerScaling: 0,
+    criticalHit: {
+      chance: 0.05,
+      damageMultiplier: 1.5,
+    },
     statusOnHit: { statusId: "bleed" },
   });
   assert.equal(ability.ranks[2]?.ppCost, 5);
@@ -82,8 +91,12 @@ test("Lacerate defines both ranks and improves the base Bleed tick", () => {
     type: "damage",
     damageType: "physical",
     basePower: 14,
-    attackScaling: 0.7,
+    attackScaling: 1,
     elementalPowerScaling: 0,
+    criticalHit: {
+      chance: 0.05,
+      damageMultiplier: 1.5,
+    },
     statusOnHit: {
       statusId: "bleed",
       triggerTickIfAlreadyActive: true,
@@ -93,6 +106,21 @@ test("Lacerate defines both ranks and improves the base Bleed tick", () => {
   assert.ok(
     ABILITY_REWARD_POOL.some(({ abilityId }) => abilityId === "lacerate"),
   );
+});
+
+test("Lacerate can critically hit while Bleed remains a normal status tick", () => {
+  const result = useLacerate(1, false, 1);
+  const lacerateHit = result.events.find(
+    (event) => event.type === "damage" && event.abilityId === "lacerate",
+  );
+  const bleedTick = result.events.find(
+    (event) => event.type === "statusDamage" && event.statusId === "bleed",
+  );
+
+  assert.ok(lacerateHit && lacerateHit.type === "damage");
+  assert.equal(lacerateHit.isCritical, true);
+  assert.ok(bleedTick && bleedTick.type === "statusDamage");
+  assert.equal(bleedTick.amount, 3);
 });
 
 test("Rank 1 applies Bleed without an additional immediate tick", () => {

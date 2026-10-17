@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ITEM_DEFINITIONS } from "../src/data/items";
-import { resolveImmediateItemUse } from "../src/game/combat/resolveRound";
+import {
+  createEmptyRoundSelections,
+  selectPlayerItem,
+} from "../src/game/combat/playerActions";
+import {
+  resolveImmediateItemUse,
+  resolveRound,
+} from "../src/game/combat/resolveRound";
 import { createInitialCombatState } from "../src/game/state/initialState";
 import type { GameSetup } from "../src/game/types";
 
@@ -39,9 +46,8 @@ function useSteelDart(randomSeed: number) {
   });
 }
 
-test("all damaging items use the normal 80-to-100-percent damage variance", () => {
+test("damaging items use variance except Throwing Knife's fixed True damage", () => {
   for (const itemId of [
-    "throwingKnife",
     "blastBomb",
     "razorBomb",
     "steelDart",
@@ -53,6 +59,12 @@ test("all damaging items use the normal 80-to-100-percent damage variance", () =
     assert.equal(damageEffect?.usesDamageVariance, true);
   }
 
+  const throwingKnifeDamage = ITEM_DEFINITIONS.throwingKnife.effects.find(
+    (effect) => effect.type === "damage",
+  );
+  assert.equal(throwingKnifeDamage?.damageType, "true");
+  assert.equal(throwingKnifeDamage?.usesDamageVariance, false);
+
   const lowRoll = useSteelDart(0);
   const highRoll = useSteelDart(1_000);
 
@@ -60,4 +72,48 @@ test("all damaging items use the normal 80-to-100-percent damage variance", () =
   assert.ok(highRoll);
   assert.equal(lowRoll.event.impacts[0].damageAmount, 4);
   assert.equal(highRoll.event.impacts[0].damageAmount, 5);
+});
+
+test("Throwing Knife deals exactly 30 damage regardless of defensive stats or roll", () => {
+  for (const randomSeed of [0, 1_000]) {
+    const state = createInitialCombatState(createSetup(randomSeed));
+    state.enemyIntents = {};
+    state.characters["character-1"].inventory.throwingKnife = 1;
+    state.enemies[0].hp = 100;
+    state.enemies[0].stats.maxHp = 100;
+    state.enemies[0].stats.defense = 500;
+    state.enemies[0].stats.resistance = 500;
+    state.enemies[0].statuses = [
+      {
+        id: "bleed",
+        sourceId: "character-1",
+        appliedRound: 0,
+        remainingRounds: 3,
+        fullDurationRounds: 3,
+        tickBasePower: 3,
+      },
+    ];
+    state.characters["character-1"].passives = { bloodScent: true };
+
+    const selections = selectPlayerItem(
+      state,
+      createEmptyRoundSelections(),
+      {
+        playerId: "player1",
+        itemId: "throwingKnife",
+        targetId: "enemy-1",
+      },
+    );
+    assert.ok(selections);
+
+    const result = resolveRound(state, selections);
+    const event = result.events.find(
+      (candidate) =>
+        candidate.type === "itemUse" &&
+        candidate.itemId === "throwingKnife",
+    );
+
+    assert.ok(event && event.type === "itemUse");
+    assert.equal(event.impacts[0].damageAmount, 30);
+  }
 });

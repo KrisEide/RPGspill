@@ -32,6 +32,7 @@ import type {
   PassiveRewardOffer,
   RestRewardOffer,
   SpiritRewardOffer,
+  SpiritRankRewardOffer,
   StatRewardOffer,
 } from "../types";
 
@@ -176,6 +177,7 @@ function drawStandardOffers(
   state: CombatState,
   characterId: CharacterInstanceId,
   seed: number,
+  options: { offerCount?: number; allowRankTwo?: boolean } = {},
 ) {
   let nextSeed = seed;
   const character = state.characters[characterId];
@@ -199,7 +201,10 @@ function drawStandardOffers(
     | AbilityRewardOffer
   )[] = [];
 
-  while (offers.length < OFFERS_PER_CHARACTER) {
+  const offerCount = options.offerCount ?? OFFERS_PER_CHARACTER;
+  const allowRankTwo = options.allowRankTwo ?? true;
+
+  while (offers.length < offerCount) {
     const availableCategories = [
       ...(statOffers.length > 0
         ? [{ id: "stat" as const, weight: STANDARD_REWARD_CATEGORY_WEIGHT }]
@@ -220,7 +225,7 @@ function drawStandardOffers(
             },
           ]
         : []),
-      ...(rankTwoDefinitions.length > 0 && rankTwoCategoryWeight > 0
+      ...(allowRankTwo && rankTwoDefinitions.length > 0 && rankTwoCategoryWeight > 0
         ? [
             {
               id: "abilityRank" as const,
@@ -271,6 +276,46 @@ function drawStandardOffers(
   }
 
   return { offers, nextSeed };
+}
+
+function drawActOneBossOffers(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  seed: number,
+) {
+  const character = state.characters[characterId];
+  const eligibleRankTwoDefinitions = ABILITY_REWARD_POOL.filter(
+    ({ abilityId }) =>
+      getKnownAbilityRank(character.abilityRanks, abilityId) === 1 &&
+      ABILITIES[abilityId].ranks[2] !== undefined,
+  );
+
+  if (eligibleRankTwoDefinitions.length === 0) {
+    return drawStandardOffers(state, characterId, seed, {
+      allowRankTwo: false,
+    });
+  }
+
+  const rankRoll = nextRandom(seed);
+  const rankDefinition =
+    eligibleRankTwoDefinitions[
+      Math.floor(rankRoll.value * eligibleRankTwoDefinitions.length)
+    ];
+  const remaining = drawStandardOffers(
+    state,
+    characterId,
+    rankRoll.nextSeed,
+    { offerCount: OFFERS_PER_CHARACTER - 1, allowRankTwo: false },
+  );
+  const positionRoll = nextRandom(remaining.nextSeed);
+  const offers = [...remaining.offers];
+  offers.splice(
+    Math.floor(positionRoll.value * OFFERS_PER_CHARACTER),
+    0,
+    createAbilityRewardOffer(rankDefinition, 2),
+  );
+
+  return { offers, nextSeed: positionRoll.nextSeed };
 }
 
 function createAbilityRewardOffer(
@@ -438,6 +483,10 @@ function drawOffersForCharacter(
 ) {
   const rewardType = ENCOUNTER_DEFINITIONS[state.encounterId].rewardType;
 
+  if (state.encounterId === "orcBrothers") {
+    return drawActOneBossOffers(state, characterId, seed);
+  }
+
   if (rewardType === "spirits") {
     return drawSpiritOffers(state, characterId, seed);
   }
@@ -459,6 +508,107 @@ function drawOffersForCharacter(
   }
 
   return drawStandardOffers(state, characterId, seed);
+}
+
+function createSpiritRankRewardOffer(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+): SpiritRankRewardOffer | null {
+  const spirit = Object.values(state.characters[characterId].spirits).find(
+    (candidate) => candidate !== undefined,
+  );
+  if (!spirit) return null;
+
+  const definition = SPIRIT_DEFINITIONS[spirit.id];
+  const passive = definition.rankTwoPassive;
+  const active = resolveAbility(definition.activeAbilityId, 2);
+
+  if (!active) return null;
+
+  return {
+    id: `spiritRank:${spirit.id}:2`,
+    type: "spiritRank",
+    spiritId: spirit.id,
+    rank: 2,
+    icon: definition.icon,
+    tags: definition.tags,
+    title: `${definition.name} · Rank 2`,
+    description: `${passive.shortDescription} ${active.shortDescription}`,
+    passiveName: passive.name,
+    passiveDescription: passive.shortDescription,
+    activeName: active.name,
+    activeDescription: active.shortDescription,
+    automaticActive: definition.automaticActive,
+  };
+}
+
+function beginSpiritRankTwoStage(state: CombatState): CombatState {
+  const offers: RewardOffers = { "character-1": [], "character-2": [] };
+
+  for (const characterId of CHARACTER_ORDER) {
+    if (state.characters[characterId].form === "permanentlyDead") continue;
+    const offer = createSpiritRankRewardOffer(state, characterId);
+    if (offer) offers[characterId] = [offer];
+  }
+
+  return {
+    ...state,
+    actTransitionStage: "spiritRank2",
+    rewardOffers: offers,
+  };
+}
+
+function applySpiritRankReward(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+  offer: SpiritRankRewardOffer,
+): CombatState | null {
+  const character = state.characters[characterId];
+  const spirit = character.spirits[offer.spiritId];
+  if (!spirit || spirit.rank !== 1) return null;
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        spirits: {
+          ...character.spirits,
+          [offer.spiritId]: { ...spirit, rank: 2 },
+        },
+      },
+    },
+  };
+}
+
+function restorePartyForActTwo(state: CombatState): CombatState {
+  return {
+    ...state,
+    actTransitionStage: "restoration",
+    rewardOffers: null,
+    characters: Object.fromEntries(
+      CHARACTER_ORDER.map((characterId) => {
+        const character = state.characters[characterId];
+        return [
+          characterId,
+          character.form === "permanentlyDead"
+            ? character
+            : {
+                ...character,
+                form: "living" as const,
+                hp: character.stats.maxHp,
+                pp: character.stats.maxPp,
+                savedLivingPp: null,
+                ghostReformReady: false,
+                soulLinkActive: false,
+                barrier: 0,
+                statuses: [],
+              },
+        ];
+      }),
+    ) as CombatState["characters"],
+  };
 }
 
 function applySpiritReward(
@@ -807,6 +957,8 @@ export function applyRewardChoices(
         ? applyRestReward(nextState, characterId, offer)
         : offer.type === "newSpirit"
           ? applySpiritReward(nextState, characterId, offer)
+        : offer.type === "spiritRank"
+          ? applySpiritRankReward(nextState, characterId, offer)
         : offer.type === "stat"
         ? applyStatUpgrade(nextState, characterId, offer)
         : offer.type === "passive"
@@ -822,6 +974,18 @@ export function applyRewardChoices(
     }
 
     nextState = appliedState;
+  }
+
+  if (state.actTransitionStage === "spiritRank2") {
+    return restorePartyForActTwo(nextState);
+  }
+
+  if (
+    state.encounterId === "orcBrothers" &&
+    state.phase === "victory" &&
+    state.actTransitionStage === null
+  ) {
+    return beginSpiritRankTwoStage(nextState);
   }
 
   if (state.phase === "rest" && state.restStage === "choice") {

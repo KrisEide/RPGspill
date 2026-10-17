@@ -32,6 +32,12 @@ import greenSlimeBuffSprite from "../../../assets/sprites/monsters/slimes/slime_
 import blueSlimeIdleSprite from "../../../assets/sprites/monsters/slimes/slime_blue_idle.png";
 import blueSlimeAttackSprite from "../../../assets/sprites/monsters/slimes/slime_blue_attack.png";
 import blueSlimePoisonAttackSprite from "../../../assets/sprites/monsters/slimes/slime_blue_poisonattack.png";
+import goatOneIdleSprite from "../../../assets/sprites/act2monsters/goat1_idle.png";
+import goatOneStompSprite from "../../../assets/sprites/act2monsters/goat1_stomp.png";
+import goatOneChargeSprite from "../../../assets/sprites/act2monsters/goat1_charge.png";
+import goatTwoIdleSprite from "../../../assets/sprites/act2monsters/goat2_idle.png";
+import goatTwoStompSprite from "../../../assets/sprites/act2monsters/goat2_stomp.png";
+import goatTwoChargeSprite from "../../../assets/sprites/act2monsters/goat2_charge.png";
 import type { AbilityId, EnemyId } from "../../../game/types";
 
 type EnemySpriteAdjustment = {
@@ -90,6 +96,7 @@ type EnemyVisualDefinition = {
   autoAttackSpriteSrc: string;
   attackAnimationVariant?: "snappy" | "stationaryStrike";
   attackAnimationDurationMs?: number;
+  baseFilter?: string;
   spriteScale?: number;
   statusTop?: string;
   sleepingStatusTop?: string;
@@ -107,6 +114,7 @@ type EnemyVisualDefinition = {
           | "dreadflame"
           | "healing"
           | "bossAction"
+          | "rest"
           | "charge"
           | "heavySweep";
         frames: Array<{
@@ -464,7 +472,7 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
         ],
       },
       catchBreath: {
-        variant: "bossAction",
+        variant: "rest",
         frames: [
           {
             spriteSrc: brakkTiredSprite,
@@ -545,6 +553,94 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
               sourceAnchor: { x: 850, y: 960 },
               targetAnchor: { x: 195, y: 340 },
               displayScale: 0.35,
+            }),
+          },
+        ],
+      },
+    },
+  },
+  goat1: {
+    idleSpriteSrc: goatOneIdleSprite,
+    autoAttackSpriteSrc: goatOneChargeSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2450,
+    baseFilter: "brightness(0.9) contrast(0.9) saturate(0.92)",
+    statusTop: "-42px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1122, height: 1402 },
+      sourceAnchor: { x: 650, y: 1250 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.28,
+    }),
+    abilitySpriteSequences: {
+      goatStomp: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: goatOneStompSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1536, height: 1024 },
+              sourceAnchor: { x: 760, y: 900 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.32,
+            }),
+          },
+        ],
+      },
+      goatCharge: {
+        variant: "charge",
+        frames: [
+          {
+            spriteSrc: goatOneChargeSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1536, height: 1024 },
+              sourceAnchor: { x: 700, y: 850 },
+              targetAnchor: { x: 120, y: 390 },
+              displayScale: 0.31,
+            }),
+          },
+        ],
+      },
+    },
+  },
+  goat2: {
+    idleSpriteSrc: goatTwoIdleSprite,
+    autoAttackSpriteSrc: goatTwoChargeSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2550,
+    baseFilter: "brightness(0.9) contrast(0.9) saturate(0.92)",
+    statusTop: "-42px",
+    idleSpriteAdjustment: createAnchoredEnemySpriteAdjustment({
+      sourceSize: { width: 1122, height: 1402 },
+      sourceAnchor: { x: 650, y: 1250 },
+      targetAnchor: { x: 275, y: 330 },
+      displayScale: 0.29,
+    }),
+    abilitySpriteSequences: {
+      goatStomp: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: goatTwoStompSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1312, height: 1199 },
+              sourceAnchor: { x: 700, y: 1100 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.3,
+            }),
+          },
+        ],
+      },
+      goatCharge: {
+        variant: "charge",
+        frames: [
+          {
+            spriteSrc: goatTwoChargeSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1122, height: 1402 },
+              sourceAnchor: { x: 620, y: 1200 },
+              targetAnchor: { x: 100, y: 400 },
+              displayScale: 0.3,
             }),
           },
         ],

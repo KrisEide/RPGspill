@@ -20,6 +20,13 @@ const setup: GameSetup = {
 
 function pendingPact(bothOwners = false): CombatState {
   const state = createInitialCombatState(setup);
+  // Keep Bloodpact expectations independent of each hero's starting profile.
+  for (const character of Object.values(state.characters)) {
+    character.stats.maxHp = 100;
+    character.stats.maxPp = 50;
+    character.hp = 100;
+    character.pp = 50;
+  }
   state.characters["character-1"].spirits = createKnownSpirits(["bloodpact"]);
   if (bothOwners) state.characters["character-2"].spirits = createKnownSpirits(["bloodpact"]);
   // Isolate the pact from enemy attacks while retaining a live encounter.
@@ -44,12 +51,19 @@ function actions(state: CombatState, useActive = false): RoundSelections {
   return selections;
 }
 
-test("registered Spirit has one free action per encounter and no rank 2", () => {
+test("registered Spirit keeps one free action per encounter at both ranks", () => {
   assert.equal(SPIRIT_DEFINITIONS.bloodpact.activeUsesPerEncounter, 1);
   const active = resolveAbility("bloodpact", 1)!;
   assert.equal(active.ppCost, 0);
   assert.equal(active.useTiming, "action");
-  assert.equal(resolveAbility("bloodpact", 2), null);
+  const rankTwo = resolveAbility("bloodpact", 2)!;
+  assert.equal(rankTwo.ppCost, 0);
+  assert.equal(rankTwo.useTiming, "action");
+  assert.deepEqual(rankTwo.effects[0], {
+    type: "bloodpact",
+    hpCost: 10,
+    barrierAmount: 45,
+  });
 });
 
 test("encounter start blocks actions and resolution until the owner chooses", () => {

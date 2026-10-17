@@ -175,7 +175,7 @@ export function selectPlayerAction(
       : abilityRank
     ? resolveAbility(request.abilityId, abilityRank)
     : activeSpirit
-      ? resolveAbility(request.abilityId, 1)
+      ? resolveAbility(request.abilityId, activeSpirit.rank)
       : null;
   const ppCost = ability
     ? getEffectiveAbilityPpCost(actor, ability.category, ability.ppCost)
@@ -223,6 +223,8 @@ export function selectPlayerAction(
     (isQuickAbility &&
       actor.statuses.some((status) => status.id === "stunned")) ||
     spiritActiveAlreadyQueued ||
+    (request.abilityId === "magicBag" &&
+      actor.magicBagLastUsedRound === state.round) ||
     (request.abilityId === "earthDemon" && state.earthDemon !== null) ||
     actor.pp < ppCost ||
     actor.hp < ghostHpCost ||

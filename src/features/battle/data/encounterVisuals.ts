@@ -2,6 +2,7 @@ import forestBackground from "../../../assets/backgrounds/bakgrunn1.png";
 import darkForestBackground from "../../../assets/backgrounds/bakgrunn4.png";
 import forestCampBackground from "../../../assets/backgrounds/background_forest_camp.png";
 import forestBossBackground from "../../../assets/backgrounds/background_forest_boss.png";
+import actTwoMountainBackground from "../../../assets/backgrounds/act2backgrounds/act2background1.png";
 import type { EncounterId } from "../../../game/types";
 import type { EnemyFormationPosition } from "../layout/enemyFormation";
 
@@ -83,6 +84,13 @@ export const ENCOUNTER_VISUALS: Record<
     enemyFormation: [
       { xPercent: 50, yPercent: 37, scale: 0.81, zIndex: 9 },
       { xPercent: 86, yPercent: 37, scale: 0.74, zIndex: 9 },
+    ],
+  },
+  mountainPass: {
+    backgroundImageSrc: actTwoMountainBackground,
+    enemyFormation: [
+      { xPercent: 61, yPercent: 36, scale: 0.77, zIndex: 9 },
+      { xPercent: 82, yPercent: 36, scale: 0.81, zIndex: 9 },
     ],
   },
 };

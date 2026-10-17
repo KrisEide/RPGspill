@@ -7,7 +7,10 @@ import {
   createEmptyRoundSelections,
   selectPlayerAction,
 } from "../src/game/combat/playerActions";
-import { resolveRound } from "../src/game/combat/resolveRound";
+import {
+  resolveImmediateWarhoundAutoAttack,
+  resolveRound,
+} from "../src/game/combat/resolveRound";
 import { PASSIVE_VALUES } from "../src/game/passives/passiveSystem";
 import { gameReducer } from "../src/game/state/gameReducer";
 import {
@@ -107,4 +110,106 @@ test("Battle Rhythm also restores PP for Warhound's Quick Auto Attack", () => {
     13,
   );
   assert.equal(hit.actorPpRecoveryAmount, 3);
+});
+
+test("Battle Rhythm restores PP for every Auto Attack in the same round", () => {
+  const state = createInitialCombatState(setup);
+  state.enemyIntents = {};
+  state.characters["character-1"].passives = { [battleRhythmId]: true };
+  state.characters["character-1"].pp = 10;
+  state.characters["character-1"].spirits = {
+    warhound: createSpiritState("warhound"),
+  };
+
+  const quickResult = resolveImmediateWarhoundAutoAttack(state, {
+    kind: "ability",
+    actorId: "character-1",
+    abilityId: "autoAttack",
+    targetId: "enemy-1",
+  });
+  assert.ok(quickResult);
+  assert.equal(quickResult.nextState.characters["character-1"].pp, 13);
+
+  const selections = selectPlayerAction(
+    quickResult.nextState,
+    createEmptyRoundSelections(),
+    {
+      playerId: "player1",
+      abilityId: "autoAttack",
+      targetId: "enemy-1",
+    },
+  );
+  assert.ok(selections);
+
+  const normalResult = resolveRound(quickResult.nextState, selections);
+
+  assert.equal(normalResult.nextState.characters["character-1"].pp, 16);
+});
+
+test("Rank 2 Warhound strengthens its quick encounter-opening Auto Attack", () => {
+  const rankOneState = createInitialCombatState(setup);
+  rankOneState.enemyIntents = {};
+  rankOneState.enemies[0].hp = 200;
+  rankOneState.enemies[0].stats.maxHp = 200;
+  rankOneState.characters["character-1"].spirits = {
+    warhound: createSpiritState("warhound", 1),
+  };
+  const rankTwoState = structuredClone(rankOneState);
+  rankTwoState.characters["character-1"].spirits = {
+    warhound: createSpiritState("warhound", 2),
+  };
+  const action = {
+    kind: "ability" as const,
+    actorId: "character-1" as const,
+    abilityId: "autoAttack" as const,
+    targetId: "enemy-1" as const,
+  };
+
+  const rankOne = resolveImmediateWarhoundAutoAttack(rankOneState, action);
+  const rankTwo = resolveImmediateWarhoundAutoAttack(rankTwoState, action);
+  assert.ok(rankOne);
+  assert.ok(rankTwo);
+  const rankOneHit = rankOne.events.find(
+    (event) => event.type === "damage" && event.actorId === "character-1",
+  );
+  const rankTwoHit = rankTwo.events.find(
+    (event) => event.type === "damage" && event.actorId === "character-1",
+  );
+  assert.equal(rankOneHit?.type, "damage");
+  assert.equal(rankTwoHit?.type, "damage");
+  assert.ok(rankTwoHit.amount > rankOneHit.amount);
+});
+
+test("Battle Rhythm cannot restore PP above Max PP", () => {
+  const state = createInitialCombatState(setup);
+  state.enemyIntents = {};
+  state.characters["character-1"].passives = { [battleRhythmId]: true };
+  state.characters["character-1"].pp =
+    state.characters["character-1"].stats.maxPp - 1;
+
+  const selections = selectPlayerAction(
+    state,
+    createEmptyRoundSelections(),
+    {
+      playerId: "player1",
+      abilityId: "autoAttack",
+      targetId: "enemy-1",
+    },
+  );
+  assert.ok(selections);
+
+  const result = resolveRound(state, selections);
+  const hit = result.events.find(
+    (event) =>
+      event.type === "damage" &&
+      event.actorId === "character-1" &&
+      event.abilityId === "autoAttack",
+  );
+
+  assert.ok(hit && hit.type === "damage");
+  assert.equal(
+    result.nextState.characters["character-1"].pp,
+    state.characters["character-1"].stats.maxPp,
+  );
+  assert.equal(hit.actorPpRecoveryAmount, 1);
 });

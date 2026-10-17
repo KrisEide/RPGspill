@@ -48,6 +48,8 @@ test("equal Agility uses deterministic random order", () => {
     const state = createInitialCombatState(setup);
     state.randomSeed = seed;
     state.enemyIntents = {};
+    state.characters["character-1"].stats.agility = 10;
+    state.characters["character-2"].stats.agility = 10;
     const selections = createDefendSelections(state);
     const firstResult = resolveRound(state, selections);
     const repeatedResult = resolveRound(state, selections);
@@ -64,6 +66,7 @@ test("higher Agility still always acts first", () => {
     const state = createInitialCombatState(setup);
     state.randomSeed = seed;
     state.enemyIntents = {};
+    state.characters["character-1"].stats.agility = 10;
     state.characters["character-2"].stats.agility = 11;
     const result = resolveRound(state, createDefendSelections(state));
 

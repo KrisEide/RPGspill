@@ -22,11 +22,11 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     type: "stat",
     icon: "⚔️",
     title: "Power",
-    description: "Permanently gain +4 Attack.",
+    description: "Permanently gain +5 Attack.",
     tags: ["attack", "physical", "damage"],
     effect: {
       target: "attack",
-      amount: 4,
+      amount: 5,
     },
   },
   quickness: {
@@ -70,12 +70,12 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     type: "stat",
     icon: "💠",
     title: "Focus",
-    description: "Permanently gain +10 Max PP and restore 5 PP.",
+    description: "Permanently gain +10 Max PP and restore 15 PP.",
     tags: ["pp", "high_cost"],
     effect: {
       target: "maxPp",
       amount: 10,
-      restorePp: 5,
+      restorePp: 15,
     },
   },
   precision: {
@@ -95,11 +95,11 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     type: "stat",
     icon: "🔥",
     title: "Flame Affinity",
-    description: "Permanently gain +4 Fire Power.",
+    description: "Permanently gain +5 Fire Power.",
     tags: ["fire", "burn", "damage"],
     effect: {
       target: "firePower",
-      amount: 4,
+      amount: 5,
     },
   },
   "tidal-affinity": {
@@ -107,11 +107,11 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     type: "stat",
     icon: "💧",
     title: "Tidal Affinity",
-    description: "Permanently gain +4 Water Power.",
+    description: "Permanently gain +5 Water Power.",
     tags: ["water", "healing"],
     effect: {
       target: "waterPower",
-      amount: 4,
+      amount: 5,
     },
   },
   "stone-affinity": {
@@ -119,11 +119,11 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     type: "stat",
     icon: "🪨",
     title: "Stone Affinity",
-    description: "Permanently gain +4 Earth Power.",
+    description: "Permanently gain +5 Earth Power.",
     tags: ["earth", "barrier"],
     effect: {
       target: "earthPower",
-      amount: 4,
+      amount: 5,
     },
   },
   "gale-affinity": {
@@ -131,11 +131,11 @@ export const STAT_UPGRADE_DEFINITIONS: Record<
     type: "stat",
     icon: "🌪️",
     title: "Gale Affinity",
-    description: "Permanently gain +4 Wind Power.",
+    description: "Permanently gain +5 Wind Power.",
     tags: ["wind", "crit"],
     effect: {
       target: "windPower",
-      amount: 4,
+      amount: 5,
     },
   },
 };

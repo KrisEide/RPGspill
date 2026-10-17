@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createKnownSpirits } from "../src/data/spirits";
+import { createKnownSpirits, createSpiritState } from "../src/data/spirits";
 import {
   createEmptyRoundSelections,
   selectPlayerAction,
@@ -72,5 +72,31 @@ test("Embertail's bonus attack triggers only once per encounter", () => {
     secondRound.nextState.characters["character-1"].spirits.embertail
       ?.passiveTriggeredThisEncounter,
     true,
+  );
+});
+
+test("Rank 2 Embertail applies Burn with its encounter-opening attack", () => {
+  const state = createInitialCombatState(setup);
+  state.characters["character-1"].spirits = {
+    embertail: createSpiritState("embertail", 2),
+  };
+  state.enemies.forEach((enemy) => {
+    enemy.hp = 200;
+    enemy.stats.maxHp = 200;
+  });
+
+  const result = resolveAutoAttackRound(state);
+  const hit = result.events.find(
+    (event) => event.type === "spiritDamage" && event.spiritId === "embertail",
+  );
+
+  assert.equal(hit?.type, "spiritDamage");
+  assert.ok(
+    hit.statusChanges.some(
+      (change) => change.type === "applied" && change.status.id === "burn",
+    ),
+  );
+  assert.ok(
+    result.nextState.enemies[0].statuses.some((status) => status.id === "burn"),
   );
 });

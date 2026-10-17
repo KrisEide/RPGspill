@@ -204,3 +204,37 @@ test("Shield Charge stun waits for the next round when the hero already acted", 
     false,
   );
 });
+
+test("Catch Breath cleanses Brakk's damage-over-time effects but keeps other debuffs", () => {
+  const state = createInitialCombatState(setup);
+  const brakk = state.enemies[0];
+  state.enemies[1].hp = 0;
+  brakk.statuses = [
+    { id: "burn", sourceId: "character-1", appliedRound: 1, remainingRounds: 2 },
+    { id: "poison", sourceId: "character-1", appliedRound: 1 },
+    { id: "bleed", sourceId: "character-1", appliedRound: 1, remainingRounds: 3 },
+    { id: "cinderCurse", sourceId: "character-1", appliedRound: 1 },
+    { id: "rootseed", sourceId: "character-1", appliedRound: 1 },
+    { id: "cracked", sourceId: "character-1", appliedRound: 1, remainingRounds: 2 },
+    { id: "weakened", sourceId: "character-1", appliedRound: 1, magnitude: 0.2 },
+  ];
+  state.enemyIntents = {
+    "enemy-1": {
+      abilityId: "catchBreath",
+      targetId: "enemy-1",
+      targetIds: ["enemy-1"],
+    },
+  };
+
+  const result = resolveRound(state, createEmptyRoundSelections());
+  const remainingStatusIds = result.nextState.enemies[0].statuses.map(
+    (status) => status.id,
+  );
+  const rest = result.events.find(
+    (event) => event.type === "wait" && event.abilityId === "catchBreath",
+  );
+
+  assert.deepEqual(remainingStatusIds.sort(), ["cracked", "weakened"]);
+  assert.ok(rest && rest.type === "wait");
+  assert.equal(rest.statusChanges.length, 5);
+});

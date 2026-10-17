@@ -11,7 +11,9 @@ export type CharacterPreset = {
   developmentSpiritIds: SpiritId[];
 };
 
-function createStartingStats(): CombatStats {
+function createStartingStats(
+  overrides: Partial<Omit<CombatStats, "elementalPower">> = {},
+): CombatStats {
   return {
     maxHp: 100,
     maxPp: 50,
@@ -20,6 +22,7 @@ function createStartingStats(): CombatStats {
     defense: 10,
     resistance: 10,
     agility: 10,
+    ...overrides,
     elementalPower: {
       fire: 10,
       water: 10,
@@ -31,7 +34,15 @@ function createStartingStats(): CombatStats {
 
 export const CHARACTER_PRESETS = {
   char1: {
-    stats: createStartingStats(),
+    stats: createStartingStats({
+      maxHp: 95,
+      maxPp: 55,
+      attack: 10,
+      defense: 9,
+      resistance: 11,
+      agility: 12,
+      criticalChance: 0.05,
+    }),
     developmentAbilityRanks: {
       autoAttack: 1,
       defend: 1,
@@ -71,7 +82,15 @@ export const CHARACTER_PRESETS = {
     ],
   },
   char2: {
-    stats: createStartingStats(),
+    stats: createStartingStats({
+      maxHp: 110,
+      maxPp: 50,
+      attack: 12,
+      defense: 12,
+      resistance: 9,
+      agility: 10,
+      criticalChance: 0,
+    }),
     developmentAbilityRanks: {
       autoAttack: 1,
       defend: 1,

@@ -89,10 +89,11 @@ export function applyCharacterHp(
     const phoenix = character.spirits.phoenix;
 
     if (phoenix && phoenix.activeUsesRemaining > 0) {
+      const rankTwo = phoenix.rank === 2;
       return {
         ...character,
-        hp: Math.min(character.stats.maxHp, PHOENIX_REBIRTH_HP),
-        barrier: PHOENIX_REBIRTH_BARRIER,
+        hp: Math.min(character.stats.maxHp, rankTwo ? 55 : PHOENIX_REBIRTH_HP),
+        barrier: rankTwo ? 20 : PHOENIX_REBIRTH_BARRIER,
         statuses: character.statuses.filter(
           (status) => !PHOENIX_CLEANSED_STATUS_IDS.has(status.id),
         ),

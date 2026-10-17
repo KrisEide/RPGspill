@@ -33,8 +33,8 @@ test("victory restores 5 HP and 5 PP through a final recovery event", () => {
   const state = createInitialCombatState(setup);
   state.characters["character-1"].hp = 50;
   state.characters["character-1"].pp = 10;
-  state.characters["character-2"].hp = 98;
-  state.characters["character-2"].pp = 48;
+  state.characters["character-2"].hp = state.characters["character-2"].stats.maxHp - 2;
+  state.characters["character-2"].pp = state.characters["character-2"].stats.maxPp - 2;
   state.enemies.forEach((enemy, index) => {
     enemy.hp = index === 0 ? 1 : 0;
   });
@@ -70,7 +70,7 @@ test("victory restores 5 HP and 5 PP through a final recovery event", () => {
         targetId: "character-2",
         hpRestored: 2,
         ppRestored: 2,
-        remainingHp: 100,
+        remainingHp: 110,
         remainingPp: 50,
       },
     ]);

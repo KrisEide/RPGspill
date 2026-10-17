@@ -18,15 +18,15 @@ test("Embertail active deals 6 + 30% Fire Power to all enemies and applies Burn"
   ]);
 });
 
-test("Stoneback active grants 12 + 40% Earth Power Barrier to both heroes", () => {
+test("Stoneback active grants 8 + 25% Earth Power Barrier to both heroes", () => {
   const ability = ABILITIES.stoneback;
 
   assert.equal(ability.target, "allAllies");
   assert.deepEqual(ability.ranks[1].effects, [
     {
       type: "barrier",
-      amount: 12,
-      elementalPowerScaling: 0.4,
+      amount: 8,
+      elementalPowerScaling: 0.25,
     },
   ]);
 });
@@ -57,4 +57,3 @@ test("Warhound active deals 22 + 80% Attack Physical damage", () => {
     },
   ]);
 });
-

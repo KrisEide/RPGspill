@@ -62,7 +62,7 @@ test("Orc Grunt charges a weaker Multi Attack before releasing it", () => {
     null,
   ]);
   assert.equal(multiAttack.effects[0].type, "damage");
-  assert.equal(multiAttack.effects[0].basePower, 6);
+  assert.equal(multiAttack.effects[0].basePower, 7);
 
   const charged = resolveGruntCharge();
   assert.ok(

@@ -56,7 +56,7 @@ test("Earth Demon is summoned with scaled HP and attacks at round end", () => {
   const result = summonDemon();
   assert.equal(result.nextState.earthDemon?.maxHp, 40);
   assert.equal(result.nextState.earthDemon?.hp, 40);
-  assert.equal(result.nextState.characters["character-1"].pp, 30);
+  assert.equal(result.nextState.characters["character-1"].pp, 35);
   assert.ok(result.events.some((event) => event.type === "earthDemonSummoned"));
   assert.ok(result.events.some((event) => event.type === "earthDemonAttack"));
 });

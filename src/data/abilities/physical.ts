@@ -44,35 +44,44 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Physical damage that applies Bleed.",
+        shortDescription: "Physical damage that applies Bleed. Can critically hit.",
         description:
-          "Deal Physical damage to one enemy and apply Bleed for 3 rounds.",
+          "Deal Physical damage to one enemy and apply Bleed for 3 rounds. This ability can critically hit.",
         ppCost: 5,
         effects: [
           {
             type: "damage",
             damageType: "physical",
             basePower: 11,
-            attackScaling: 0.6,
+            attackScaling: 1,
             elementalPowerScaling: 0,
+            criticalHit: {
+              chance: 0.05,
+              damageMultiplier: 1.5,
+            },
             statusOnHit: { statusId: "bleed" },
           },
         ],
       },
       2: {
-        shortDescription: "Stronger damage that tears open an existing Bleed.",
+        shortDescription:
+          "Stronger damage that tears open an existing Bleed. Can critically hit.",
         description:
-          "Deal Physical damage to one enemy and apply Bleed. If the target was already Bleeding, trigger one Bleed tick immediately.",
+          "Deal Physical damage to one enemy and apply Bleed. If the target was already Bleeding, trigger one Bleed tick immediately. This ability can critically hit.",
         newEffectDescription:
-          "Base Power increases to 14 and Attack scaling to 70%. Hitting an already Bleeding target triggers one Bleed tick immediately.",
+          "Base Power increases to 14. Hitting an already Bleeding target triggers one Bleed tick immediately.",
         ppCost: 5,
         effects: [
           {
             type: "damage",
             damageType: "physical",
             basePower: 14,
-            attackScaling: 0.7,
+            attackScaling: 1,
             elementalPowerScaling: 0,
+            criticalHit: {
+              chance: 0.05,
+              damageMultiplier: 1.5,
+            },
             statusOnHit: {
               statusId: "bleed",
               triggerTickIfAlreadyActive: true,

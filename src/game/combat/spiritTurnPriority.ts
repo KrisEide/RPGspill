@@ -1,4 +1,4 @@
-import { SPIRIT_DEFINITIONS } from "../../data/spirits";
+import { getSpiritPassive } from "../../data/spirits";
 import { CHARACTER_ORDER, isCharacterInstanceId } from "../playerControl";
 import type {
   CombatState,
@@ -20,12 +20,10 @@ export function prepareRoundTurnPriorities(
 
     for (const spiritId of Object.keys(spirits).sort() as SpiritId[]) {
       const spirit = spirits[spiritId];
-      const passive =
-        SPIRIT_DEFINITIONS[spiritId].passive.roundStartTurnPriority;
-
       if (!spirit) {
         continue;
       }
+      const passive = getSpiritPassive(spirit).roundStartTurnPriority;
 
       let roundPriorityActive = false;
 
@@ -74,8 +72,7 @@ export function getSpiritTurnResolutionPriority(
 
       return Math.max(
         highestPriority,
-        SPIRIT_DEFINITIONS[spirit.id].passive.roundStartTurnPriority
-          ?.resolutionPriority ?? 0,
+        getSpiritPassive(spirit).roundStartTurnPriority?.resolutionPriority ?? 0,
       );
     },
     0,
