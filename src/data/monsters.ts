@@ -359,7 +359,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       elementalPower: { fire: 0, water: 0, earth: 0, wind: 0 },
     },
     abilityRanks: { goatStomp: 1, goatCharge: 1 },
-    repeatingActionPattern: ["goatStomp", null, "goatCharge", null],
+    repeatingActionPattern: ["goatStomp", "goatCharge"],
   },
   goat2: {
     id: "goat2",
@@ -377,6 +377,6 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       elementalPower: { fire: 0, water: 0, earth: 0, wind: 0 },
     },
     abilityRanks: { goatStomp: 1, goatCharge: 1 },
-    repeatingActionPattern: [null, "goatCharge", null, "goatStomp"],
+    repeatingActionPattern: ["goatCharge", "goatStomp"],
   },
 };

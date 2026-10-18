@@ -3807,6 +3807,55 @@ export function resolveRound(
         continue;
       }
 
+      if (effect.type === "goatStompMark") {
+        const livingCharacterIds = CHARACTER_ORDER.filter(
+          (characterId) => nextState.characters[characterId].hp > 0,
+        );
+
+        if (livingCharacterIds.length === 0) {
+          continue;
+        }
+
+        const targetRoll = nextRandom(randomSeed);
+        randomSeed = targetRoll.nextSeed;
+        const targetId =
+          livingCharacterIds[
+            Math.floor(targetRoll.value * livingCharacterIds.length)
+          ];
+        const incomingStatus: ActiveStatus = {
+          ...createStatusFromSource(
+            nextState,
+            action.actorId,
+            "cracked",
+          ),
+          readiedAbilityId: "goatCharge",
+        };
+        const result = applyStatusToTarget(
+          nextState,
+          targetId,
+          incomingStatus,
+        );
+        nextState = result.state;
+
+        if (result.status) {
+          events.push({
+            type: "statusApplied",
+            actorId: action.actorId,
+            targetId,
+            abilityId: action.abilityId,
+            abilityRank: ability.rank,
+            statusChanges: [
+              {
+                type: "applied",
+                combatantId: targetId,
+                status: result.status,
+              },
+            ],
+          });
+        }
+        continue;
+      }
+
       if (effect.type === "applyStatus") {
         for (const targetId of initialTargetIds) {
           const target = getCombatant(nextState, targetId);
@@ -4283,7 +4332,46 @@ export function resolveRound(
           }
         }
 
+        const goatChargeMark =
+          action.abilityId === "goatCharge"
+            ? currentTarget.statuses.find(
+                (status) =>
+                  status.id === "cracked" &&
+                  status.readiedAbilityId === "goatCharge",
+              )
+            : undefined;
+
+        const consumeGoatChargeMark = () => {
+          if (!goatChargeMark) {
+            return;
+          }
+
+          const target = getCombatant(nextState, targetId);
+          if (!target) {
+            return;
+          }
+
+          nextState = updateStatuses(
+            nextState,
+            targetId,
+            target.statuses.filter(
+              (status) =>
+                !(
+                  status.id === "cracked" &&
+                  status.readiedAbilityId === "goatCharge"
+                ),
+            ),
+          );
+          statusChanges.push({
+            type: "removed",
+            combatantId: targetId,
+            statusId: "cracked",
+            sourceId: goatChargeMark.sourceId,
+          });
+        };
+
         if (earthDemonWillIntercept && nextState.earthDemon && amount > 0) {
+          consumeGoatChargeMark();
           const currentDemon = nextState.earthDemon;
           const remainingHp = Math.max(0, currentDemon.hp - amount);
           const destroyed = remainingHp === 0;
@@ -4354,6 +4442,8 @@ export function resolveRound(
             });
           }
         }
+
+        consumeGoatChargeMark();
 
         if (isCritical && effect.statusOnCriticalHit) {
           const targetAfterConsumption = getCombatant(nextState, targetId);

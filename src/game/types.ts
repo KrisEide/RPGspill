@@ -769,6 +769,10 @@ export type SummonEarthDemonEffect = {
   attackScaling: number;
 };
 
+export type GoatStompMarkEffect = {
+  type: "goatStompMark";
+};
+
 export type AbilityEffect =
   | { type: "bloodpact"; hpCost: number; barrierAmount: number }
   | DamageEffect
@@ -788,7 +792,8 @@ export type AbilityEffect =
   | WaitEffect
   | GainRandomItemEffect
   | CountAsItemUseEffect
-  | SummonEarthDemonEffect;
+  | SummonEarthDemonEffect
+  | GoatStompMarkEffect;
 
 export type AbilityRankDefinition = {
   shortDescription: string;

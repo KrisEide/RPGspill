@@ -589,24 +589,15 @@ export const ACTION_ABILITY_DEFINITIONS = {
     name: "Stomp",
     category: "action",
     resolutionPriority: 0,
-    target: "allEnemies",
+    target: "self",
     element: null,
     ranks: {
       1: {
-        shortDescription: "Damage both heroes and Crack HP targets.",
+        shortDescription: "Mark one hero with Cracked.",
         description:
-          "Deal Physical damage to both heroes. HP damage applies Cracked.",
+          "Mark one random living hero with Cracked. This goat Charges that hero next round.",
         ppCost: 0,
-        effects: [
-          {
-            type: "damage",
-            damageType: "physical",
-            basePower: 6,
-            attackScaling: 0.6,
-            elementalPowerScaling: 0,
-            statusOnHpDamage: { statusId: "cracked" },
-          },
-        ],
+        effects: [{ type: "goatStompMark" }],
       },
     },
   },
@@ -620,8 +611,8 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Heavy Physical damage to one hero.",
-        description: "Charge one random hero for heavy Physical damage.",
+        shortDescription: "Heavy Physical damage to the Cracked hero.",
+        description: "Charge the hero marked by the other goat's Stomp.",
         ppCost: 0,
         effects: [
           {

@@ -59,6 +59,10 @@ function CharacterStatusCard({
   const bleedStatus = character.statuses.find(
     (status) => status.id === "bleed",
   );
+  const goatChargeMark = character.statuses.find(
+    (status) =>
+      status.id === "cracked" && status.readiedAbilityId === "goatCharge",
+  );
   const poisonDamage =
     poisonStatus?.tickBasePower ??
     STATUS_DEFINITIONS.poison.endOfRoundDamage?.basePower ??
@@ -182,6 +186,15 @@ function CharacterStatusCard({
                 title={`Bleed: ${bleedDamage} damage at the end of each round · ${bleedStatus.remainingRounds ?? 1} rounds remaining`}
               >
                 🩸 {bleedDamage}
+              </span>
+            )}
+            {goatChargeMark && (
+              <span
+                className="statusCard__turnPriority"
+                aria-label="Cracked: marked for the next goat Charge"
+                title="Cracked: Marked for the next goat Charge. Defense and Resistance are reduced by 5 until it hits."
+              >
+                🪨−5
               </span>
             )}
             {swiftWingIsActive && (

@@ -97,54 +97,93 @@ test("the goats sit farther back with slightly smaller, softer sprites", () => {
   );
 });
 
-test("only one goat attacks each round in the staggered pattern", () => {
+test("one goat Charges while the other Stomps, then they swap next round", () => {
   const expected = [
-    ["enemy-1", "goatStomp"],
-    ["enemy-2", "goatCharge"],
-    ["enemy-1", "goatCharge"],
-    ["enemy-2", "goatStomp"],
+    { "enemy-1": "goatStomp", "enemy-2": "goatCharge" },
+    { "enemy-1": "goatCharge", "enemy-2": "goatStomp" },
+    { "enemy-1": "goatStomp", "enemy-2": "goatCharge" },
+    { "enemy-1": "goatCharge", "enemy-2": "goatStomp" },
   ] as const;
 
-  for (const [index, [actorId, abilityId]] of expected.entries()) {
+  for (const [index, intents] of expected.entries()) {
     const state = createInitialCombatState(setup);
     state.round = index + 1;
     state.enemyIntents = {};
     const prepared = prepareEnemyIntents(state);
 
-    assert.deepEqual(Object.keys(prepared.enemyIntents), [actorId]);
-    assert.equal(prepared.enemyIntents[actorId]?.abilityId, abilityId);
+    assert.deepEqual(
+      Object.fromEntries(
+        Object.entries(prepared.enemyIntents).map(([actorId, intent]) => [
+          actorId,
+          intent.abilityId,
+        ]),
+      ),
+      intents,
+    );
   }
 });
 
-test("Stomp damages both heroes and Cracks only heroes whose HP it damages", () => {
+test("Stomp deals no damage and marks one random living hero for that goat's next Charge", () => {
   const state = createInitialCombatState(setup);
-  state.characters["character-1"].stats.defense = 0;
-  state.characters["character-2"].stats.defense = 0;
-  state.characters["character-1"].barrier = 20;
   state.round = 1;
   const prepared = prepareEnemyIntents({ ...state, enemyIntents: {} });
   const result = resolveRound(prepared, createEmptyRoundSelections());
 
   assert.equal(
-    result.nextState.characters["character-1"].hp,
-    state.characters["character-1"].hp,
-  );
-  assert.equal(
-    result.nextState.characters["character-1"].statuses.some(
-      (status) => status.id === "cracked",
+    result.events.some(
+      (event) =>
+        (event.type === "damage" || event.type === "multiTargetDamage") &&
+        event.abilityId === "goatStomp",
     ),
     false,
   );
-  const stompDamage =
-    state.characters["character-2"].hp -
-    result.nextState.characters["character-2"].hp;
-  assert.ok(stompDamage >= 13 && stompDamage <= 17);
-  assert.equal(
-    result.nextState.characters["character-2"].statuses.some(
-      (status) => status.id === "cracked",
+
+  const markedCharacterIds = Object.values(result.nextState.characters)
+    .filter((character) =>
+      character.statuses.some(
+        (status) =>
+          status.id === "cracked" && status.readiedAbilityId === "goatCharge",
+      ),
+    )
+    .map((character) => character.instanceId);
+  assert.equal(markedCharacterIds.length, 1);
+
+  const markedCharacterId = markedCharacterIds[0]!;
+  assert.equal(result.nextState.enemyIntents["enemy-1"]?.abilityId, "goatCharge");
+  assert.equal(result.nextState.enemyIntents["enemy-1"]?.targetId, markedCharacterId);
+  assert.ok(
+    result.events.some(
+      (event) =>
+        event.type === "statusApplied" &&
+        event.abilityId === "goatStomp" &&
+        event.targetId === markedCharacterId,
     ),
-    true,
   );
+
+  const charged = resolveRound(
+    result.nextState,
+    createEmptyRoundSelections(),
+  );
+  assert.equal(
+    charged.nextState.characters[markedCharacterId].statuses.some(
+      (status) =>
+        status.id === "cracked" &&
+        status.readiedAbilityId === "goatCharge" &&
+        status.sourceId === "enemy-1",
+    ),
+    false,
+  );
+  assert.ok(
+    charged.nextState.characters[markedCharacterId].hp <
+      result.nextState.characters[markedCharacterId].hp,
+  );
+  const nextMarkedStatus = Object.values(charged.nextState.characters)
+    .flatMap((character) => character.statuses)
+    .find(
+      (status) =>
+        status.id === "cracked" && status.readiedAbilityId === "goatCharge",
+    );
+  assert.equal(nextMarkedStatus?.sourceId, "enemy-2");
 });
 
 test("the Act 2 checkpoint reforms a Ghost and fully restores both heroes", () => {

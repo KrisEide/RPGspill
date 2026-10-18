@@ -199,10 +199,23 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
       enemy,
       livingCharacterIds,
     );
+    const goatChargeTargetId =
+      ability.id === "goatCharge"
+        ? livingCharacterIds.find((characterId) =>
+            state.characters[characterId].statuses.some(
+              (status) =>
+                status.id === "cracked" &&
+                status.readiedAbilityId === "goatCharge",
+            ),
+          )
+        : undefined;
 
     if (ability.target === "self") {
       targetId = enemy.instanceId;
       targetIds = [enemy.instanceId];
+    } else if (goatChargeTargetId) {
+      targetId = goatChargeTargetId;
+      targetIds = [goatChargeTargetId];
     } else if (patternTargetId) {
       targetId = patternTargetId;
       targetIds = [patternTargetId];
