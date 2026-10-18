@@ -11,11 +11,13 @@ import type {
   GameMode,
   PlayerId,
   PortraitId,
+  RunDifficulty,
 } from "../../game/types";
 
 type Props = {
   gameMode: GameMode;
   playerId: PlayerId;
+  runDifficulty?: RunDifficulty;
   onBack?: () => void;
   onConfirm: (character: CharacterDraft) => void | Promise<void>;
 };
@@ -25,6 +27,7 @@ type Step = "character" | "portrait";
 export default function CharacterSelectScreen({
   gameMode,
   playerId,
+  runDifficulty,
   onBack,
   onConfirm,
 }: Props) {
@@ -89,6 +92,11 @@ export default function CharacterSelectScreen({
       <div className="absolute inset-0 bg-black/45" />
 
       <div className="relative w-full max-w-xl px-6">
+        {runDifficulty === "hardTest" && (
+          <div className="mb-5 text-center text-sm font-extrabold uppercase tracking-[0.2em] text-amber-300">
+            Hard Test · Enemies have 15% more Attack
+          </div>
+        )}
         {/* STEP 1: Character Select */}
         {step === "character" && (
           <>

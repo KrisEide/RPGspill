@@ -7,6 +7,7 @@ import type {
   EncounterId,
   PassiveCategory,
   PassiveId,
+  RunDifficulty,
 } from "../../game/types";
 
 type Props = {
@@ -16,7 +17,7 @@ type Props = {
     passives?: Partial<Record<CharacterInstanceId, PassiveId[]>>,
     startInGhostForm?: boolean,
   ) => void;
-  onCreateGame: () => Promise<void>;
+  onCreateGame: (difficulty: RunDifficulty) => Promise<void>;
   onJoinGame: (roomCode: string) => Promise<void>;
 };
 
@@ -68,6 +69,8 @@ export default function StartScreen({
   const [roomCode, setRoomCode] = useState("");
   const [requestInProgress, setRequestInProgress] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [multiplayerDifficulty, setMultiplayerDifficulty] =
+    useState<RunDifficulty>("normal");
   const [developmentMenuOpen, setDevelopmentMenuOpen] = useState(false);
   const [developmentStartInGhostForm, setDevelopmentStartInGhostForm] =
     useState(false);
@@ -197,13 +200,42 @@ export default function StartScreen({
             </div>
           ) : (
             <div className="mx-auto mt-8 w-full max-w-xs">
+              <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-lg border border-white/15 bg-black/20 px-4 py-3 text-left hover:border-amber-300/45">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-amber-400"
+                  checked={multiplayerDifficulty === "hardTest"}
+                  onChange={(event) =>
+                    setMultiplayerDifficulty(
+                      event.target.checked ? "hardTest" : "normal",
+                    )
+                  }
+                />
+                <span>
+                  <span className="block font-bold text-amber-200">
+                    Hard Test
+                  </span>
+                  <span className="mt-0.5 block text-xs text-white/60">
+                    Enemies have 15% more Attack.
+                  </span>
+                </span>
+              </label>
+
               <button
                 type="button"
                 disabled={requestInProgress}
-                onClick={() => void runMultiplayerRequest(onCreateGame)}
+                onClick={() =>
+                  void runMultiplayerRequest(() =>
+                    onCreateGame(multiplayerDifficulty),
+                  )
+                }
                 className="w-full px-6 py-3 rounded-lg bg-white/10 border border-white/20 hover:bg-white/15 active:scale-[0.98]"
               >
-                {requestInProgress ? "Connecting..." : "Create Game"}
+                {requestInProgress
+                  ? "Connecting..."
+                  : multiplayerDifficulty === "hardTest"
+                    ? "Create Hard Test Game"
+                    : "Create Game"}
               </button>
 
               <div className="my-5 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-white/50">

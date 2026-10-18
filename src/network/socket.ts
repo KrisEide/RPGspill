@@ -4,6 +4,7 @@ import type {
   BloodpactSelectionRequest,
   CharacterReadinessState,
   ClientToServerEvents,
+  CreateRoomRequest,
   LobbyState,
   MultiplayerActionRequest,
   MultiplayerActionResult,
@@ -87,11 +88,13 @@ export function subscribeToBloodpact(handleUpdated: (state: CombatState) => void
   return () => { socket.off("bloodpactUpdated", handleUpdated); };
 }
 
-export async function createMultiplayerRoom() {
+export async function createMultiplayerRoom(
+  difficulty: CreateRoomRequest["difficulty"] = "normal",
+) {
   await connect();
 
   return new Promise<RoomConnection>((resolve) => {
-    socket.emit("createRoom", resolve);
+    socket.emit("createRoom", { difficulty }, resolve);
   });
 }
 

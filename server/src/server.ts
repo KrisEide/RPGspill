@@ -44,6 +44,7 @@ import type {
   PlayerId,
   RewardChoiceId,
   RoundSelections,
+  RunDifficulty,
 } from "../../src/game/types";
 import type {
   CharacterReadinessState,
@@ -67,6 +68,7 @@ type ConnectedPlayer = {
 
 type GameRoom = {
   code: string;
+  difficulty: RunDifficulty;
   player1: ConnectedPlayer;
   player2: ConnectedPlayer | null;
   combatState: CombatState | null;
@@ -139,6 +141,7 @@ function createLobbyState(room: GameRoom): LobbyState {
 
   return {
     roomCode: room.code,
+    difficulty: room.difficulty,
     status: room.player2 ? "ready" : "waitingForPlayer",
     connectedPlayerIds,
   };
@@ -263,6 +266,7 @@ function startBattleIfReady(room: GameRoom) {
   const setup: GameSetup = {
     mode: "twoPlayer",
     initialLoadout: "run",
+    difficulty: room.difficulty,
     randomSeed: randomInt(0, 0x1_0000_0000),
     players: {
       player1: {
@@ -302,10 +306,12 @@ io.on("connection", (socket) => {
     respond(true);
     io.to(room.code).emit("bloodpactUpdated", nextState);
   });
-  socket.on("createRoom", async (respond) => {
+  socket.on("createRoom", async (request, respond) => {
     const roomCode = createRoomCode();
     const room: GameRoom = {
       code: roomCode,
+      difficulty:
+        request.difficulty === "hardTest" ? "hardTest" : "normal",
       player1: {
         playerId: "player1",
         socketId: socket.id,

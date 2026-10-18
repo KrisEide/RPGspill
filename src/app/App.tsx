@@ -30,6 +30,7 @@ import type {
   PassiveId,
   PlayerId,
   PlayerSetup,
+  RunDifficulty,
 } from "../game/types";
 
 type Screen =
@@ -187,8 +188,8 @@ export default function App() {
     setScreen("start");
   };
 
-  const createGame = async () => {
-    const connection = await createMultiplayerRoom();
+  const createGame = async (difficulty: RunDifficulty) => {
+    const connection = await createMultiplayerRoom(difficulty);
     roomConnectionRef.current = connection;
     setRoomConnection(connection);
     setCharacterReadiness(null);
@@ -261,6 +262,7 @@ export default function App() {
         key={selectingPlayerId}
         gameMode={gameMode ?? "singlePlayer"}
         playerId={selectingPlayerId}
+        runDifficulty={roomConnection?.lobby.difficulty}
         onBack={
           gameMode === "singlePlayer" ? goBackFromCharacterSelect : undefined
         }

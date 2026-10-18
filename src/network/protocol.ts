@@ -10,12 +10,14 @@ import type {
   PlayerId,
   RewardChoiceId,
   RoundResult,
+  RunDifficulty,
 } from "../game/types";
 
 export type LobbyStatus = "waitingForPlayer" | "ready";
 
 export type LobbyState = {
   roomCode: string;
+  difficulty: RunDifficulty;
   status: LobbyStatus;
   connectedPlayerIds: PlayerId[];
 };
@@ -28,6 +30,10 @@ export type RoomConnection = {
 
 export type JoinRoomRequest = {
   roomCode: string;
+};
+
+export type CreateRoomRequest = {
+  difficulty: RunDifficulty;
 };
 
 export type BloodpactSelectionRequest = {
@@ -126,7 +132,10 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   selectBloodpact: (request: BloodpactSelectionRequest, respond: (accepted: boolean) => void) => void;
-  createRoom: (respond: (connection: RoomConnection) => void) => void;
+  createRoom: (
+    request: CreateRoomRequest,
+    respond: (connection: RoomConnection) => void,
+  ) => void;
   joinRoom: (
     request: JoinRoomRequest,
     respond: (result: JoinRoomResult) => void,

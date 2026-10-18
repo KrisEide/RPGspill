@@ -112,6 +112,7 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
 
   const initialState: CombatState = {
     mode: setup.mode,
+    difficulty: setup.difficulty ?? "normal",
     encounterId,
     randomSeed: setup.randomSeed,
     round: 1,
@@ -142,7 +143,10 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
         setup.developmentStartInGhostForm ?? false,
       ),
     },
-    enemies: createEncounterEnemies(encounterId),
+    enemies: createEncounterEnemies(
+      encounterId,
+      setup.difficulty ?? "normal",
+    ),
     enemyIntents: {},
     restStage: isRest ? "choice" : null,
     actTransitionStage: null,

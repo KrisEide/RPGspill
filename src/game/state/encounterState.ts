@@ -13,7 +13,10 @@ import type {
   EnemyId,
   EnemyInstanceId,
   EnemyState,
+  RunDifficulty,
 } from "../types";
+
+const HARD_TEST_ENEMY_ATTACK_MULTIPLIER = 1.15;
 
 function copyCombatStats(stats: CombatStats): CombatStats {
   return {
@@ -25,9 +28,15 @@ function copyCombatStats(stats: CombatStats): CombatStats {
 function createEnemyState(
   enemyId: EnemyId,
   instanceId: EnemyInstanceId,
+  difficulty: RunDifficulty,
 ): EnemyState {
   const definition = ENEMY_DEFINITIONS[enemyId];
   const stats = copyCombatStats(definition.stats);
+  if (difficulty === "hardTest") {
+    stats.attack = Math.round(
+      stats.attack * HARD_TEST_ENEMY_ATTACK_MULTIPLIER,
+    );
+  }
 
   return {
     instanceId,
@@ -55,9 +64,13 @@ function createEnemyState(
   };
 }
 
-export function createEncounterEnemies(encounterId: EncounterId) {
+export function createEncounterEnemies(
+  encounterId: EncounterId,
+  difficulty: RunDifficulty = "normal",
+) {
   return ENCOUNTER_DEFINITIONS[encounterId].enemies.map(
-    ({ enemyId, instanceId }) => createEnemyState(enemyId, instanceId),
+    ({ enemyId, instanceId }) =>
+      createEnemyState(enemyId, instanceId, difficulty),
   );
 }
 
@@ -124,7 +137,7 @@ export function startEncounter(
         encounter.fullPartyRestore ?? false,
       ),
     },
-    enemies: createEncounterEnemies(encounterId),
+    enemies: createEncounterEnemies(encounterId, currentState.difficulty),
     enemyIntents: {},
     restStage: isRest ? "choice" : null,
     actTransitionStage: null,

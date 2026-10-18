@@ -9,6 +9,7 @@ export type CombatantId = CharacterInstanceId | EnemyInstanceId;
 export type GameMode = "singlePlayer" | "twoPlayer";
 
 export type InitialLoadout = "run" | "development";
+export type RunDifficulty = "normal" | "hardTest";
 
 export type CharacterPresetId = "char1" | "char2";
 
@@ -947,6 +948,7 @@ export type PlayerSetup = {
 export type GameSetup = {
   mode: GameMode;
   initialLoadout: InitialLoadout;
+  difficulty?: RunDifficulty;
   randomSeed: number;
   startingEncounterId?: EncounterId;
   developmentStartInGhostForm?: boolean;
@@ -1411,6 +1413,7 @@ export type GamePhase = RoundOutcomePhase | "animating";
 
 export type CombatState = {
   mode: GameMode;
+  difficulty: RunDifficulty;
   encounterId: EncounterId;
   randomSeed: number;
   round: number;

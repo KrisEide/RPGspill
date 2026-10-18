@@ -2497,7 +2497,10 @@ export default function BattleScreen(props: Props) {
       )}
 
       {encounter.kind === "combat" && (
-        <div className="battleRound">Round {combatState.round}</div>
+        <div className="battleRound">
+          {combatState.difficulty === "hardTest" && "Hard Test · "}
+          Round {combatState.round}
+        </div>
       )}
 
       {encounterEnemyTraits.length > 0 && (
