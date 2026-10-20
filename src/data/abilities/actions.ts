@@ -34,6 +34,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
     name: "Defend",
     category: "action",
     resolutionPriority: 100,
+    turnOrderRule: "absoluteFirst",
     target: "self",
     element: null,
     ranks: {
@@ -626,6 +627,36 @@ export const ACTION_ABILITY_DEFINITIONS = {
       },
     },
   },
+  rockwhistlerAttack: {
+    id: "rockwhistlerAttack", name: "Bite", category: "action", resolutionPriority: 0,
+    target: "singleEnemy", element: null, aiTargeting: "randomLivingCharacter",
+    ranks: { 1: { shortDescription: "Physical damage.", description: "Bite one hero.", ppCost: 0,
+      effects: [{ type: "damage", damageType: "physical", basePower: 6, attackScaling: 0.5, elementalPowerScaling: 0 }] } },
+  },
+  rockwhistlerPackAttack: {
+    id: "rockwhistlerPackAttack", name: "Pack Attack", category: "action", resolutionPriority: 0,
+    target: "singleEnemy", element: null,
+    ranks: { 1: { shortDescription: "The pack focuses one hero.", description: "Attack the pack's marked hero. Defend is especially effective.", ppCost: 0,
+      effects: [{ type: "damage", damageType: "physical", basePower: 6, attackScaling: 0.5, elementalPowerScaling: 0 }] } },
+  },
+  rockwhistlerBurrow: {
+    id: "rockwhistlerBurrow", name: "Burrow", category: "action", resolutionPriority: 900,
+    target: "self", element: null,
+    ranks: { 1: { shortDescription: "Disappear underground.", description: "Become untargetable and prepare an Ambush.", ppCost: 0,
+      effects: [{ type: "charge", readiesAbilityId: "rockwhistlerAmbush", actorStatusId: "burrowed" }] } },
+  },
+  rockwhistlerAmbush: {
+    id: "rockwhistlerAmbush", name: "Ambush", category: "action", resolutionPriority: 900,
+    target: "singleEnemy", element: null, aiTargeting: "randomLivingCharacter",
+    ranks: { 1: { shortDescription: "Erupt from below.", description: "Return from underground and strike a random hero.", ppCost: 0,
+      effects: [{ type: "damage", damageType: "physical", basePower: 10, attackScaling: 0.6, elementalPowerScaling: 0 }] } },
+  },
+  rockwhistlerCall: {
+    id: "rockwhistlerCall", name: "Call", category: "action", resolutionPriority: 950,
+    target: "self", element: null,
+    ranks: { 1: { shortDescription: "Call two packmates.", description: "Summon two Rockwhistlers. Can happen once.", ppCost: 0,
+      effects: [{ type: "summonEnemies", enemyId: "rockwhistler", count: 2 }] } },
+  },
 } satisfies Record<
   | "autoAttack"
   | "defend"
@@ -653,6 +684,11 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "smash"
   | "catchBreath"
   | "goatStomp"
-  | "goatCharge",
+  | "goatCharge"
+  | "rockwhistlerAttack"
+  | "rockwhistlerPackAttack"
+  | "rockwhistlerBurrow"
+  | "rockwhistlerAmbush"
+  | "rockwhistlerCall",
   AbilityDefinition
 >;

@@ -17,6 +17,9 @@ import healEffect from "../../../assets/Effect/healeffekt.png";
 import warhoundEffect from "../../../assets/Effect/warhound.png";
 import steelDartEffect from "../../../assets/icons/steeldart.png";
 import dreadflameEffect from "../../../assets/sprites/monsters/orcs/orcwizard_effekt.png";
+import steamBurstEffect from "../../../assets/Effect/steamburst.png";
+import steamBurstExplosionEffect from "../../../assets/Effect/steamburstburnexplosion.png";
+import rockwhistlerBurrowAttackEffect from "../../../assets/sprites/act2monsters/rockwhistler_burrowattack.png";
 import type { AbilityId } from "../../../game/types";
 
 export type AbilityVisualDefinition = {
@@ -43,6 +46,7 @@ export type AbilityVisualDefinition = {
     variant:
       | "water"
       | "tidalDrain"
+      | "steamBurst"
       | "dreadflame"
       | "cinderCurse"
       | "cinderCurseTick"
@@ -59,7 +63,8 @@ export type AbilityVisualDefinition = {
       | "cycloneHit3"
       | "lacerate"
       | "stonebreaker"
-      | "warhound";
+      | "warhound"
+      | "rockwhistlerAmbush";
     durationMs?: number;
   };
   supportEffect?: {
@@ -77,7 +82,12 @@ export type AbilityVisualDefinition = {
   battlefieldEffect?: {
     spriteSrc: string;
     width: number;
-    variant: "cinderburst" | "stoneback" | "earthquake" | "razorGale";
+    variant:
+      | "cinderburst"
+      | "stoneback"
+      | "earthquake"
+      | "razorGale"
+      | "steamBurstExplosion";
     position?: {
       left: string;
       top: string;
@@ -88,6 +98,60 @@ export type AbilityVisualDefinition = {
 export const ABILITY_VISUALS: Partial<
   Record<AbilityId, AbilityVisualDefinition>
 > = {
+  rockwhistlerAttack: {
+    icon: "⚔",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2400,
+      impactDelayMs: 1350,
+      eventDurationMs: 2900,
+      damageNumberDurationMs: 1500,
+    },
+  },
+  rockwhistlerPackAttack: {
+    icon: "⚔",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2400,
+      impactDelayMs: 1350,
+      eventDurationMs: 2900,
+      damageNumberDurationMs: 1500,
+    },
+  },
+  rockwhistlerBurrow: {
+    icon: "▼",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 3800,
+      impactDelayMs: 3000,
+      eventDurationMs: 4400,
+    },
+  },
+  rockwhistlerAmbush: {
+    icon: "▲",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 3000,
+      impactDelayMs: 1800,
+      eventDurationMs: 3600,
+      damageNumberDurationMs: 1700,
+    },
+    targetEffect: {
+      spriteSrc: rockwhistlerBurrowAttackEffect,
+      width: 330,
+      variant: "rockwhistlerAmbush",
+      durationMs: 2500,
+    },
+  },
+  rockwhistlerCall: {
+    icon: "◉",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 4200,
+      impactDelayMs: 2800,
+      eventDurationMs: 4800,
+    },
+  },
   sacrificialStrike: {
     icon: "🩸",
     animation: "melee",
@@ -370,6 +434,29 @@ export const ABILITY_VISUALS: Partial<
       spriteSrc: crashingWaveEffect,
       width: 220,
       variant: "tidalDrain",
+    },
+    impact: "water",
+  },
+  steamBurst: {
+    icon: "💨",
+    animation: "cast",
+    castVariant: "water",
+    timing: {
+      animationDurationMs: 3600,
+      impactDelayMs: 2050,
+      eventDurationMs: 4400,
+      damageNumberDurationMs: 1700,
+    },
+    targetEffect: {
+      spriteSrc: steamBurstEffect,
+      width: 330,
+      variant: "steamBurst",
+      durationMs: 3500,
+    },
+    battlefieldEffect: {
+      spriteSrc: steamBurstExplosionEffect,
+      width: 760,
+      variant: "steamBurstExplosion",
     },
     impact: "water",
   },

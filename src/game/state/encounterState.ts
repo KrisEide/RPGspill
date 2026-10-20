@@ -16,7 +16,10 @@ import type {
   RunDifficulty,
 } from "../types";
 
-const HARD_TEST_ENEMY_ATTACK_MULTIPLIER = 1.15;
+const ENEMY_ATTACK_MULTIPLIERS: Record<RunDifficulty, number> = {
+  normal: 1.1,
+  hard: 1.25,
+};
 
 function copyCombatStats(stats: CombatStats): CombatStats {
   return {
@@ -25,18 +28,16 @@ function copyCombatStats(stats: CombatStats): CombatStats {
   };
 }
 
-function createEnemyState(
+export function createEnemyState(
   enemyId: EnemyId,
   instanceId: EnemyInstanceId,
   difficulty: RunDifficulty,
 ): EnemyState {
   const definition = ENEMY_DEFINITIONS[enemyId];
   const stats = copyCombatStats(definition.stats);
-  if (difficulty === "hardTest") {
-    stats.attack = Math.round(
-      stats.attack * HARD_TEST_ENEMY_ATTACK_MULTIPLIER,
-    );
-  }
+  stats.attack = Math.round(
+    stats.attack * ENEMY_ATTACK_MULTIPLIERS[difficulty],
+  );
 
   return {
     instanceId,

@@ -28,7 +28,7 @@ export const FIRE_ABILITY_DEFINITIONS = {
         description:
           "Deal heavy Fire damage to one enemy and apply Burn for 2 rounds.",
         newEffectDescription:
-          "Fireball applies Burn. Burn deals 3 Fire damage at the end of the round for 2 rounds and does not stack.",
+          "Fireball applies Burn. Burn deals 4 damage at the end of the round for 2 rounds, ignores Resistance, and does not stack.",
         ppCost: 7,
         effects: [
           {

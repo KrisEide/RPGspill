@@ -187,11 +187,25 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     kind: "combat",
     number: 14,
     title: "The Mountain Pass",
-    nextEncounterId: null,
+    nextEncounterId: "rockwhistlerRidge",
     fullPartyRestore: true,
     enemies: [
       { enemyId: "goat1", instanceId: "enemy-1" },
       { enemyId: "goat2", instanceId: "enemy-2" },
+    ],
+  },
+  rockwhistlerRidge: {
+    id: "rockwhistlerRidge",
+    kind: "combat",
+    number: 15,
+    title: "Rockwhistler Ridge",
+    nextEncounterId: null,
+    enemies: [
+      { enemyId: "rockwhistler", instanceId: "enemy-1" },
+      { enemyId: "rockwhistler", instanceId: "enemy-2" },
+      { enemyId: "rockwhistler", instanceId: "enemy-3" },
+      { enemyId: "rockwhistler", instanceId: "enemy-4" },
+      { enemyId: "rockwhistler", instanceId: "enemy-5" },
     ],
   },
 };

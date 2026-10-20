@@ -101,6 +101,63 @@ export const WATER_ABILITY_DEFINITIONS = {
       },
     },
   },
+  steamBurst: {
+    id: "steamBurst",
+    name: "Steam Burst",
+    category: "ability",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: "water",
+    ranks: {
+      1: {
+        shortDescription: "Water damage that detonates Burn into steam.",
+        description:
+          "Deal 20 + 80% of Water Power as Water damage. If the target is Burning, remove Burn from every enemy and deal 17 + 70% of Water Power as Water damage to all other enemies.",
+        ppCost: 7,
+        effects: [
+          {
+            type: "damage",
+            damageType: "elemental",
+            basePower: 20,
+            attackScaling: 0,
+            elementalPowerScaling: 0.8,
+            steamBurst: {
+              consumeStatusId: "burn",
+              damageAllOtherEnemies: true,
+              explosionBasePower: 17,
+              explosionElementalPowerScaling: 0.7,
+              consumeStatusFromAllEnemies: true,
+            },
+          },
+        ],
+      },
+      2: {
+        shortDescription: "Stronger steam damage that Weakens every enemy hit.",
+        description:
+          "Deal 24 + 90% of Water Power as Water damage and apply Weak. If the target is Burning, remove Burn from every enemy and deal 20 + 80% of Water Power as Water damage and apply Weak to all other enemies.",
+        newEffectDescription:
+          "Damage increases. When the steam explosion triggers, every enemy hit deals 30% less damage with its next attack.",
+        ppCost: 7,
+        effects: [
+          {
+            type: "damage",
+            damageType: "elemental",
+            basePower: 24,
+            attackScaling: 0,
+            elementalPowerScaling: 0.9,
+            statusOnHit: { statusId: "weakened", magnitude: 0.3 },
+            steamBurst: {
+              consumeStatusId: "burn",
+              damageAllOtherEnemies: true,
+              explosionBasePower: 20,
+              explosionElementalPowerScaling: 0.8,
+              consumeStatusFromAllEnemies: true,
+            },
+          },
+        ],
+      },
+    },
+  },
   restoringCurrent: {
     id: "restoringCurrent",
     name: "Restoring Current",
@@ -190,6 +247,10 @@ export const WATER_ABILITY_DEFINITIONS = {
     },
   },
 } satisfies Record<
-  "crashingWave" | "tidalDrain" | "restoringCurrent" | "healingTide",
+  | "crashingWave"
+  | "tidalDrain"
+  | "steamBurst"
+  | "restoringCurrent"
+  | "healingTide",
   AbilityDefinition
 >;

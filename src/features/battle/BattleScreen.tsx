@@ -29,7 +29,7 @@ import DamageNumber from "./components/DamageNumber";
 import PartyStatusPanel from "./components/PartyStatusPanel";
 import UpgradeSelection from "./components/UpgradeSelection";
 import StatsPage from "./components/StatsPage";
-import { useShiftHeld } from "./hooks/useShiftHeld";
+import { useTabHeld } from "./hooks/useTabHeld";
 import { CHARACTER_VISUALS } from "./data/characterVisuals";
 import { ABILITY_VISUALS } from "./data/abilityVisuals";
 import { getDefendPassiveBonuses } from "./data/defendBonuses";
@@ -71,6 +71,7 @@ import {
   isEnemySleeping,
   isEnemyTargetable,
 } from "../../game/combat/targeting";
+import { shouldAutoResolveRockwhistlerAmbush } from "../../game/combat/rockwhistler";
 import {
   getAbilityScalingDescription,
   getKnownAbilityIds,
@@ -154,6 +155,8 @@ const TWIN_FLAMES_FOLLOW_UP_EVENT_DURATION_MS = 2800;
 const TWIN_FLAMES_GHOST_EVENT_DURATION_MS = 7200;
 const CYCLONE_FOLLOW_UP_IMPACT_DELAY_MS = 900;
 const CYCLONE_FOLLOW_UP_EVENT_DURATION_MS = 1850;
+const STEAM_BURST_EXPLOSION_IMPACT_DELAY_MS = 900;
+const STEAM_BURST_EXPLOSION_EVENT_DURATION_MS = 3300;
 const BACKWIND_EMPOWERED_DURATION_MULTIPLIER = 1.35;
 const ENEMY_DEATH_FADE_DELAY_MS = 180;
 const ENEMY_DEATH_FADE_DURATION_MS = 650;
@@ -549,6 +552,13 @@ function getTargetEffectForTarget(
     (event.type === "damage" || event.type === "multiTargetDamage") &&
     getDamageImpactForTarget(event, targetId)
   ) {
+    if (
+      event.type === "multiTargetDamage" &&
+      event.abilityId === "steamBurst"
+    ) {
+      return null;
+    }
+
     if (event.type === "damage" && event.abilityId === "cyclone") {
       const targetEffect = ABILITY_VISUALS.cyclone?.targetEffect;
 
@@ -662,7 +672,7 @@ function resolveCharacterAction(
 }
 
 export default function BattleScreen(props: Props) {
-  const shiftHeld = useShiftHeld();
+  const tabHeld = useTabHeld();
   const [bloodpactSubmitting, setBloodpactSubmitting] = useState(false);
   const [bloodpactError, setBloodpactError] = useState<string | null>(null);
   const [gameState, dispatch] = useReducer(
@@ -807,7 +817,7 @@ export default function BattleScreen(props: Props) {
         ],
       );
   const statsPageIsVisible =
-    shiftHeld &&
+    tabHeld &&
     encounter.kind === "combat" &&
     encounterIntroComplete &&
     gameState.phase === "selectingActions" &&
@@ -1045,6 +1055,7 @@ export default function BattleScreen(props: Props) {
     currentCombatEvent?.type === "statusApplied" ||
     currentCombatEvent?.type === "charge" ||
     currentCombatEvent?.type === "earthDemonSummoned" ||
+    currentCombatEvent?.type === "enemySummoned" ||
     currentCombatEvent?.type === "wake" ||
     currentCombatEvent?.type === "wait"
       ? ABILITY_VISUALS[currentCombatEvent.abilityId]
@@ -1147,9 +1158,12 @@ export default function BattleScreen(props: Props) {
         }
       : null;
   const currentBattlefieldEffectDurationMs =
-    currentItemBattlefieldEffect?.durationMs ??
-    currentAbilityVisuals?.timing?.animationDurationMs ??
-    COMBAT_EVENT_DURATION_MS;
+    currentCombatEvent?.type === "multiTargetDamage" &&
+    currentCombatEvent.abilityId === "steamBurst"
+      ? STEAM_BURST_EXPLOSION_EVENT_DURATION_MS
+      : currentItemBattlefieldEffect?.durationMs ??
+        currentAbilityVisuals?.timing?.animationDurationMs ??
+        COMBAT_EVENT_DURATION_MS;
   const encounterEnemyTraits = Array.from(
     new Map(
       combatState.enemies.flatMap((enemy) => {
@@ -1178,12 +1192,14 @@ export default function BattleScreen(props: Props) {
         (status) => status.id === "abilityCharge",
       ),
   );
+  const autoRockwhistlerAmbush =
+    shouldAutoResolveRockwhistlerAmbush(combatState);
 
   useEffect(() => {
     if (
       !encounterIntroComplete ||
       gameState.phase !== "selectingActions" ||
-      !hasReadiedAbility
+      (!hasReadiedAbility && !autoRockwhistlerAmbush)
     ) {
       return;
     }
@@ -1196,10 +1212,11 @@ export default function BattleScreen(props: Props) {
 
     if (isMultiplayer) {
       const serverSaysEveryoneIsReady =
-        playerReadiness?.round === combatState.round &&
+        autoRockwhistlerAmbush ||
+        (playerReadiness?.round === combatState.round &&
         PLAYER_ORDER.every((playerId) =>
           playerReadiness.readyPlayerIds.includes(playerId),
-        );
+        ));
 
       if (!serverSaysEveryoneIsReady) {
         return;
@@ -1213,6 +1230,7 @@ export default function BattleScreen(props: Props) {
     }
 
     if (
+      !autoRockwhistlerAmbush &&
       !areAllLivingPlayersReady(
         combatState,
         gameState.roundSelections,
@@ -1229,6 +1247,7 @@ export default function BattleScreen(props: Props) {
     gameState.phase,
     gameState.roundSelections,
     hasReadiedAbility,
+    autoRockwhistlerAmbush,
     isMultiplayer,
     playerReadiness,
   ]);
@@ -1503,6 +1522,9 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "damage" &&
       currentCombatEvent.abilityId === "cyclone" &&
       (currentCombatEvent.multiHitIndex ?? 0) > 0;
+    const isSteamBurstExplosion =
+      currentCombatEvent.type === "multiTargetDamage" &&
+      currentCombatEvent.abilityId === "steamBurst";
     const isBackwindEmpowered =
       currentCombatEvent.type === "damage" &&
       currentCombatEvent.abilityId === "backwind" &&
@@ -1534,6 +1556,8 @@ export default function BattleScreen(props: Props) {
         ? TWIN_FLAMES_FOLLOW_UP_IMPACT_DELAY_MS
       : isCycloneFollowUp
         ? CYCLONE_FOLLOW_UP_IMPACT_DELAY_MS
+      : isSteamBurstExplosion
+        ? STEAM_BURST_EXPLOSION_IMPACT_DELAY_MS
       : isBackwindEmpowered
         ? (currentAbilityVisuals?.timing?.impactDelayMs ??
             COMBAT_IMPACT_DELAY_MS) *
@@ -1577,6 +1601,8 @@ export default function BattleScreen(props: Props) {
         ? TWIN_FLAMES_GHOST_EVENT_DURATION_MS
       : isCycloneFollowUp
         ? CYCLONE_FOLLOW_UP_EVENT_DURATION_MS
+      : isSteamBurstExplosion
+        ? STEAM_BURST_EXPLOSION_EVENT_DURATION_MS
       : isBackwindEmpowered
         ? (currentAbilityVisuals?.timing?.eventDurationMs ??
             COMBAT_EVENT_DURATION_MS) +
@@ -2498,7 +2524,7 @@ export default function BattleScreen(props: Props) {
 
       {encounter.kind === "combat" && (
         <div className="battleRound">
-          {combatState.difficulty === "hardTest" && "Hard Test · "}
+          {combatState.difficulty === "hard" && "Hard Mode · "}
           Round {combatState.round}
         </div>
       )}
@@ -2557,7 +2583,11 @@ export default function BattleScreen(props: Props) {
           (currentCombatEvent.type !== "damage" ||
             (currentCombatEvent.twinFlamesFollowUp !== true &&
               (currentCombatEvent.abilityId !== "cyclone" ||
-                currentCombatEvent.multiHitIndex === 0)));
+                currentCombatEvent.multiHitIndex === 0))) &&
+          !(
+            currentCombatEvent.type === "multiTargetDamage" &&
+            currentCombatEvent.abilityId === "steamBurst"
+          );
         const isChargeEvent =
           isAttacking && currentCombatEvent.type === "charge";
         const isUsingItem =
@@ -3036,6 +3066,9 @@ export default function BattleScreen(props: Props) {
         </div>
       )}
       {combatState.enemies.map((enemy, index) => {
+        if (enemy.statuses.some((status) => status.id === "burrowed")) {
+          return null;
+        }
         const hpPercent = Math.max(
           0,
           Math.min(100, (enemy.hp / enemy.stats.maxHp) * 100),
@@ -3056,9 +3089,14 @@ export default function BattleScreen(props: Props) {
             currentCombatEvent?.type === "multiTargetSupport" ||
             currentCombatEvent?.type === "statusApplied" ||
             currentCombatEvent?.type === "charge" ||
+            currentCombatEvent?.type === "enemySummoned" ||
             currentCombatEvent?.type === "wake" ||
             currentCombatEvent?.type === "wait") &&
-          currentCombatEvent.actorId === enemy.instanceId;
+          currentCombatEvent.actorId === enemy.instanceId &&
+          !(
+            currentCombatEvent.abilityId === "rockwhistlerAmbush" &&
+            gameState.pendingRound?.currentEventApplied
+          );
         const visuals = ENEMY_VISUALS[enemy.enemyId];
         const enemyDefinition = ENEMY_DEFINITIONS[enemy.enemyId];
         const burnStatus = enemy.statuses.find(

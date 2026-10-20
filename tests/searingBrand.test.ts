@@ -30,13 +30,21 @@ const setup: GameSetup = {
   },
 };
 
-function useSearingBrand(rank: AbilityRank, targetStartsBurning = false) {
+function useSearingBrand(
+  rank: AbilityRank,
+  targetStartsBurning = false,
+  targetResistance?: number,
+) {
   const state = createInitialCombatState(setup);
   state.enemyIntents = {};
   state.enemies = [
     {
       ...state.enemies[0],
       hp: 25,
+      stats: {
+        ...state.enemies[0].stats,
+        resistance: targetResistance ?? state.enemies[0].stats.resistance,
+      },
       statuses: targetStartsBurning
         ? [
             {
@@ -81,9 +89,23 @@ test("Searing Brand uses the agreed damage, scaling, PP cost, and Burn strength"
   });
   assert.equal(ability.ranks[2]?.ppCost, 4);
   assert.equal(STATUS_DEFINITIONS.burn.endOfRoundDamage?.basePower, 4);
+  assert.equal(
+    STATUS_DEFINITIONS.burn.endOfRoundDamage?.ignoresMitigation,
+    true,
+  );
   assert.ok(
     ABILITY_REWARD_POOL.some(({ abilityId }) => abilityId === "searingBrand"),
   );
+});
+
+test("Burn deals its full fixed damage regardless of Resistance", () => {
+  const result = useSearingBrand(1, false, 999);
+  const burnEvent = result.events.find(
+    (event) => event.type === "statusDamage" && event.statusId === "burn",
+  );
+
+  assert.ok(burnEvent && burnEvent.type === "statusDamage");
+  assert.equal(burnEvent.amount, 4);
 });
 
 test("Rank 1 applies Burn without an extra immediate tick", () => {

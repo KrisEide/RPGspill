@@ -92,9 +92,9 @@ export default function CharacterSelectScreen({
       <div className="absolute inset-0 bg-black/45" />
 
       <div className="relative w-full max-w-xl px-6">
-        {runDifficulty === "hardTest" && (
+        {runDifficulty === "hard" && (
           <div className="mb-5 text-center text-sm font-extrabold uppercase tracking-[0.2em] text-amber-300">
-            Hard Test · Enemies have 15% more Attack
+            Hard Mode · Enemies do 25% more damage
           </div>
         )}
         {/* STEP 1: Character Select */}

@@ -28,6 +28,7 @@ import {
 } from "../../src/data/items";
 import { createInitialCombatState } from "../../src/game/state/initialState";
 import { selectBloodpactRoles } from "../../src/game/combat/bloodpact";
+import { shouldAutoResolveRockwhistlerAmbush } from "../../src/game/combat/rockwhistler";
 import { startEncounter } from "../../src/game/state/encounterState";
 import { reformGhost } from "../../src/game/ghost/ghostSystem";
 import {
@@ -208,7 +209,8 @@ function resolveReadyCombatRound(room: GameRoom) {
   if (
     !room.combatState ||
     room.combatState.phase !== "selectingActions" ||
-    !areAllLivingPlayersReady(room.combatState, room.roundSelections)
+    (!areAllLivingPlayersReady(room.combatState, room.roundSelections) &&
+      !shouldAutoResolveRockwhistlerAmbush(room.combatState))
   ) {
     return false;
   }
@@ -311,7 +313,7 @@ io.on("connection", (socket) => {
     const room: GameRoom = {
       code: roomCode,
       difficulty:
-        request.difficulty === "hardTest" ? "hardTest" : "normal",
+        request.difficulty === "hard" ? "hard" : "normal",
       player1: {
         playerId: "player1",
         socketId: socket.id,

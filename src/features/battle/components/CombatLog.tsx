@@ -271,6 +271,8 @@ export default function CombatLog({ events, getCombatantName }: Props) {
             </>
           ) : event.type === "earthDemonSummoned" ? (
             <>{getCombatantName(event.actorId)} summoned an Earth Demon.</>
+          ) : event.type === "enemySummoned" ? (
+            <>{getCombatantName(event.actorId)} called two Rockwhistlers.</>
           ) : event.type === "earthDemonHit" ? (
             <>Earth Demon absorbed {event.amount} damage{event.destroyed ? " and was destroyed" : ""}.</>
           ) : event.type === "earthDemonAttack" ? (

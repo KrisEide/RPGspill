@@ -57,6 +57,11 @@ export const ABILITY_REWARD_POOL: readonly AbilityRewardDefinition[] = [
     tags: ["water", "damage", "healing", "single_target"],
   },
   {
+    abilityId: "steamBurst",
+    icon: "💨",
+    tags: ["water", "fire", "burn", "damage", "aoe", "single_target"],
+  },
+  {
     abilityId: "restoringCurrent",
     icon: "💚",
     tags: ["water", "healing", "charge", "high_cost"],

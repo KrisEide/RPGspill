@@ -6,6 +6,7 @@ import {
   selectPlayerAction,
 } from "../src/game/combat/playerActions";
 import { resolveRound } from "../src/game/combat/resolveRound";
+import { createSpiritState } from "../src/data/spirits";
 import type { GameSetup } from "../src/game/types";
 
 const setup: GameSetup = {
@@ -72,4 +73,31 @@ test("higher Agility still always acts first", () => {
 
     assert.equal(result.events[0]?.actorId, "character-2");
   }
+});
+
+test("Defend resolves before Swift Wing regardless of Agility", () => {
+  const state = createInitialCombatState(setup);
+  state.enemyIntents = {};
+  state.characters["character-1"].stats.agility = 1;
+  state.characters["character-2"].stats.agility = 99;
+  state.characters["character-2"].spirits.swiftWing =
+    createSpiritState("swiftWing");
+
+  let selections = createEmptyRoundSelections();
+  selections = selectPlayerAction(state, selections, {
+    playerId: "player1",
+    abilityId: "defend",
+    targetId: "character-1",
+  })!;
+  selections = selectPlayerAction(state, selections, {
+    playerId: "player2",
+    abilityId: "swiftWing",
+    targetId: "enemy-1",
+  })!;
+
+  const result = resolveRound(state, selections);
+
+  assert.equal(result.events[0]?.type, "defend");
+  assert.equal(result.events[0]?.actorId, "character-1");
+  assert.equal(result.events[1]?.actorId, "character-2");
 });

@@ -199,13 +199,13 @@ test("enemy status damage can trigger Soul Transfer", () => {
   const transfer = result.events.find((event) => event.type === "soulTransfer");
 
   assert.ok(transfer && transfer.type === "soulTransfer");
-  // Ghost Strike restores 1 HP before the end-of-round Burn tick: 20 -> 21.
+  // Ghost Strike restores 1 HP before the fixed 4-damage Burn tick: 20 -> 21.
   assert.equal(
     transfer.ghostRemainingHp + transfer.targetRemainingHp,
-    21 + 1 - 3,
+    21 + 1 - 4,
   );
   assert.equal(transfer.ghostRemainingHp, 9);
-  assert.equal(transfer.targetRemainingHp, 10);
+  assert.equal(transfer.targetRemainingHp, 9);
 });
 
 test("the client shows the lethal hit before applying the transfer", () => {

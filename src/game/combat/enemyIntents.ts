@@ -150,9 +150,92 @@ function getRandomPatternAbility(
   };
 }
 
+function prepareRockwhistlerIntents(state: CombatState): CombatState {
+  const livingCharacterIds = CHARACTER_ORDER.filter(
+    (characterId) => state.characters[characterId].hp > 0,
+  );
+  if (livingCharacterIds.length === 0) return { ...state, enemyIntents: {} };
+
+  let randomSeed = state.randomSeed;
+  const enemyIntents: CombatState["enemyIntents"] = {};
+  const livingPack = state.enemies.filter(
+    (enemy) => enemy.enemyId === "rockwhistler" && enemy.hp > 0,
+  );
+  const surfacePack = livingPack.filter(isEnemyTargetable);
+  const callUsed = state.enemies.some(
+    (enemy) => enemy.summonedByAbilityId === "rockwhistlerCall",
+  );
+  const deadCount = state.enemies.filter(
+    (enemy) => enemy.enemyId === "rockwhistler" && enemy.hp <= 0,
+  ).length;
+  const caller = deadCount >= 2 && !callUsed ? surfacePack[0] : undefined;
+  const cycleRound = (state.round - 1) % 3;
+  let enemies = state.enemies;
+
+  if (cycleRound === 0) {
+    const previousTarget = livingPack.find(
+      (enemy) => enemy.rockwhistlerFocusTargetId,
+    )?.rockwhistlerFocusTargetId;
+    let focusTarget = previousTarget && livingCharacterIds.includes(previousTarget)
+      ? livingCharacterIds.find((id) => id !== previousTarget) ?? previousTarget
+      : undefined;
+    if (!focusTarget) {
+      const roll = nextRandom(randomSeed);
+      randomSeed = roll.nextSeed;
+      focusTarget = livingCharacterIds[Math.floor(roll.value * livingCharacterIds.length)];
+    }
+    enemies = state.enemies.map((enemy) =>
+      enemy.enemyId === "rockwhistler"
+        ? { ...enemy, rockwhistlerFocusTargetId: focusTarget }
+        : enemy,
+    );
+    for (const enemy of surfacePack) {
+      enemyIntents[enemy.instanceId] = enemy === caller
+        ? { abilityId: "rockwhistlerCall", targetId: enemy.instanceId, targetIds: [enemy.instanceId] }
+        : { abilityId: "rockwhistlerPackAttack", targetId: focusTarget, targetIds: [focusTarget] };
+    }
+  } else if (cycleRound === 1) {
+    const burrowers = surfacePack.length > 1
+      ? surfacePack.filter((enemy) => enemy !== caller).slice(0, 2)
+      : [];
+    for (const enemy of surfacePack) {
+      if (enemy === caller) {
+        enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerCall", targetId: enemy.instanceId, targetIds: [enemy.instanceId] };
+      } else if (burrowers.includes(enemy)) {
+        enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerBurrow", targetId: enemy.instanceId, targetIds: [enemy.instanceId] };
+      } else {
+        const roll = nextRandom(randomSeed); randomSeed = roll.nextSeed;
+        const targetId = livingCharacterIds[Math.floor(roll.value * livingCharacterIds.length)];
+        enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerAttack", targetId, targetIds: [targetId] };
+      }
+    }
+  } else {
+    for (const enemy of livingPack) {
+      const isBurrowed = enemy.statuses.some((status) => status.id === "burrowed");
+      if (isBurrowed) {
+        const roll = nextRandom(randomSeed); randomSeed = roll.nextSeed;
+        const targetId = livingCharacterIds[Math.floor(roll.value * livingCharacterIds.length)];
+        enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerAmbush", targetId, targetIds: [targetId], isChargeRelease: true };
+      } else if (enemy === caller) {
+        enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerCall", targetId: enemy.instanceId, targetIds: [enemy.instanceId] };
+      } else {
+        const roll = nextRandom(randomSeed); randomSeed = roll.nextSeed;
+        const targetId = livingCharacterIds[Math.floor(roll.value * livingCharacterIds.length)];
+        enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerAttack", targetId, targetIds: [targetId] };
+      }
+    }
+  }
+
+  return { ...state, enemies, randomSeed, enemyIntents };
+}
+
 export function prepareEnemyIntents(state: CombatState): CombatState {
   if (state.phase !== "selectingActions") {
     return { ...state, enemyIntents: {} };
+  }
+
+  if (state.encounterId === "rockwhistlerRidge") {
+    return prepareRockwhistlerIntents(state);
   }
 
   const livingCharacterIds = CHARACTER_ORDER.filter(
@@ -268,7 +351,7 @@ export function createEnemyActionsFromIntents(
   return state.enemies.flatMap((enemy) => {
     const intent = state.enemyIntents[enemy.instanceId];
 
-    return intent && isEnemyTargetable(enemy)
+    return intent && (isEnemyTargetable(enemy) || intent.abilityId === "rockwhistlerAmbush")
       ? [
           {
             kind: "ability" as const,

@@ -9,7 +9,7 @@ export type CombatantId = CharacterInstanceId | EnemyInstanceId;
 export type GameMode = "singlePlayer" | "twoPlayer";
 
 export type InitialLoadout = "run" | "development";
-export type RunDifficulty = "normal" | "hardTest";
+export type RunDifficulty = "normal" | "hard";
 
 export type CharacterPresetId = "char1" | "char2";
 
@@ -35,7 +35,8 @@ export type EnemyId =
   | "brakkBoss"
   | "gorakBoss"
   | "goat1"
-  | "goat2";
+  | "goat2"
+  | "rockwhistler";
 
 export type EncounterId =
   | "slimeTrail"
@@ -52,7 +53,8 @@ export type EncounterId =
   | "mightAndMending"
   | "forestRest"
   | "orcBrothers"
-  | "mountainPass";
+  | "mountainPass"
+  | "rockwhistlerRidge";
 
 export type StatUpgradeId =
   | "vitality"
@@ -100,6 +102,7 @@ export type PassiveId =
   | "shieldmate"
   | "leaveItToMe"
   | "battleRhythm"
+  | "followUpStrike"
   | "brace"
   | "counterguard"
   | "bombardier"
@@ -327,6 +330,7 @@ export type AbilityId =
   | "earthDemon"
   | "crashingWave"
   | "tidalDrain"
+  | "steamBurst"
   | "restoringCurrent"
   | "magicBag"
   | "healingTide"
@@ -357,6 +361,11 @@ export type AbilityId =
   | "catchBreath"
   | "goatStomp"
   | "goatCharge"
+  | "rockwhistlerAttack"
+  | "rockwhistlerPackAttack"
+  | "rockwhistlerBurrow"
+  | "rockwhistlerAmbush"
+  | "rockwhistlerCall"
   | "cinderburst"
   | "stoneback"
   | "swiftWing"
@@ -424,7 +433,8 @@ export type StatusId =
   | "weakened"
   | "bodyguard"
   | "stunned"
-  | "sleeping";
+  | "sleeping"
+  | "burrowed";
 
 export type ItemId = string;
 
@@ -662,7 +672,14 @@ export type DamageEffect = {
     };
   };
   twinFlamesFollowUp?: boolean;
-  targetRule?: "randomOtherEnemy";
+  steamBurst?: {
+    consumeStatusId: "burn";
+    damageAllOtherEnemies: true;
+    explosionBasePower: number;
+    explosionElementalPowerScaling: number;
+    consumeStatusFromAllEnemies: true;
+  };
+  targetRule?: "randomOtherEnemy" | "allOtherEnemies";
   retargetOnDefeat?: boolean;
   multiHitIndex?: number;
 };
@@ -737,6 +754,13 @@ export type CleanseEffect = {
 export type ChargeEffect = {
   type: "charge";
   readiesAbilityId: AbilityId;
+  actorStatusId?: StatusId;
+};
+
+export type SummonEnemiesEffect = {
+  type: "summonEnemies";
+  enemyId: EnemyId;
+  count: number;
 };
 
 export type WakeEnemyEffect = {
@@ -794,7 +818,8 @@ export type AbilityEffect =
   | GainRandomItemEffect
   | CountAsItemUseEffect
   | SummonEarthDemonEffect
-  | GoatStompMarkEffect;
+  | GoatStompMarkEffect
+  | SummonEnemiesEffect;
 
 export type AbilityRankDefinition = {
   shortDescription: string;
@@ -813,7 +838,7 @@ export type AbilityDefinition = {
   category: AbilityCategory;
   resolutionPriority: number;
   useTiming?: "action" | "quickAction";
-  turnOrderRule?: "alwaysLast" | "absoluteLast";
+  turnOrderRule?: "absoluteFirst" | "alwaysLast" | "absoluteLast";
   target: AbilityTarget;
   secondaryTarget?: AbilityTarget;
   element: Element | null;
@@ -931,6 +956,8 @@ export type EnemyState = {
   abilityRanks: KnownAbilities;
   statuses: ActiveStatus[];
   orcMageDarkBoltsSinceShatter?: number;
+  summonedByAbilityId?: AbilityId;
+  rockwhistlerFocusTargetId?: CharacterInstanceId;
 };
 
 export type CharacterDraft = {
@@ -1378,12 +1405,22 @@ export type EarthDemonEvent =
       remainingBarrier: number;
     };
 
+export type EnemySummonedEvent = {
+  type: "enemySummoned";
+  actorId: EnemyInstanceId;
+  targetId: EnemyInstanceId;
+  abilityId: AbilityId;
+  abilityRank: AbilityRank;
+  summonedEnemies: EnemyState[];
+};
+
 export type CombatEvent =
   | BloodpactEvent
   | SoulTransferEvent
   | PhoenixRebirthEvent
   | PostCombatRecoveryEvent
   | EarthDemonEvent
+  | EnemySummonedEvent
   | BarrierRemovedEvent
   | DamageEvent
   | SelfDamageEvent

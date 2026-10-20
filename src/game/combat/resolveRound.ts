@@ -38,7 +38,7 @@ import {
   drawNormalItemReward,
   grantEncounterItemRewards,
 } from "../items/itemSystem";
-import { startEncounter } from "../state/encounterState";
+import { createEnemyState, startEncounter } from "../state/encounterState";
 import {
   createStatusFromSource,
   refreshStatusWithoutDowngrade,
@@ -2290,12 +2290,15 @@ export function resolveRound(
             action.kind !== "ability"
               ? 0
               : getCombatantAbility(state, action.actorId, action.abilityId)
-                    ?.turnOrderRule === "absoluteLast"
-                ? 2
+                    ?.turnOrderRule === "absoluteFirst"
+                ? -1
                 : getCombatantAbility(state, action.actorId, action.abilityId)
-                      ?.turnOrderRule === "alwaysLast"
-                  ? 1
-                  : 0,
+                      ?.turnOrderRule === "absoluteLast"
+                  ? 2
+                  : getCombatantAbility(state, action.actorId, action.abilityId)
+                        ?.turnOrderRule === "alwaysLast"
+                    ? 1
+                    : 0,
           resolutionPriority: Math.max(
             abilityPriority,
             isQuickAction &&
@@ -2440,13 +2443,41 @@ export function resolveRound(
     }
   }
 
-  for (const { action, requiredPossessionSourceId } of actions) {
+  for (const actionEntry of actions) {
+    let action = actionEntry.action;
+    const { requiredPossessionSourceId } = actionEntry;
     if (
       !CHARACTER_ORDER.some(
         (characterId) => nextState.characters[characterId].form === "living",
       )
     ) {
       break;
+    }
+
+    if (!isCharacterInstanceId(action.actorId)) {
+      const actingEnemy = nextState.enemies.find(
+        (enemy) => enemy.instanceId === action.actorId,
+      );
+      const rockwhistlerDeaths = nextState.enemies.filter(
+        (enemy) => enemy.enemyId === "rockwhistler" && enemy.hp <= 0,
+      ).length;
+      const rockwhistlerCallUsed = nextState.enemies.some(
+        (enemy) => enemy.summonedByAbilityId === "rockwhistlerCall",
+      );
+      if (
+        actingEnemy?.enemyId === "rockwhistler" &&
+        isEnemyTargetable(actingEnemy) &&
+        rockwhistlerDeaths >= 2 &&
+        !rockwhistlerCallUsed &&
+        (action.kind !== "ability" || action.abilityId !== "rockwhistlerCall")
+      ) {
+        action = {
+          kind: "ability",
+          actorId: action.actorId,
+          abilityId: "rockwhistlerCall",
+          targetId: action.actorId,
+        };
+      }
     }
 
     if (
@@ -2703,18 +2734,22 @@ export function resolveRound(
         continue;
       }
 
+      const releasedStatuses = chargingActor.statuses.filter(
+        (status) => status.readiedAbilityId === action.abilityId,
+      );
       nextState = updateStatuses(
         nextState,
         action.actorId,
         chargingActor.statuses.filter(
-          (status) => status.id !== "abilityCharge",
+          (status) => status.readiedAbilityId !== action.abilityId,
         ),
       );
-      chargeReleaseStatusChanges.push({
-        type: "removed",
+      chargeReleaseStatusChanges.push(...releasedStatuses.map((status) => ({
+        type: "removed" as const,
         combatantId: action.actorId,
-        statusId: "abilityCharge",
-      });
+        statusId: status.id,
+        sourceId: status.sourceId,
+      })));
     }
 
     if (
@@ -3036,6 +3071,39 @@ export function resolveRound(
       }
     }
 
+    const summonEnemiesEffect = ability.effects.find(
+      (effect) => effect.type === "summonEnemies",
+    );
+    if (summonEnemiesEffect && !isCharacterInstanceId(action.actorId)) {
+      const usedNumbers = new Set(
+        nextState.enemies.map((enemy) => Number(enemy.instanceId.split("-")[1])),
+      );
+      const summonedEnemies = [];
+      let nextNumber = 1;
+      while (summonedEnemies.length < summonEnemiesEffect.count) {
+        while (usedNumbers.has(nextNumber)) nextNumber += 1;
+        const instanceId = `enemy-${nextNumber}` as const;
+        usedNumbers.add(nextNumber);
+        summonedEnemies.push({
+          ...createEnemyState(summonEnemiesEffect.enemyId, instanceId, nextState.difficulty),
+          summonedByAbilityId: action.abilityId,
+          rockwhistlerFocusTargetId: nextState.enemies.find(
+            (enemy) => enemy.enemyId === "rockwhistler",
+          )?.rockwhistlerFocusTargetId,
+        });
+      }
+      nextState = { ...nextState, enemies: [...nextState.enemies, ...summonedEnemies] };
+      events.push({
+        type: "enemySummoned",
+        actorId: action.actorId,
+        targetId: action.actorId,
+        abilityId: action.abilityId,
+        abilityRank: ability.rank,
+        summonedEnemies,
+      });
+      continue;
+    }
+
     const chargeEffect = ability.effects.find(
       (effect) => effect.type === "charge",
     );
@@ -3066,6 +3134,18 @@ export function resolveRound(
               },
             ]
           : [];
+
+        if (chargeEffect.actorStatusId) {
+          const extraStatus: ActiveStatus = {
+            ...createStatusFromSource(nextState, action.actorId, chargeEffect.actorStatusId),
+            readiedAbilityId: chargeEffect.readiesAbilityId,
+          };
+          const extraResult = applyStatusToTarget(nextState, action.actorId, extraStatus);
+          nextState = extraResult.state;
+          if (extraResult.status) {
+            statusChanges.push({ type: "applied", combatantId: action.actorId, status: extraResult.status });
+          }
+        }
 
         events.push({
           type: "charge",
@@ -3633,8 +3713,56 @@ export function resolveRound(
     const damagedTargetIdsThisAction = new Set<CombatantId>();
   const bodyguardProtectedTargetIds = new Set<CombatantId>();
   const bodyguardCounteredSourceIds = new Set<CharacterInstanceId>();
+    const steamBurstTriggered = Boolean(
+      action.abilityId === "steamBurst" &&
+        resolvedTargetId !== null &&
+        getCombatant(nextState, resolvedTargetId)?.statuses.some(
+          (status) => status.id === "burn",
+        ),
+    );
+    const steamBurstEffect = ability.effects.find(
+      (effect) => effect.type === "damage" && effect.steamBurst,
+    );
+    const steamBurstBurnRemovals = new Map<
+      CombatantId,
+      StatusChange[]
+    >();
 
-    const effectsForAction = ability.effects.flatMap((effect) => {
+    if (
+      steamBurstTriggered &&
+      steamBurstEffect?.type === "damage" &&
+      steamBurstEffect.steamBurst?.consumeStatusFromAllEnemies
+    ) {
+      for (const enemy of nextState.enemies) {
+        if (
+          enemy.hp <= 0 ||
+          !enemy.statuses.some(
+            (status) =>
+              status.id === steamBurstEffect.steamBurst?.consumeStatusId,
+          )
+        ) {
+          continue;
+        }
+
+        nextState = updateStatuses(
+          nextState,
+          enemy.instanceId,
+          enemy.statuses.filter(
+            (status) =>
+              status.id !== steamBurstEffect.steamBurst?.consumeStatusId,
+          ),
+        );
+        steamBurstBurnRemovals.set(enemy.instanceId, [
+          {
+            type: "removed",
+            combatantId: enemy.instanceId,
+            statusId: steamBurstEffect.steamBurst.consumeStatusId,
+          },
+        ]);
+      }
+    }
+
+    const abilityEffectsWithCombos = ability.effects.flatMap((effect) => {
       if (
         effect.type !== "damage" ||
         !effect.twinFlamesCombo ||
@@ -3670,6 +3798,51 @@ export function resolveRound(
       }
 
       return [effect];
+    });
+
+    const effectsForAction = abilityEffectsWithCombos.flatMap((effect) => {
+      if (effect.type === "damage" && effect.steamBurst && steamBurstTriggered) {
+        return [
+          effect,
+          {
+            ...effect,
+            basePower: effect.steamBurst.explosionBasePower,
+            elementalPowerScaling:
+              effect.steamBurst.explosionElementalPowerScaling,
+            steamBurst: undefined,
+            targetRule: "allOtherEnemies" as const,
+          },
+        ];
+      }
+
+      const followUpStrikeApplies =
+        effect.type === "damage" &&
+        action.abilityId === "autoAttack" &&
+        characterActorId !== null &&
+        characterHasPassive(
+          nextState.characters[characterActorId],
+          "followUpStrike",
+        );
+
+      if (!followUpStrikeApplies || effect.type !== "damage") {
+        return [effect];
+      }
+
+      return [
+        effect,
+        {
+          ...effect,
+          basePower:
+            effect.basePower * PASSIVE_VALUES.followUpStrikePowerMultiplier,
+          attackScaling:
+            effect.attackScaling *
+            PASSIVE_VALUES.followUpStrikePowerMultiplier,
+          elementalPowerScaling:
+            effect.elementalPowerScaling *
+            PASSIVE_VALUES.followUpStrikePowerMultiplier,
+          multiHitIndex: 1,
+        },
+      ];
     });
 
     for (const effect of effectsForAction) {
@@ -4025,6 +4198,14 @@ export function resolveRound(
                   enemy.instanceId !== resolvedTargetId,
               )
               .map((enemy) => enemy.instanceId)
+          : effect.targetRule === "allOtherEnemies"
+            ? nextState.enemies
+                .filter(
+                  (enemy) =>
+                    isEnemyTargetable(enemy) &&
+                    enemy.instanceId !== resolvedTargetId,
+                )
+                .map((enemy) => enemy.instanceId)
           : effect.retargetOnDefeat && resolvedTargetId !== null
             ? [resolvedTargetId]
           : ability.target === "allEnemies"
@@ -4059,7 +4240,12 @@ export function resolveRound(
       );
       galeFocusTriggered ||= galeFocusAppliesToWave;
 
-      const preHitStatusChanges = new Map<CombatantId, StatusChange[]>();
+      const preHitStatusChanges = new Map<CombatantId, StatusChange[]>(
+        targetIds.flatMap((targetId) => {
+          const changes = steamBurstBurnRemovals.get(targetId);
+          return changes ? [[targetId, changes] as const] : [];
+        }),
+      );
       const barrierRemovedBeforeHit = new Map<CombatantId, number>();
 
       if (effect.twinFlamesCombo && twinFlamesElement === "water") {
@@ -4133,8 +4319,12 @@ export function resolveRound(
           continue;
         }
 
+        const baseDamageReductions = activeDamageReductions.get(targetId) ?? [];
         const damageReductions =
-          activeDamageReductions.get(targetId) ?? [];
+          action.abilityId === "rockwhistlerPackAttack" &&
+          baseDamageReductions.length > 0
+            ? [...baseDamageReductions, 0.5]
+            : baseDamageReductions;
         const earthDemonWillIntercept = Boolean(
           nextState.earthDemon &&
             !isCharacterInstanceId(action.actorId) &&
@@ -5045,7 +5235,10 @@ export function resolveRound(
         }
       }
 
-      if (ability.target === "allEnemies") {
+      if (
+        ability.target === "allEnemies" ||
+        effect.targetRule === "allOtherEnemies"
+      ) {
         events.push({
           type: "multiTargetDamage",
           actorId: action.actorId,

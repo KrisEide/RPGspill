@@ -4259,6 +4259,37 @@ battlescene bilde. */
   animation: lacerateTargetEffect var(--target-effect-duration) ease-out both;
 }
 
+.battleScene__targetEffect--rockwhistlerAmbush {
+  bottom: -8px;
+  z-index: 28;
+  clip-path: none;
+  filter: brightness(0.96) contrast(1.08) saturate(0.92)
+    drop-shadow(0 10px 13px rgba(25, 15, 8, 0.52));
+  transform-origin: 50% 78%;
+  animation: rockwhistlerAmbushEffect var(--target-effect-duration)
+    cubic-bezier(0.2, 0.72, 0.28, 1) both;
+}
+
+@keyframes rockwhistlerAmbushEffect {
+  0%,
+  8% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(48px) scale(0.72);
+  }
+  24% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(8px) scale(1.04);
+  }
+  68% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(1.02);
+  }
+}
+
 @keyframes lacerateTargetEffect {
   0% {
     opacity: 0;
@@ -4292,6 +4323,35 @@ battlescene bilde. */
     drop-shadow(0 0 17px rgba(72, 255, 116, 0.96));
   animation: crashingWaveEffect var(--target-effect-duration)
     cubic-bezier(0.22, 0.68, 0.3, 1) both;
+}
+
+.battleScene__targetEffect--steamBurst {
+  bottom: 18px;
+  z-index: 26;
+  clip-path: none;
+  filter: brightness(1.08) saturate(1.12)
+    drop-shadow(0 0 18px rgba(194, 239, 255, 0.9));
+  animation: steamBurstTargetEffect var(--target-effect-duration) ease-out both;
+}
+
+@keyframes steamBurstTargetEffect {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(18px) scale(0.56);
+  }
+  34% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1.04);
+  }
+  72% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-3px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-14px) scale(1.08);
+  }
 }
 
 .battleScene__targetEffect--restoringCurrentHeal {
@@ -4823,6 +4883,35 @@ battlescene bilde. */
     linear both;
 }
 
+.battleScene__battlefieldEffect--steamBurstExplosion {
+  z-index: 27;
+  filter: brightness(1.08) saturate(1.14)
+    drop-shadow(0 0 24px rgba(203, 241, 255, 0.94))
+    drop-shadow(0 0 14px rgba(255, 115, 28, 0.72));
+  animation: steamBurstExplosionEffect var(--battlefield-effect-duration)
+    ease-out both;
+}
+
+@keyframes steamBurstExplosionEffect {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.42);
+  }
+  34% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -54%) scale(1.12);
+  }
+}
+
 .battleScene__battlefieldEffect--blastBomb {
   z-index: 26;
   filter: brightness(1.08) saturate(1.16)
@@ -5319,6 +5408,14 @@ battlescene bilde. */
 .battleScene__enemyUnit--goat1 .battleScene__enemySpriteStage,
 .battleScene__enemyUnit--goat2 .battleScene__enemySpriteStage {
   filter: var(--enemy-base-filter) !important;
+}
+
+.battleScene__enemyUnit--rockwhistler .battleScene__enemySpriteStage {
+  filter: none;
+}
+
+.battleScene__enemyUnit--rockwhistler .battleScene__enemySprite {
+  filter: var(--enemy-base-filter);
 }
 
 .battleScene__enemyUnit--defeated {

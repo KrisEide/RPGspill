@@ -3,6 +3,7 @@ import darkForestBackground from "../../../assets/backgrounds/bakgrunn4.png";
 import forestCampBackground from "../../../assets/backgrounds/background_forest_camp.png";
 import forestBossBackground from "../../../assets/backgrounds/background_forest_boss.png";
 import actTwoMountainBackground from "../../../assets/backgrounds/act2backgrounds/act2background1.png";
+import actTwoRockwhistlerBackground from "../../../assets/backgrounds/act2backgrounds/act2background2.png";
 import type { EncounterId } from "../../../game/types";
 import type { EnemyFormationPosition } from "../layout/enemyFormation";
 
@@ -91,6 +92,18 @@ export const ENCOUNTER_VISUALS: Record<
     enemyFormation: [
       { xPercent: 61, yPercent: 36, scale: 0.77, zIndex: 9 },
       { xPercent: 82, yPercent: 36, scale: 0.81, zIndex: 9 },
+    ],
+  },
+  rockwhistlerRidge: {
+    backgroundImageSrc: actTwoRockwhistlerBackground,
+    enemyFormation: [
+      { xPercent: 56, yPercent: 40, scale: 0.58, zIndex: 8 },
+      { xPercent: 70, yPercent: 38, scale: 0.54, zIndex: 7 },
+      { xPercent: 84, yPercent: 40, scale: 0.58, zIndex: 8 },
+      { xPercent: 62, yPercent: 57, scale: 0.66, zIndex: 10 },
+      { xPercent: 78, yPercent: 57, scale: 0.66, zIndex: 10 },
+      { xPercent: 52, yPercent: 57, scale: 0.64, zIndex: 10 },
+      { xPercent: 88, yPercent: 57, scale: 0.64, zIndex: 10 },
     ],
   },
 };

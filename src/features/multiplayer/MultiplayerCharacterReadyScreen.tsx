@@ -35,9 +35,9 @@ export default function MultiplayerCharacterReadyScreen({
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-white/65">
             Room {connection.lobby.roomCode}
           </p>
-          {connection.lobby.difficulty === "hardTest" && (
+          {connection.lobby.difficulty === "hard" && (
             <p className="mt-3 text-sm font-extrabold uppercase tracking-[0.18em] text-red-300">
-              Hard Test · Enemies have 15% more Attack
+              Hard Mode · Enemies do 25% more damage
             </p>
           )}
           <p className="mt-5 text-xl font-bold" aria-live="polite">

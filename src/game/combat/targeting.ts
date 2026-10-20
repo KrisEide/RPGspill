@@ -5,5 +5,7 @@ export function isEnemySleeping(enemy: EnemyState) {
 }
 
 export function isEnemyTargetable(enemy: EnemyState) {
-  return enemy.hp > 0 && !isEnemySleeping(enemy);
+  return enemy.hp > 0 &&
+    !isEnemySleeping(enemy) &&
+    !enemy.statuses.some((status) => status.id === "burrowed");
 }

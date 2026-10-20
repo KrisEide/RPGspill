@@ -24,7 +24,7 @@ export default function StatsPage({ characters }: Props) {
             <div className="statsPage__eyebrow">Party</div>
             <h2>Stats</h2>
           </div>
-          <span>Release Shift to close</span>
+          <span>Release Tab to close</span>
         </header>
 
         <div className={`statsPage__characters statsPage__characters--${characters.length}`}>

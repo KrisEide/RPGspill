@@ -11,6 +11,7 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
       basePower: 4,
       damageType: "elemental",
       element: "fire",
+      ignoresMitigation: true,
     },
   },
   poison: {
@@ -70,6 +71,13 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
     name: "Charging Ability",
     stackingRule: "refresh",
     maxStacks: 1,
+  },
+  burrowed: {
+    id: "burrowed",
+    name: "Burrowed",
+    stackingRule: "refresh",
+    maxStacks: 1,
+    persistsUntilCombatEnd: true,
   },
   bleed: {
     id: "bleed",

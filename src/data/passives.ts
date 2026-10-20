@@ -206,6 +206,15 @@ export const PASSIVE_DEFINITIONS: Record<PassiveId, PassiveDefinition> = {
     description: "Whenever you use Auto Attack, restore 3 PP.",
     unique: true,
   },
+  followUpStrike: {
+    id: "followUpStrike",
+    name: "Follow-up Strike",
+    icon: "⚔️",
+    category: "physical",
+    tags: ["physical", "damage", "auto_attack"],
+    description: "Auto Attack strikes a second time with 50% power.",
+    unique: true,
+  },
   brace: {
     id: "brace",
     name: "Brace",

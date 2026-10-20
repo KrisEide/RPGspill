@@ -43,9 +43,9 @@ export default function MultiplayerLobbyScreen({
               {connection.lobby.roomCode}
             </p>
 
-            {connection.lobby.difficulty === "hardTest" && (
+            {connection.lobby.difficulty === "hard" && (
               <p className="mt-4 text-sm font-extrabold uppercase tracking-[0.18em] text-red-300">
-                Hard Test · Enemies have 15% more Attack
+                Hard Mode · Enemies do 25% more damage
               </p>
             )}
 

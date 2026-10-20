@@ -200,25 +200,25 @@ export default function StartScreen({
             </div>
           ) : (
             <div className="mx-auto mt-8 w-full max-w-xs">
-              <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-lg border border-white/15 bg-black/20 px-4 py-3 text-left hover:border-amber-300/45">
+              <label className="mb-3 flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-white/15 bg-black/20 px-4 py-3 text-left hover:border-amber-300/45">
+                <span>
+                  <span className="block font-bold text-amber-200">
+                    Hard Mode
+                  </span>
+                  <span className="mt-0.5 block text-xs text-white/60">
+                    Enemies do 25% more damage.
+                  </span>
+                </span>
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-amber-400"
-                  checked={multiplayerDifficulty === "hardTest"}
+                  className="h-5 w-5 shrink-0 cursor-pointer accent-amber-400"
+                  checked={multiplayerDifficulty === "hard"}
                   onChange={(event) =>
                     setMultiplayerDifficulty(
-                      event.target.checked ? "hardTest" : "normal",
+                      event.target.checked ? "hard" : "normal",
                     )
                   }
                 />
-                <span>
-                  <span className="block font-bold text-amber-200">
-                    Hard Test
-                  </span>
-                  <span className="mt-0.5 block text-xs text-white/60">
-                    Enemies have 15% more Attack.
-                  </span>
-                </span>
               </label>
 
               <button
@@ -233,8 +233,8 @@ export default function StartScreen({
               >
                 {requestInProgress
                   ? "Connecting..."
-                  : multiplayerDifficulty === "hardTest"
-                    ? "Create Hard Test Game"
+                  : multiplayerDifficulty === "hard"
+                    ? "Create Hard Mode Game"
                     : "Create Game"}
               </button>
 

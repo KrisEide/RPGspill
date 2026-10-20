@@ -20,21 +20,21 @@ const players: GameSetup["players"] = {
   },
 };
 
-test("Hard Test multiplayer increases enemy Attack by 15 percent for the whole run", () => {
+test("Hard Mode multiplayer increases enemy Attack by 25 percent for the whole run", () => {
   const state = createInitialCombatState({
     mode: "twoPlayer",
     initialLoadout: "run",
-    difficulty: "hardTest",
+    difficulty: "hard",
     randomSeed: 819,
     startingEncounterId: "mountainPass",
     players,
   });
 
-  assert.equal(state.difficulty, "hardTest");
+  assert.equal(state.difficulty, "hard");
   for (const enemy of state.enemies) {
     assert.equal(
       enemy.stats.attack,
-      Math.round(ENEMY_DEFINITIONS[enemy.enemyId].stats.attack * 1.15),
+      Math.round(ENEMY_DEFINITIONS[enemy.enemyId].stats.attack * 1.25),
     );
   }
 
@@ -42,12 +42,12 @@ test("Hard Test multiplayer increases enemy Attack by 15 percent for the whole r
   for (const enemy of laterEncounter.enemies) {
     assert.equal(
       enemy.stats.attack,
-      Math.round(ENEMY_DEFINITIONS[enemy.enemyId].stats.attack * 1.15),
+      Math.round(ENEMY_DEFINITIONS[enemy.enemyId].stats.attack * 1.25),
     );
   }
 });
 
-test("normal runs retain the original enemy Attack", () => {
+test("normal runs increase enemy Attack by 10 percent", () => {
   const state = createInitialCombatState({
     mode: "twoPlayer",
     initialLoadout: "run",
@@ -60,12 +60,12 @@ test("normal runs retain the original enemy Attack", () => {
   for (const enemy of state.enemies) {
     assert.equal(
       enemy.stats.attack,
-      ENEMY_DEFINITIONS[enemy.enemyId].stats.attack,
+      Math.round(ENEMY_DEFINITIONS[enemy.enemyId].stats.attack * 1.1),
     );
   }
 });
 
-test("the host can create a clearly labelled Hard Test multiplayer room", () => {
+test("the host can create a clearly labelled Hard Mode multiplayer room", () => {
   const startScreen = readFileSync(
     new URL("../src/features/start/StartScreen.tsx", import.meta.url),
     "utf8",
@@ -93,10 +93,11 @@ test("the host can create a clearly labelled Hard Test multiplayer room", () => 
     "utf8",
   );
 
-  assert.match(startScreen, /Hard Test/);
-  assert.match(startScreen, /15% more Attack/);
-  assert.match(lobbyScreen, /Hard Test/);
-  assert.match(characterScreen, /Hard Test/);
-  assert.match(battleScreen, /Hard Test/);
-  assert.match(server, /request\.difficulty === "hardTest"/);
+  assert.match(startScreen, /Hard Mode/);
+  assert.match(startScreen, /Enemies do 25% more damage/);
+  assert.match(startScreen, /Hard Mode[\s\S]{0,500}type="checkbox"/);
+  assert.match(lobbyScreen, /Hard Mode/);
+  assert.match(characterScreen, /Hard Mode/);
+  assert.match(battleScreen, /Hard Mode/);
+  assert.match(server, /request\.difficulty === "hard"/);
 });

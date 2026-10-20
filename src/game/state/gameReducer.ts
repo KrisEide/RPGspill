@@ -10,6 +10,7 @@ import {
   selectPlayerItem,
   selectPlayerAction,
 } from "../combat/playerActions";
+import { shouldAutoResolveRockwhistlerAmbush } from "../combat/rockwhistler";
 import { isCharacterInstanceId } from "../playerControl";
 import type {
   AbilityId,
@@ -122,7 +123,8 @@ export function gameReducer(
   }
 
   if (action.type === "resolveAutomaticRound") {
-    if (!areAllLivingPlayersReady(state.combat, state.roundSelections)) {
+    if (!areAllLivingPlayersReady(state.combat, state.roundSelections) &&
+        !shouldAutoResolveRockwhistlerAmbush(state.combat)) {
       return state;
     }
 
@@ -649,6 +651,8 @@ function applyCurrentCombatEvent(
           }
       : event.type === "earthDemonSummoned"
         ? { ...state.combat, earthDemon: event.summon }
+      : event.type === "enemySummoned"
+        ? { ...state.combat, enemies: [...state.combat.enemies, ...event.summonedEnemies] }
       : event.type === "earthDemonHit"
         ? {
             ...state.combat,

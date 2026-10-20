@@ -38,6 +38,10 @@ import goatOneChargeSprite from "../../../assets/sprites/act2monsters/goat1_char
 import goatTwoIdleSprite from "../../../assets/sprites/act2monsters/goat2_idle.png";
 import goatTwoStompSprite from "../../../assets/sprites/act2monsters/goat2_stomp.png";
 import goatTwoChargeSprite from "../../../assets/sprites/act2monsters/goat2_charge.png";
+import rockwhistlerIdleSprite from "../../../assets/sprites/act2monsters/rockwhistler_idle.png";
+import rockwhistlerAttackSprite from "../../../assets/sprites/act2monsters/rockwhistler_attack.png";
+import rockwhistlerBurrowSprite from "../../../assets/sprites/act2monsters/rockwhistler_burrow.png";
+import rockwhistlerCallSprite from "../../../assets/sprites/act2monsters/rockwhistler_call.png";
 import type { AbilityId, EnemyId } from "../../../game/types";
 
 type EnemySpriteAdjustment = {
@@ -88,6 +92,20 @@ const orcWizardCastingSpriteAdjustment = createAnchoredEnemySpriteAdjustment({
   sourceAnchor: { x: 720, y: 1215 },
   targetAnchor: { x: 260, y: 330 },
   displayScale: 0.352,
+});
+
+const rockwhistlerSpriteAdjustment = createAnchoredEnemySpriteAdjustment({
+  sourceSize: { width: 1254, height: 1254 },
+  sourceAnchor: { x: 630, y: 1030 },
+  targetAnchor: { x: 275, y: 330 },
+  displayScale: 0.14,
+});
+
+const rockwhistlerAttackSpriteAdjustment = createAnchoredEnemySpriteAdjustment({
+  sourceSize: { width: 1254, height: 1254 },
+  sourceAnchor: { x: 630, y: 1030 },
+  targetAnchor: { x: 185, y: 330 },
+  displayScale: 0.14,
 });
 
 type EnemyVisualDefinition = {
@@ -645,6 +663,22 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
           },
         ],
       },
+    },
+  },
+  rockwhistler: {
+    idleSpriteSrc: rockwhistlerIdleSprite,
+    autoAttackSpriteSrc: rockwhistlerAttackSprite,
+    attackAnimationVariant: "snappy",
+    attackAnimationDurationMs: 1750,
+    baseFilter: "brightness(0.96) contrast(1.08) saturate(0.92)",
+    statusTop: "160px",
+    idleSpriteAdjustment: rockwhistlerSpriteAdjustment,
+    attackSpriteAdjustment: rockwhistlerAttackSpriteAdjustment,
+    abilitySpriteSequences: {
+      rockwhistlerAttack: { variant: "bossAction", frames: [{ spriteSrc: rockwhistlerAttackSprite, adjustment: rockwhistlerAttackSpriteAdjustment }] },
+      rockwhistlerPackAttack: { variant: "bossAction", frames: [{ spriteSrc: rockwhistlerAttackSprite, adjustment: rockwhistlerAttackSpriteAdjustment }] },
+      rockwhistlerBurrow: { variant: "rest", frames: [{ spriteSrc: rockwhistlerBurrowSprite, adjustment: rockwhistlerSpriteAdjustment }] },
+      rockwhistlerCall: { variant: "healing", frames: [{ spriteSrc: rockwhistlerCallSprite, adjustment: rockwhistlerSpriteAdjustment }] },
     },
   },
 };

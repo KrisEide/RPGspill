@@ -27,6 +27,7 @@ export const PASSIVE_VALUES = {
   shieldmateBarrier: 5,
   leaveItToMeDamageBonus: 0.25,
   battleRhythmPp: 3,
+  followUpStrikePowerMultiplier: 0.5,
   braceBarrier: 6,
   counterguardDamage: 4,
   bombardierDamageBonus: 0.35,
