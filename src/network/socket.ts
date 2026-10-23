@@ -1,7 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import type {
   AutomaticRoundRequest,
-  BloodpactSelectionRequest,
   CharacterReadinessState,
   ClientToServerEvents,
   CreateRoomRequest,
@@ -73,21 +72,6 @@ export function disconnectMultiplayerSession() {
   socket.disconnect();
 }
 
-export async function submitMultiplayerBloodpact(request: BloodpactSelectionRequest) {
-  await connect();
-  return new Promise<boolean>((resolve, reject) => {
-    socket.timeout(10000).emit("selectBloodpact", request, (error, accepted) => {
-      if (error) reject(new Error("Bloodpact selection timed out. Please try again."));
-      else resolve(accepted);
-    });
-  });
-}
-
-export function subscribeToBloodpact(handleUpdated: (state: CombatState) => void) {
-  socket.on("bloodpactUpdated", handleUpdated);
-  return () => { socket.off("bloodpactUpdated", handleUpdated); };
-}
-
 export async function createMultiplayerRoom(
   difficulty: CreateRoomRequest["difficulty"] = "normal",
 ) {
@@ -139,8 +123,15 @@ export async function submitMultiplayerAction(
 ) {
   await connect();
 
-  return new Promise<MultiplayerActionResult>((resolve) => {
-    socket.emit("selectAction", request, resolve);
+  return new Promise<MultiplayerActionResult>((resolve, reject) => {
+    socket.timeout(10000).emit("selectAction", request, (error, result) => {
+      if (error) {
+        reject(new Error("Action submission timed out. Please try again."));
+        return;
+      }
+
+      resolve(result);
+    });
   });
 }
 
@@ -154,13 +145,37 @@ export async function resolveMultiplayerAutomaticRound(
   });
 }
 
+export async function submitMultiplayerForceRound(
+  request: AutomaticRoundRequest,
+) {
+  await connect();
+
+  return new Promise<boolean>((resolve, reject) => {
+    socket.timeout(10000).emit("forceRound", request, (error, accepted) => {
+      if (error) {
+        reject(new Error("Pass Round timed out. Please try again."));
+        return;
+      }
+
+      resolve(accepted);
+    });
+  });
+}
+
 export async function submitMultiplayerItem(
   request: MultiplayerItemRequest,
 ) {
   await connect();
 
-  return new Promise<MultiplayerItemResult>((resolve) => {
-    socket.emit("selectItem", request, resolve);
+  return new Promise<MultiplayerItemResult>((resolve, reject) => {
+    socket.timeout(10000).emit("selectItem", request, (error, result) => {
+      if (error) {
+        reject(new Error("Item submission timed out. Please try again."));
+        return;
+      }
+
+      resolve(result);
+    });
   });
 }
 
@@ -204,9 +219,11 @@ export function subscribeToLobby(
 
 export function subscribeToSessionEnded(handleSessionEnded: () => void) {
   socket.on("sessionEnded", handleSessionEnded);
+  socket.on("disconnect", handleSessionEnded);
 
   return () => {
     socket.off("sessionEnded", handleSessionEnded);
+    socket.off("disconnect", handleSessionEnded);
   };
 }
 

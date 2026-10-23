@@ -100,22 +100,22 @@ test("Spirit rewards show concise summaries and keep full rules in Shift details
     description: "Full combined description.",
     passiveName: "Bloodpact",
     passiveShortDescription:
-      "Sacrifice loses 1 HP; Protected gains 2 Barrier.",
+      "Lose 1 HP and restore 1 PP; your partner gains 2 Barrier.",
     passiveDescription:
-      "At encounter start, choose Sacrifice and Protected. Roles stay locked.",
+      "You are always Sacrifice and your partner is always Protected.",
     activeName: "Bloodpact",
     activeDescription:
-      "Sacrifice loses 10 HP. Protected gains 30 Barrier.",
+      "Lose 10 HP. Your partner gains 30 Barrier.",
     activeDetailedDescription:
-      "The locked Sacrifice loses 10 HP, ignoring Barrier.",
+      "You lose 10 HP, ignoring Barrier.",
   });
 
   assert.match(markup, />Choose a Spirit</);
   assert.match(markup, />For Kris · Hold Shift for details</);
   assert.match(markup, />Passive</);
-  assert.match(markup, /Sacrifice loses 1 HP; Protected gains 2 Barrier/);
+  assert.match(markup, /Lose 1 HP and restore 1 PP; your partner gains 2 Barrier/);
   assert.match(markup, />Active</);
   assert.doesNotMatch(markup, /New Spirit/);
   assert.doesNotMatch(markup, /Passive — Bloodpact/);
-  assert.doesNotMatch(markup, /At encounter start, choose Sacrifice/);
+  assert.doesNotMatch(markup, /always Sacrifice/);
 });

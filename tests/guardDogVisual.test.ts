@@ -34,3 +34,19 @@ test("Bodyguard adds a persistent white aura to its protected hero", () => {
   assert.match(styles, /\.bodyguardAura/);
   assert.match(styles, /@keyframes bodyguardAuraPulse/);
 });
+
+test("Rank 2 Bodyguard counter reuses the Guard Dog strike with a white glow", () => {
+  const battleScreen = readFileSync(
+    new URL("../src/features/battle/BattleScreen.tsx", import.meta.url),
+    "utf8",
+  );
+  const styles = readFileSync(
+    new URL("../src/styles/game.css", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(battleScreen, /passiveIds\.includes\("guardDog"\)/);
+  assert.match(battleScreen, /variant: "guardDogCounter"/);
+  assert.match(styles, /\.battleScene__targetEffect--guardDogCounter/);
+  assert.match(styles, /rgba\(255, 255, 255/);
+});

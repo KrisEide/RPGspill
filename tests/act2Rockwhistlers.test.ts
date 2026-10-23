@@ -8,10 +8,10 @@ import { createEmptyRoundSelections } from "../src/game/combat/playerActions";
 import { prepareEnemyIntents } from "../src/game/combat/enemyIntents";
 import { resolveRound } from "../src/game/combat/resolveRound";
 import { isEnemyTargetable } from "../src/game/combat/targeting";
-import { shouldAutoResolveRockwhistlerAmbush } from "../src/game/combat/rockwhistler";
 import { createEncounterEnemies } from "../src/game/state/encounterState";
+import { gameReducer } from "../src/game/state/gameReducer";
 import { createInitialCombatState } from "../src/game/state/initialState";
-import type { GameSetup } from "../src/game/types";
+import type { ClientBattleState, GameSetup } from "../src/game/types";
 
 const setup: GameSetup = {
   mode: "singlePlayer",
@@ -24,7 +24,7 @@ const setup: GameSetup = {
   },
 };
 
-test("Act 2 encounter 2 contains five passive 90 HP Rockwhistlers", () => {
+test("Act 2 encounter 2 contains five passive 70 HP Rockwhistlers", () => {
   const encounter = ENCOUNTER_DEFINITIONS.rockwhistlerRidge;
   const enemies = createEncounterEnemies("rockwhistlerRidge");
 
@@ -34,7 +34,7 @@ test("Act 2 encounter 2 contains five passive 90 HP Rockwhistlers", () => {
     encounter.enemies.map(({ enemyId }) => enemyId),
     Array.from({ length: 5 }, () => "rockwhistler"),
   );
-  assert.equal(ENEMY_DEFINITIONS.rockwhistler.stats.maxHp, 90);
+  assert.equal(ENEMY_DEFINITIONS.rockwhistler.stats.maxHp, 70);
   assert.deepEqual(ENEMY_DEFINITIONS.rockwhistler.abilityRanks, {
     rockwhistlerAttack: 1,
     rockwhistlerPackAttack: 1,
@@ -42,7 +42,36 @@ test("Act 2 encounter 2 contains five passive 90 HP Rockwhistlers", () => {
     rockwhistlerAmbush: 1,
     rockwhistlerCall: 1,
   });
-  assert.equal(enemies.every((enemy) => enemy.hp === 90), true);
+  assert.equal(enemies.every((enemy) => enemy.hp === 70), true);
+});
+
+test("the two living surface Rockwhistlers that burrow are chosen randomly", () => {
+  const selectedPairs = new Set<string>();
+
+  for (const randomSeed of [1, 700_000_000, 1_900_000_000, 3_100_000_000]) {
+    const state = createInitialCombatState({ ...setup, randomSeed });
+    const prepared = prepareEnemyIntents({
+      ...state,
+      round: 2,
+      randomSeed,
+      enemyIntents: {},
+    });
+    const burrowers = Object.entries(prepared.enemyIntents)
+      .filter(([, intent]) => intent?.abilityId === "rockwhistlerBurrow")
+      .map(([enemyId]) => enemyId)
+      .sort();
+
+    assert.equal(burrowers.length, 2);
+    assert.equal(
+      burrowers.every((enemyId) =>
+        prepared.enemies.some((enemy) => enemy.instanceId === enemyId && enemy.hp > 0),
+      ),
+      true,
+    );
+    selectedPairs.add(burrowers.join(","));
+  }
+
+  assert.ok(selectedPairs.size > 1);
 });
 
 test("the pack focuses together, burrows in pairs, then ambushes", () => {
@@ -70,11 +99,11 @@ test("Call adds two full-health Rockwhistlers once after two deaths", () => {
   assert.equal(Object.values(prepared.enemyIntents).filter((intent) => intent?.abilityId === "rockwhistlerCall").length, 1);
   const result = resolveRound(prepared, createEmptyRoundSelections());
   assert.equal(result.nextState.enemies.length, 7);
-  assert.equal(result.nextState.enemies.slice(-2).every((enemy) => enemy.hp === 90), true);
+  assert.equal(result.nextState.enemies.slice(-2).every((enemy) => enemy.hp === 70), true);
   assert.equal(result.events.filter((event) => event.type === "enemySummoned").length, 1);
 });
 
-test("an all-burrowed pack automatically advances into its ambush round", () => {
+test("an all-burrowed pack waits for non-targeting player choices", () => {
   const state = createInitialCombatState(setup);
   state.round = 2;
   state.enemies = state.enemies.slice(0, 2);
@@ -83,11 +112,18 @@ test("an all-burrowed pack automatically advances into its ambush round", () => 
 
   assert.equal(ambushRound.round, 3);
   assert.equal(ambushRound.enemies.every((enemy) => !isEnemyTargetable(enemy)), true);
-  assert.equal(shouldAutoResolveRockwhistlerAmbush(ambushRound), true);
+  const clientState: ClientBattleState = {
+    combat: ambushRound,
+    phase: "selectingActions",
+    roundSelections: createEmptyRoundSelections(),
+    lastRoundEvents: [],
+    pendingRound: null,
+  };
+  const waiting = gameReducer(clientState, { type: "resolveAutomaticRound" });
 
-  const emerged = resolveRound(ambushRound, createEmptyRoundSelections()).nextState;
-  assert.equal(emerged.enemies.every(isEnemyTargetable), true);
-  assert.equal(emerged.round, 4);
+  assert.equal(waiting, clientState);
+  assert.equal(waiting.combat.round, 3);
+  assert.equal(waiting.phase, "selectingActions");
 });
 
 test("a Rockwhistler returns immediately after Ambush and can be hit by later AOE", () => {
@@ -146,6 +182,38 @@ test("Defend is especially effective against the focused Pack Attack", () => {
   );
   assert.ok(normalHit?.type === "damage" && focusedHit?.type === "damage");
   assert.ok(focusedHit.amount < normalHit.amount);
+});
+
+test("Rockwhistler Ambush deals around 14 damage after Rowan's Defense", () => {
+  const state = createInitialCombatState(setup);
+  state.round = 2;
+  state.enemies = state.enemies.slice(0, 2);
+  const burrowRound = prepareEnemyIntents({ ...state, enemyIntents: {} });
+  const ambushRound = resolveRound(
+    burrowRound,
+    createEmptyRoundSelections(),
+  ).nextState;
+  for (const intent of Object.values(ambushRound.enemyIntents)) {
+    if (intent?.abilityId === "rockwhistlerAmbush") {
+      intent.targetId = "character-1";
+      intent.targetIds = ["character-1"];
+    }
+  }
+
+  const result = resolveRound(ambushRound, createEmptyRoundSelections());
+  const ambushHits = result.events.filter(
+    (event) =>
+      event.type === "damage" && event.abilityId === "rockwhistlerAmbush",
+  );
+
+  assert.equal(ambushHits.length, 2);
+  for (const ambushHit of ambushHits) {
+    assert.ok(ambushHit.type === "damage");
+    assert.ok(
+      ambushHit.amount >= 13 && ambushHit.amount <= 16,
+      `expected Ambush to deal around 14 damage, received ${ambushHit.amount}`,
+    );
+  }
 });
 
 test("Rockwhistler Ridge keeps five small enemies grounded with their HP bars close above them", () => {
@@ -224,14 +292,17 @@ test("Rockwhistler attacks swap to a fixed forward pose with paced Burrow, Ambus
   );
 
   assert.match(abilityVisuals, /rockwhistler_burrowattack\.png/);
-  assert.match(abilityVisuals, /rockwhistlerBurrow:[\s\S]*animationDurationMs: 3800[\s\S]*eventDurationMs: 4400/);
+  assert.match(abilityVisuals, /rockwhistlerBurrow:[\s\S]*animationDurationMs: 4300[\s\S]*impactDelayMs: 3600[\s\S]*eventDurationMs: 4900/);
   assert.match(abilityVisuals, /rockwhistlerAmbush:[\s\S]*targetEffect:[\s\S]*variant: "rockwhistlerAmbush"/);
   assert.match(abilityVisuals, /rockwhistlerCall:[\s\S]*animationDurationMs: 4200[\s\S]*eventDurationMs: 4800/);
   assert.doesNotMatch(enemyVisuals, /rockwhistlerAmbush:[\s\S]*rockwhistlerBurrowAttackSprite/);
-  assert.match(battleScreen, /abilityId === "rockwhistlerAmbush"[\s\S]*currentEventApplied/);
+  assert.match(battleScreen, /ambushHasLanded[\s\S]*currentEventApplied/);
   assert.match(enemyVisuals, /rockwhistlerAttackSpriteAdjustment[\s\S]*targetAnchor: \{ x: 185, y: 330 \}/);
   assert.match(enemyVisuals, /rockwhistlerAttack:[\s\S]*adjustment: rockwhistlerAttackSpriteAdjustment/);
+  assert.match(enemyVisuals, /rockwhistlerBurrow:[\s\S]*variant: "burrow"/);
   assert.doesNotMatch(styles, /rockwhistlerAttackAdvance/);
+  assert.match(styles, /sequence-burrow/);
+  assert.doesNotMatch(styles, /sequence-burrow[\s\S]{0,180}enemyRestCleanse/);
   assert.match(styles, /battleScene__targetEffect--rockwhistlerAmbush/);
   assert.match(styles, /battleScene__targetEffect--rockwhistlerAmbush[\s\S]*brightness\(0\.96\) contrast\(1\.08\) saturate\(0\.92\)/);
 });

@@ -158,6 +158,7 @@ const items = [
           "rootseed",
           "bleed",
           "cracked",
+          "goatMarked",
           "wet",
           "exposed",
           "weakened",

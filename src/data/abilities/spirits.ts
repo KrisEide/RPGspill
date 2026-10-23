@@ -11,17 +11,17 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Sacrifice loses 10 HP. Protected gains 30 Barrier.",
+        shortDescription: "Lose 10 HP. Your partner gains 30 Barrier.",
         description:
-          "0 PP · Once per encounter · Uses Action. The locked Sacrifice loses 10 HP, ignoring Barrier, then the locked Protected gains 30 Barrier. HP loss can cause Ghost Form. Requires both heroes to be living.",
+          "0 PP · Once per encounter · Uses Action. You lose 10 HP, ignoring Barrier, then your partner gains 30 Barrier. HP loss can cause Ghost Form. Requires both heroes to be living.",
         ppCost: 0,
         effects: [{ type: "bloodpact", hpCost: 10, barrierAmount: 30 }],
       },
       2: {
-        newEffectDescription: "Protected gains 45 Barrier.",
-        shortDescription: "Sacrifice loses 10 HP. Protected gains 45 Barrier.",
+        newEffectDescription: "Your partner gains 45 Barrier.",
+        shortDescription: "Lose 10 HP. Your partner gains 45 Barrier.",
         description:
-          "0 PP · Once per encounter · Uses Action. The locked Sacrifice loses 10 HP, ignoring Barrier, then the locked Protected gains 45 Barrier.",
+          "0 PP · Once per encounter · Uses Action. You lose 10 HP, ignoring Barrier, then your partner gains 45 Barrier.",
         ppCost: 0,
         effects: [{ type: "bloodpact", hpCost: 10, barrierAmount: 45 }],
       },
@@ -57,15 +57,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
         newEffectDescription: "Higher damage to all enemies.",
         shortDescription: "Stronger damage and Burn to all enemies.",
         description:
-          "Deal 10 + 45% of Fire Power as Spirit Fire damage to all enemies and apply Burn.",
+          "Deal 14 + 55% of Fire Power as Spirit Fire damage to all enemies and apply Burn.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 10,
+            basePower: 14,
             attackScaling: 0,
-            elementalPowerScaling: 0.45,
+            elementalPowerScaling: 0.55,
             statusOnHit: { statusId: "burn" },
           },
         ],
@@ -114,15 +114,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Act first and damage one enemy.",
         description:
-          "Act first this round and deal 20 + 60% of Wind Power as Spirit Wind damage to one enemy.",
+          "Act first this round and deal 22 + 65% of Wind Power as Spirit Wind damage to one enemy.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 20,
+            basePower: 22,
             attackScaling: 0,
-            elementalPowerScaling: 0.6,
+            elementalPowerScaling: 0.65,
           },
         ],
       },
@@ -130,15 +130,15 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
         newEffectDescription: "Higher Spirit Wind damage.",
         shortDescription: "Act first and deal stronger damage to one enemy.",
         description:
-          "Act first this round and deal 28 + 80% of Wind Power as Spirit Wind damage to one enemy.",
+          "Act first this round and deal 34 + 100% of Wind Power as Spirit Wind damage to one enemy.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "elemental",
-            basePower: 28,
+            basePower: 34,
             attackScaling: 0,
-            elementalPowerScaling: 0.8,
+            elementalPowerScaling: 1,
           },
         ],
       },
@@ -186,30 +186,30 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Deal heavy Spirit Physical damage.",
         description:
-          "Deal 22 + 80% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
+          "Deal 25 + 90% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 22,
-            attackScaling: 0.8,
+            basePower: 25,
+            attackScaling: 0.9,
             elementalPowerScaling: 0,
           },
         ],
       },
       2: {
-        newEffectDescription: "Higher base damage and full Attack scaling.",
+        newEffectDescription: "Much higher base damage and Attack scaling.",
         shortDescription: "Deal heavier Spirit Physical damage.",
         description:
-          "Deal 28 + 110% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
+          "Deal 34 + 130% of Attack as Spirit Physical damage to one enemy. Cannot critically hit.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 28,
-            attackScaling: 1.1,
+            basePower: 34,
+            attackScaling: 1.3,
             elementalPowerScaling: 0,
           },
         ],

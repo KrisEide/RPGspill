@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { ABILITIES } from "../src/data/abilities";
@@ -61,13 +62,14 @@ test("every Spirit advances to Rank 2 without refreshing its active", () => {
 test("Rank 2 Spirit passives use the Act 2 values", () => {
   assert.deepEqual(getSpiritPassive(createSpiritState("bloodpact", 2)).roundStartBloodpact, {
     hpCost: 1,
-    barrierAmount: 4,
+    barrierAmount: 2,
+    ppRestore: 1,
   });
   assert.deepEqual(getSpiritPassive(createSpiritState("embertail", 2)).firstDamageActionEachEncounter, {
-    basePower: 10,
+    basePower: 12,
     damageType: "elemental",
     element: "fire",
-    elementalPowerScaling: 0.3,
+    elementalPowerScaling: 0.35,
     statusOnHit: "burn",
   });
   assert.equal(
@@ -99,6 +101,10 @@ test("Rank 2 Spirit passives use the Act 2 values", () => {
     0.15,
   );
   assert.equal(
+    getSpiritPassive(createSpiritState("ironquill", 2)).freeSteelDartEachRound,
+    true,
+  );
+  assert.equal(
     getSpiritPassive(createSpiritState("phoenix", 2)).roundStartHealing?.amount,
     4,
   );
@@ -114,16 +120,16 @@ test("Rank 2 Spirit actives use the stronger values", () => {
     hpCost: 10,
     barrierAmount: 45,
   });
-  assert.equal(ABILITIES.cinderburst.ranks[2]?.effects[0].basePower, 10);
-  assert.equal(ABILITIES.cinderburst.ranks[2]?.effects[0].elementalPowerScaling, 0.45);
+  assert.equal(ABILITIES.cinderburst.ranks[2]?.effects[0].basePower, 14);
+  assert.equal(ABILITIES.cinderburst.ranks[2]?.effects[0].elementalPowerScaling, 0.55);
   assert.equal(ABILITIES.stoneback.ranks[2]?.effects[0].amount, 12);
   assert.equal(ABILITIES.stoneback.ranks[2]?.effects[0].elementalPowerScaling, 0.35);
-  assert.equal(ABILITIES.swiftWing.ranks[2]?.effects[0].basePower, 28);
-  assert.equal(ABILITIES.swiftWing.ranks[2]?.effects[0].elementalPowerScaling, 0.8);
+  assert.equal(ABILITIES.swiftWing.ranks[2]?.effects[0].basePower, 34);
+  assert.equal(ABILITIES.swiftWing.ranks[2]?.effects[0].elementalPowerScaling, 1);
   assert.equal(ABILITIES.riverheart.ranks[2]?.effects[0].basePower, 28);
   assert.equal(ABILITIES.riverheart.ranks[2]?.effects[0].elementalPowerScaling, 0.65);
-  assert.equal(ABILITIES.warhound.ranks[2]?.effects[0].basePower, 28);
-  assert.equal(ABILITIES.warhound.ranks[2]?.effects[0].attackScaling, 1.1);
+  assert.equal(ABILITIES.warhound.ranks[2]?.effects[0].basePower, 34);
+  assert.equal(ABILITIES.warhound.ranks[2]?.effects[0].attackScaling, 1.3);
   assert.equal(
     ABILITIES.ironquill.ranks[2]?.effects.filter((effect) => effect.type === "damage").every(
       (effect) => effect.basePower === 8,
@@ -150,4 +156,14 @@ test("Rank 2 Riverheart and Phoenix are resolved from the owner's Spirit rank", 
   assert.equal(reborn.hp, 55);
   assert.equal(reborn.barrier, 20);
   assert.equal(reborn.spirits.phoenix?.activeUsesRemaining, 0);
+});
+
+test("the battle Spirit panel shows the passive for the current Spirit rank", () => {
+  const battleScreen = readFileSync(
+    new URL("../src/features/battle/BattleScreen.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(battleScreen, /const passive = getSpiritPassive\(spirit\)/);
+  assert.match(battleScreen, /passiveDescription: passive\.description/);
 });

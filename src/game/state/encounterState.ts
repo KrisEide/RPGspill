@@ -4,7 +4,6 @@ import { refreshSpiritActiveUses } from "../../data/spirits";
 import { createRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
 import { prepareEnemyIntents } from "../combat/enemyIntents";
-import { prepareBloodpactSelection } from "../combat/bloodpact";
 import type {
   CombatState,
   CombatStats,
@@ -162,5 +161,5 @@ export function startEncounter(
 
   return isRest
     ? nextState
-    : prepareBloodpactSelection(prepareEnemyIntents(prepareRoundTurnPriorities(nextState)));
+    : prepareEnemyIntents(prepareRoundTurnPriorities(nextState));
 }

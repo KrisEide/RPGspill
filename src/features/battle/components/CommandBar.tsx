@@ -631,8 +631,10 @@ export default function CommandBar({
               <div
                 className={`cmdbar__text ${activeId === "defend" && defendBonuses.length > 0 ? "cmdbar__text--withDefendBonuses" : ""}`}
               >
-                <div className="cmdbar__title">{active.title}</div>
-                <div className="cmdbar__desc">{active.desc}</div>
+                <div className="cmdbar__textMain">
+                  <div className="cmdbar__title">{active.title}</div>
+                  <div className="cmdbar__desc">{active.desc}</div>
+                </div>
                 {activeId === "defend" && defendBonuses.length > 0 && (
                   <div className="cmdbar__defendBonuses" aria-label="Defend bonuses">
                     {defendBonuses.map((bonus) => (

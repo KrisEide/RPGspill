@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createSpiritState } from "../src/data/spirits";
-import { resolveRound } from "../src/game/combat/resolveRound";
+import {
+  resolveImmediateItemUse,
+  resolveRound,
+} from "../src/game/combat/resolveRound";
 import {
   createEmptyRoundSelections,
   selectPlayerAction,
@@ -154,4 +157,62 @@ test("acting first is still a queued priority action rather than Quick", () => {
       : null,
     "swiftWing",
   );
+});
+
+test("Rank 2 Ironquill grants one non-bankable free Steel Dart each round", () => {
+  const initial = createIronquillState().combat;
+  initial.characters["character-1"].spirits = {
+    ironquill: createSpiritState("ironquill", 2),
+  };
+  initial.characters["character-1"].inventory = {};
+
+  const firstDart = resolveImmediateItemUse(initial, {
+    kind: "item",
+    actorId: "character-1",
+    itemId: "steelDart",
+    targetId: "enemy-1",
+  });
+
+  assert.ok(firstDart);
+  assert.equal(firstDart.nextState.characters["character-1"].inventory.steelDart ?? 0, 0);
+  assert.equal(
+    firstDart.nextState.characters["character-1"].spirits.ironquill
+      ?.freeSteelDartAvailable,
+    false,
+  );
+  assert.equal(
+    firstDart.nextState.characters["character-1"].spirits.ironquill
+      ?.steelDartAbilityBonusStacks,
+    1,
+  );
+  assert.equal(
+    resolveImmediateItemUse(firstDart.nextState, {
+      kind: "item",
+      actorId: "character-1",
+      itemId: "steelDart",
+      targetId: "enemy-1",
+    }),
+    null,
+  );
+
+  let selections = createEmptyRoundSelections();
+  selections = selectPlayerAction(firstDart.nextState, selections, {
+    playerId: "player1",
+    abilityId: "defend",
+    targetId: "character-1",
+  })!;
+  selections = selectPlayerAction(firstDart.nextState, selections, {
+    playerId: "player2",
+    abilityId: "defend",
+    targetId: "character-2",
+  })!;
+  const nextRound = resolveRound(firstDart.nextState, selections);
+
+  assert.equal(nextRound.nextState.round, 2);
+  assert.equal(
+    nextRound.nextState.characters["character-1"].spirits.ironquill
+      ?.freeSteelDartAvailable,
+    true,
+  );
+  assert.equal(nextRound.nextState.characters["character-1"].inventory.steelDart ?? 0, 0);
 });

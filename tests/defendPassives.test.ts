@@ -190,9 +190,23 @@ test("the command bar renders owned Defend bonuses beside its description", () =
     new URL("../src/features/battle/BattleScreen.tsx", import.meta.url),
     "utf8",
   );
+  const styles = readFileSync(
+    new URL("../src/styles/game.css", import.meta.url),
+    "utf8",
+  );
 
   assert.match(commandBar, /defendBonuses/);
   assert.match(commandBar, /cmdbar__defendBonuses/);
+  assert.match(commandBar, /cmdbar__textMain/);
+  assert.match(
+    styles,
+    /cmdbar__text\.cmdbar__text--withDefendBonuses \{[\s\S]*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.25fr\)/,
+  );
+  assert.match(
+    styles,
+    /cmdbar__defendBonuses \{[\s\S]*border-left:/,
+  );
+  assert.match(styles, /cmdbar__defendBonuses \{[\s\S]*margin-left:/);
   assert.match(battleScreen, /getDefendPassiveBonuses/);
   assert.match(battleScreen, /defendBonuses={defendBonuses}/);
 });

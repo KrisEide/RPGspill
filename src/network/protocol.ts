@@ -36,11 +36,6 @@ export type CreateRoomRequest = {
   difficulty: RunDifficulty;
 };
 
-export type BloodpactSelectionRequest = {
-  encounterId: EncounterId;
-  sacrificeId: CharacterInstanceId;
-};
-
 export type CharacterReadinessState = {
   roomCode: string;
   readyPlayerIds: PlayerId[];
@@ -115,7 +110,6 @@ export type JoinRoomResult =
     };
 
 export interface ServerToClientEvents {
-  bloodpactUpdated: (state: CombatState) => void;
   lobbyUpdated: (lobby: LobbyState) => void;
   characterReadinessUpdated: (state: CharacterReadinessState) => void;
   gameStarted: (state: CombatState) => void;
@@ -131,7 +125,6 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  selectBloodpact: (request: BloodpactSelectionRequest, respond: (accepted: boolean) => void) => void;
   createRoom: (
     request: CreateRoomRequest,
     respond: (connection: RoomConnection) => void,
@@ -149,6 +142,10 @@ export interface ClientToServerEvents {
     respond: (result: MultiplayerActionResult) => void,
   ) => void;
   resolveAutomaticRound: (
+    request: AutomaticRoundRequest,
+    respond: (accepted: boolean) => void,
+  ) => void;
+  forceRound: (
     request: AutomaticRoundRequest,
     respond: (accepted: boolean) => void,
   ) => void;

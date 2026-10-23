@@ -7,7 +7,6 @@ import { createKnownPassives } from "../../data/passives";
 import { createRestOffers } from "../../data/restChoices";
 import { prepareRoundTurnPriorities } from "../combat/spiritTurnPriority";
 import { prepareEnemyIntents } from "../combat/enemyIntents";
-import { prepareBloodpactSelection } from "../combat/bloodpact";
 import { applyCharacterHp } from "../ghost/ghostSystem";
 import {
   createEmptyInventory,
@@ -162,7 +161,7 @@ export function createInitialCombatState(setup: GameSetup): CombatState {
 
   return isRest
     ? initialState
-    : prepareBloodpactSelection(prepareEnemyIntents(prepareRoundTurnPriorities(initialState)));
+    : prepareEnemyIntents(prepareRoundTurnPriorities(initialState));
 }
 
 export function createClientBattleState(

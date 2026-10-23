@@ -5,6 +5,7 @@ import test from "node:test";
 import { ENCOUNTER_DEFINITIONS } from "../src/data/encounters";
 import { ENEMY_DEFINITIONS } from "../src/data/monsters";
 import { createKnownSpirits } from "../src/data/spirits";
+import { STATUS_DEFINITIONS } from "../src/data/statuses";
 import { createEmptyRoundSelections } from "../src/game/combat/playerActions";
 import { prepareEnemyIntents } from "../src/game/combat/enemyIntents";
 import { resolveRound } from "../src/game/combat/resolveRound";
@@ -142,7 +143,7 @@ test("Stomp deals no damage and marks one random living hero for that goat's nex
     .filter((character) =>
       character.statuses.some(
         (status) =>
-          status.id === "cracked" && status.readiedAbilityId === "goatCharge",
+          status.id === "goatMarked" && status.readiedAbilityId === "goatCharge",
       ),
     )
     .map((character) => character.instanceId);
@@ -167,7 +168,7 @@ test("Stomp deals no damage and marks one random living hero for that goat's nex
   assert.equal(
     charged.nextState.characters[markedCharacterId].statuses.some(
       (status) =>
-        status.id === "cracked" &&
+        status.id === "goatMarked" &&
         status.readiedAbilityId === "goatCharge" &&
         status.sourceId === "enemy-1",
     ),
@@ -181,9 +182,36 @@ test("Stomp deals no damage and marks one random living hero for that goat's nex
     .flatMap((character) => character.statuses)
     .find(
       (status) =>
-        status.id === "cracked" && status.readiedAbilityId === "goatCharge",
+        status.id === "goatMarked" && status.readiedAbilityId === "goatCharge",
     );
   assert.equal(nextMarkedStatus?.sourceId, "enemy-2");
+});
+
+test("the Stomp mark clearly shows the next focused Charge without lowering Defense", () => {
+  assert.equal(STATUS_DEFINITIONS.goatMarked.name, "Focused");
+  assert.equal(STATUS_DEFINITIONS.goatMarked.defensiveStatReduction, undefined);
+
+  const abilityVisuals = readFileSync(
+    new URL("../src/features/battle/data/abilityVisuals.ts", import.meta.url),
+    "utf8",
+  );
+  const battleScreen = readFileSync(
+    new URL("../src/features/battle/BattleScreen.tsx", import.meta.url),
+    "utf8",
+  );
+  const statusPanel = readFileSync(
+    new URL("../src/features/battle/components/PartyStatusPanel.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    abilityVisuals,
+    /goatStomp:[\s\S]*?impactDelayMs: 900[\s\S]*?eventDurationMs: 5200/,
+  );
+  assert.match(battleScreen, /goatStompMarkEffect/);
+  assert.match(battleScreen, />FOCUSED</);
+  assert.match(statusPanel, /🎯 FOCUSED/);
+  assert.doesNotMatch(statusPanel, /DEF −5/);
 });
 
 test("the Act 2 checkpoint reforms a Ghost and fully restores both heroes", () => {

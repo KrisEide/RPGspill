@@ -15,18 +15,18 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     passive: {
       name: "Bloodpact",
       shortDescription:
-        "Sacrifice loses 1 HP; Protected gains 2 Barrier each round.",
+        "Lose 1 HP and restore 1 PP; your partner gains 2 Barrier each round.",
       description:
-        "At encounter start, choose Sacrifice and Protected. Roles stay locked. At the start of each round, Sacrifice loses 1 HP, ignoring Barrier, then Protected gains 2 Barrier. Pauses while either hero is not living.",
-      roundStartBloodpact: { hpCost: 1, barrierAmount: 2 },
+        "You are always Sacrifice and your partner is always Protected. At the start of each round, you lose 1 HP, ignoring Barrier, restore 1 PP, then your partner gains 2 Barrier. Pauses while either hero is not living.",
+      roundStartBloodpact: { hpCost: 1, barrierAmount: 2, ppRestore: 1 },
     },
     rankTwoPassive: {
       name: "Bloodpact",
       shortDescription:
-        "Sacrifice loses 1 HP; Protected gains 4 Barrier each round.",
+        "Lose 1 HP and restore 1 PP; your partner gains 2 Barrier each round.",
       description:
-        "At encounter start, choose Sacrifice and Protected. At the start of each round, Sacrifice loses 1 HP, ignoring Barrier, then Protected gains 4 Barrier.",
-      roundStartBloodpact: { hpCost: 1, barrierAmount: 4 },
+        "You are always Sacrifice. At the start of each round, you lose 1 HP, ignoring Barrier, restore 1 PP, then your partner gains 2 Barrier.",
+      roundStartBloodpact: { hpCost: 1, barrierAmount: 2, ppRestore: 1 },
     },
     activeAbilityId: "bloodpact",
     activeUsesPerEncounter: 1,
@@ -55,12 +55,12 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
       shortDescription:
         "Your first attack deals bonus Fire damage and applies Burn.",
       description:
-        "Your first attack each encounter deals 10 + 30% of Fire Power as additional Spirit Fire damage to one enemy hit and applies Burn.",
+        "Your first attack each encounter deals 12 + 35% of Fire Power as additional Spirit Fire damage to one enemy hit and applies Burn.",
       firstDamageActionEachEncounter: {
-        basePower: 10,
+        basePower: 12,
         damageType: "elemental",
         element: "fire",
-        elementalPowerScaling: 0.3,
+        elementalPowerScaling: 0.35,
         statusOnHit: "burn",
       },
     },
@@ -221,10 +221,11 @@ export const SPIRIT_DEFINITIONS: Record<SpiritId, SpiritDefinition> = {
     rankTwoPassive: {
       name: "Ironquill",
       shortDescription:
-        "Steel Darts grant +15% to your next damaging ability.",
+        "Gain a free Steel Dart each round. Darts grant +15% damage.",
       description:
-        "Whenever you use a Steel Dart, your next damaging ability deals 15% more damage. This stacks for every Steel Dart and is consumed by the ability.",
+        "At the start of each round, gain one free Steel Dart use that expires at round end. Whenever you use a Steel Dart, your next damaging ability deals 15% more damage. This stacks for every Steel Dart and is consumed by the ability.",
       steelDartAbilityAmplifier: { damageBonusPerDart: 0.15 },
+      freeSteelDartEachRound: true,
     },
     activeAbilityId: "ironquill",
     activeUsesPerEncounter: 1,
@@ -267,7 +268,10 @@ export function createSpiritState(spiritId: SpiritId, rank: 1 | 2 = 1) {
     passiveTriggeredThisEncounter: false,
     roundPriorityActive: false,
     steelDartAbilityBonusStacks: 0,
-    ...(spiritId === "bloodpact" ? { bloodpactRoles: null } : {}),
+    freeSteelDartAvailable:
+      spiritId === "ironquill" &&
+      rank === 2 &&
+      definition.rankTwoPassive.freeSteelDartEachRound === true,
   };
 }
 
@@ -280,10 +284,23 @@ export function upgradeKnownSpiritsToRankTwo(
   spirits: KnownSpirits,
 ): KnownSpirits {
   return Object.fromEntries(
-    Object.entries(spirits).map(([id, spirit]) => [
-      id,
-      spirit ? { ...spirit, rank: 2 as const } : spirit,
-    ]),
+    Object.entries(spirits).map(([id, spirit]) => {
+      const typedSpiritId = id as SpiritId;
+
+      return [
+        id,
+        spirit
+          ? {
+              ...spirit,
+              rank: 2 as const,
+              freeSteelDartAvailable:
+                typedSpiritId === "ironquill" &&
+                SPIRIT_DEFINITIONS[typedSpiritId].rankTwoPassive
+                  .freeSteelDartEachRound === true,
+            }
+          : spirit,
+      ];
+    }),
   );
 }
 

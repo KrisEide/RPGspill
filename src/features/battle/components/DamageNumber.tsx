@@ -7,7 +7,7 @@ type Props = {
   absorbedByBarrier?: number;
   durationMs?: number;
   isBlocked?: boolean;
-  variant?: "embertail";
+  variant?: "embertail" | "sacrifice";
 };
 
 export default function DamageNumber({
@@ -20,7 +20,7 @@ export default function DamageNumber({
 }: Props) {
   return (
     <div
-      className="damageNumberGroup"
+      className={`damageNumberGroup${absorbedByBarrier > 0 && amount > 0 ? " damageNumberGroup--split" : ""}`}
       aria-hidden="true"
       style={
         durationMs
@@ -43,7 +43,9 @@ export default function DamageNumber({
             src={isCritical ? criticalHitBox : damageBox}
             alt=""
           />
-          <span className="damageNumber__value">{amount}</span>
+          <span className="damageNumber__value">
+            {variant === "sacrifice" ? `−${amount} HP` : amount}
+          </span>
         </div>
       )}
     </div>

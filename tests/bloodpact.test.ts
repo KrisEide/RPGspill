@@ -6,9 +6,9 @@ import { gameReducer } from "../src/game/state/gameReducer";
 import { createKnownSpirits, SPIRIT_DEFINITIONS } from "../src/data/spirits";
 import { resolveAbility } from "../src/game/abilities/abilityProgression";
 import { resolveRound } from "../src/game/combat/resolveRound";
-import { createEmptyRoundSelections, selectPlayerAction, selectPlayerItem } from "../src/game/combat/playerActions";
-import { getActiveBloodpactRoles, prepareBloodpactSelection, selectBloodpactRoles } from "../src/game/combat/bloodpact";
-import type { CharacterInstanceId, CombatState, GameSetup, RoundSelections } from "../src/game/types";
+import { createEmptyRoundSelections, selectPlayerAction } from "../src/game/combat/playerActions";
+import { getActiveBloodpactRoles } from "../src/game/combat/bloodpact";
+import type { CombatState, GameSetup, RoundSelections } from "../src/game/types";
 
 const setup: GameSetup = {
   mode: "singlePlayer", initialLoadout: "run", randomSeed: 12345,
@@ -31,11 +31,11 @@ function pendingPact(bothOwners = false): CombatState {
   if (bothOwners) state.characters["character-2"].spirits = createKnownSpirits(["bloodpact"]);
   // Isolate the pact from enemy attacks while retaining a live encounter.
   state.enemyIntents = {};
-  return prepareBloodpactSelection(state);
+  return state;
 }
 
-function readyPact(sacrificeId: CharacterInstanceId = "character-1") {
-  return selectBloodpactRoles(pendingPact(), "player1", sacrificeId)!;
+function readyPact() {
+  return pendingPact();
 }
 
 function actions(state: CombatState, useActive = false): RoundSelections {
@@ -50,6 +50,21 @@ function actions(state: CombatState, useActive = false): RoundSelections {
   assert.ok(selections);
   return selections;
 }
+
+test("Bloodpact automatically makes its owner Sacrifice and restores 1 PP each round", () => {
+  const state = pendingPact();
+  state.characters["character-1"].pp = 40;
+
+  assert.equal(state.phase, "selectingActions");
+  assert.deepEqual(getActiveBloodpactRoles(state, "character-1"), {
+    sacrificeId: "character-1", protectedId: "character-2",
+  });
+
+  const result = resolveRound(state, actions(state));
+  assert.equal(result.nextState.characters["character-1"].hp, 99);
+  assert.equal(result.nextState.characters["character-1"].pp, 41);
+  assert.equal(result.nextState.characters["character-2"].barrier, 2);
+});
 
 test("registered Spirit keeps one free action per encounter at both ranks", () => {
   assert.equal(SPIRIT_DEFINITIONS.bloodpact.activeUsesPerEncounter, 1);
@@ -66,37 +81,19 @@ test("registered Spirit keeps one free action per encounter at both ranks", () =
   });
 });
 
-test("encounter start blocks actions and resolution until the owner chooses", () => {
-  const state = pendingPact();
-  const selections = createEmptyRoundSelections();
-  assert.equal(state.phase, "selectingBloodpact");
-  assert.equal(selectPlayerAction(state, selections, { playerId: "player1", abilityId: "defend", targetId: "character-1" }), null);
-  assert.equal(selectPlayerItem(state, selections, { playerId: "player1", itemId: "steelDart", targetId: "enemy-1" }), null);
-  assert.deepEqual(resolveRound(state, selections), { nextState: state, events: [] });
-});
-
-test("roles are owned, validated, and cannot be reversed after selection", () => {
-  const state = pendingPact();
-  assert.equal(selectBloodpactRoles(state, "player2", "character-1"), null);
-  assert.equal(selectBloodpactRoles(state, "player1", "enemy-1" as CharacterInstanceId), null);
-  const selected = selectBloodpactRoles(state, "player1", "character-2")!;
-  assert.equal(selected.phase, "selectingActions");
-  assert.deepEqual(selected.characters["character-1"].spirits.bloodpact?.bloodpactRoles, {
+test("two Bloodpact owners automatically sacrifice themselves for each other", () => {
+  const state = pendingPact(true);
+  assert.deepEqual(getActiveBloodpactRoles(state, "character-1"), {
+    sacrificeId: "character-1", protectedId: "character-2",
+  });
+  assert.deepEqual(getActiveBloodpactRoles(state, "character-2"), {
     sacrificeId: "character-2", protectedId: "character-1",
   });
-  assert.equal(selectBloodpactRoles(selected, "player1", "character-1"), null);
-  assert.equal(state.characters["character-1"].spirits.bloodpact?.bloodpactRoles, null);
-});
-
-test("two owners select independent locked pacts before either can act", () => {
-  const first = selectBloodpactRoles(pendingPact(true), "player1", "character-1")!;
-  assert.equal(first.phase, "selectingBloodpact");
-  assert.equal(selectBloodpactRoles(first, "player1", "character-2"), null);
-  const ready = selectBloodpactRoles(first, "player2", "character-1")!;
-  assert.equal(ready.phase, "selectingActions");
-  const result = resolveRound(ready, actions(ready));
-  assert.equal(result.nextState.characters["character-1"].hp, 98);
-  assert.equal(result.nextState.characters["character-2"].barrier, 4);
+  const result = resolveRound(state, actions(state));
+  assert.equal(result.nextState.characters["character-1"].hp, 99);
+  assert.equal(result.nextState.characters["character-2"].hp, 99);
+  assert.equal(result.nextState.characters["character-1"].barrier, 2);
+  assert.equal(result.nextState.characters["character-2"].barrier, 2);
 });
 
 test("passive pays HP through Barrier, stacks Barrier, and emits the first events of the round", () => {
@@ -113,24 +110,22 @@ test("passive pays HP through Barrier, stacks Barrier, and emits the first event
   assert.deepEqual(state, original);
 });
 
-for (const sacrificeId of ["character-1", "character-2"] as const) {
-  test(`active charges locked ${sacrificeId}, never substitutes the caster`, () => {
-    const state = readyPact(sacrificeId);
-    const protectedId = sacrificeId === "character-1" ? "character-2" : "character-1";
-    state.characters[sacrificeId].barrier = 15;
+test("active always charges its owner and protects the partner", () => {
+    const state = readyPact();
+    state.characters["character-1"].barrier = 15;
+    state.characters["character-1"].pp = 40;
     const result = resolveRound(state, actions(state, true));
-    assert.equal(result.nextState.characters[sacrificeId].hp, 89); // Active 10, passive 1.
-    assert.equal(result.nextState.characters[sacrificeId].barrier, 15);
-    assert.equal(result.nextState.characters[protectedId].hp, 100);
-    assert.equal(result.nextState.characters[protectedId].barrier, 32);
-    assert.equal(result.nextState.characters["character-1"].pp, 50);
+    assert.equal(result.nextState.characters["character-1"].hp, 89); // Active 10, passive 1.
+    assert.equal(result.nextState.characters["character-1"].barrier, 15);
+    assert.equal(result.nextState.characters["character-2"].hp, 100);
+    assert.equal(result.nextState.characters["character-2"].barrier, 32);
+    assert.equal(result.nextState.characters["character-1"].pp, 41); // Passive only; the active restores no PP.
     assert.equal(result.nextState.characters["character-1"].spirits.bloodpact?.activeUsesRemaining, 0);
     const events = result.events.filter((event) => event.type === "bloodpact");
     assert.deepEqual(events.map((event) => [event.stage, event.active]), [
       ["sacrifice", false], ["protected", false], ["sacrifice", true], ["protected", true],
     ]);
-  });
-}
+});
 
 test("active cannot be retargeted, used by a non-owner, or selected twice", () => {
   const state = readyPact();
@@ -169,20 +164,17 @@ test("Barrier cap and Stoneback / Shieldmate hooks apply", () => {
   assert.equal(cappedResult.nextState.characters["character-1"].hp, 89);
 });
 
-for (const sacrificeId of ["character-1", "character-2"] as const) {
-  test(`lethal active payment by ${sacrificeId} grants Barrier, enters Ghost Form, then pauses`, () => {
-    const state = readyPact(sacrificeId);
-    state.characters[sacrificeId].hp = 5;
-    state.characters[sacrificeId].barrier = 20;
+test("lethal active payment grants Barrier, enters Ghost Form, then pauses", () => {
+    const state = readyPact();
+    state.characters["character-1"].hp = 5;
+    state.characters["character-1"].barrier = 20;
     const result = resolveRound(state, actions(state, true));
-    assert.equal(result.nextState.characters[sacrificeId].form, "ghost");
-    assert.equal(result.nextState.characters[sacrificeId].barrier, 0);
-    assert.equal(result.nextState.characters[sacrificeId === "character-1" ? "character-2" : "character-1"].barrier, 32);
+    assert.equal(result.nextState.characters["character-1"].form, "ghost");
+    assert.equal(result.nextState.characters["character-1"].barrier, 0);
+    assert.equal(result.nextState.characters["character-2"].barrier, 32);
     assert.equal(result.events.filter((e) => e.type === "bloodpact").length, 4);
     assert.equal(getActiveBloodpactRoles(result.nextState, "character-1"), null);
-    assert.deepEqual(result.nextState.characters["character-1"].spirits.bloodpact?.bloodpactRoles, state.characters["character-1"].spirits.bloodpact?.bloodpactRoles);
-  });
-}
+});
 
 test("passive can cause Ghost Form and still grants its final 2 Barrier", () => {
   const state = readyPact();
@@ -217,7 +209,7 @@ test("lethal round-start payment cancels the queued living Spirit action", () =>
 
 test("a pact pauses with either hero in Ghost Form and keeps roles when they return", () => {
   const state = readyPact();
-  const roles = state.characters["character-1"].spirits.bloodpact?.bloodpactRoles;
+  const roles = getActiveBloodpactRoles(state, "character-1");
   state.characters["character-2"].form = "ghost";
   assert.equal(getActiveBloodpactRoles(state, "character-1"), null);
   assert.equal(selectPlayerAction(state, createEmptyRoundSelections(), { playerId: "player1", abilityId: "bloodpact", targetId: "character-1" }), null);
@@ -226,14 +218,15 @@ test("a pact pauses with either hero in Ghost Form and keeps roles when they ret
   assert.deepEqual(getActiveBloodpactRoles(state, "character-1"), roles);
 });
 
-test("new combat resets roles and active; rest encounters do not request roles", () => {
+test("new combat restores the active and automatically keeps the owner as Sacrifice", () => {
   const state = readyPact();
   const used = resolveRound(state, actions(state, true)).nextState;
   const next = startEncounter(used, "growingThreat");
-  assert.equal(next.phase, "selectingBloodpact");
-  assert.equal(next.characters["character-1"].spirits.bloodpact?.bloodpactRoles, null);
+  assert.equal(next.phase, "selectingActions");
+  assert.deepEqual(getActiveBloodpactRoles(next, "character-1"), {
+    sacrificeId: "character-1", protectedId: "character-2",
+  });
   assert.equal(next.characters["character-1"].spirits.bloodpact?.activeUsesRemaining, 1);
-  assert.equal(selectBloodpactRoles(next, "player1", "character-2")?.phase, "selectingActions");
   assert.equal(startEncounter(used, "spiritCamp").phase, "rest");
 });
 
@@ -245,16 +238,17 @@ test("no impossible selection if a hero is permanently dead", () => {
 });
 
 test("client applies payment before protection and finishes on authoritative nextState", () => {
-  const state = readyPact("character-2");
+  const state = readyPact();
   const result = resolveRound(state, actions(state, true));
   let client = gameReducer(createClientBattleState(state), { type: "receiveRoundResult", result });
   for (const event of result.events) {
     client = gameReducer(client, { type: "applyCurrentCombatEvent" });
     if (event.type === "bloodpact") {
       assert.equal(client.combat.characters[event.targetId].hp, event.remainingHp);
+      assert.equal(client.combat.characters[event.targetId].pp, event.remainingPp);
       assert.equal(client.combat.characters[event.targetId].barrier, event.remainingBarrier);
       if (event.stage === "sacrifice") {
-        assert.equal(client.combat.characters["character-1"].barrier, event.active ? 2 : 0);
+        assert.equal(client.combat.characters["character-1"].barrier, 0);
       }
     }
     client = gameReducer(client, { type: "advanceCombatEvent" });

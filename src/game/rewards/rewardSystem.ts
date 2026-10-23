@@ -31,6 +31,7 @@ import type {
   RewardOffers,
   PassiveRewardOffer,
   RestRewardOffer,
+  RewardTag,
   SpiritRewardOffer,
   SpiritRankRewardOffer,
   StatRewardOffer,
@@ -39,8 +40,13 @@ import type {
 const OFFERS_PER_CHARACTER = 3;
 const RANK_TWO_START_ENCOUNTER = 9;
 const RANK_TWO_FULL_WEIGHT_ENCOUNTER = 13;
+const ACT_TWO_START_ENCOUNTER = 14;
 const STANDARD_REWARD_CATEGORY_WEIGHT = 1;
 const NEW_ABILITY_CATEGORY_WEIGHT = 1;
+const ACT_TWO_NEW_ABILITY_CATEGORY_WEIGHT = 0.75;
+const ACT_TWO_RANK_TWO_CATEGORY_WEIGHT = 2;
+const TAG_AFFINITY_PER_MATCH = 0.05;
+const MAX_TAG_AFFINITY_WEIGHT = 1.25;
 export type GeneratedRewardOffers = {
   offers: RewardOffers;
   nextSeed: number;
@@ -140,6 +146,10 @@ function getRewardProgressEncounterNumber(state: CombatState) {
 function getRankTwoCategoryWeight(state: CombatState) {
   const encounterNumber = getRewardProgressEncounterNumber(state);
 
+  if (encounterNumber >= ACT_TWO_START_ENCOUNTER) {
+    return ACT_TWO_RANK_TWO_CATEGORY_WEIGHT;
+  }
+
   if (encounterNumber < RANK_TWO_START_ENCOUNTER) {
     return 0;
   }
@@ -151,6 +161,68 @@ function getRankTwoCategoryWeight(state: CombatState) {
     STANDARD_REWARD_CATEGORY_WEIGHT,
     (encounterNumber - RANK_TWO_START_ENCOUNTER + 1) / progressionSteps,
   );
+}
+
+function getNewAbilityCategoryWeight(state: CombatState) {
+  return getRewardProgressEncounterNumber(state) >= ACT_TWO_START_ENCOUNTER
+    ? ACT_TWO_NEW_ABILITY_CATEGORY_WEIGHT
+    : NEW_ABILITY_CATEGORY_WEIGHT;
+}
+
+export function getRewardTagAffinityWeight(
+  candidateTags: readonly RewardTag[],
+  ownedAbilityTags: readonly RewardTag[],
+) {
+  const ownedTagSet = new Set(ownedAbilityTags);
+  const matchingTags = new Set(
+    candidateTags.filter((tag) => ownedTagSet.has(tag)),
+  ).size;
+
+  return Math.min(
+    MAX_TAG_AFFINITY_WEIGHT,
+    1 + matchingTags * TAG_AFFINITY_PER_MATCH,
+  );
+}
+
+function getOwnedAbilityTags(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+) {
+  const abilityRanks = state.characters[characterId].abilityRanks;
+
+  return ABILITY_REWARD_POOL.flatMap((definition) =>
+    getKnownAbilityRank(abilityRanks, definition.abilityId) === null
+      ? []
+      : definition.tags,
+  );
+}
+
+function takeWeightedTaggedCandidate<T extends { tags: readonly RewardTag[] }>(
+  candidates: T[],
+  randomValue: number,
+  ownedAbilityTags: readonly RewardTag[],
+  useTagAffinity: boolean,
+) {
+  if (candidates.length === 0) return undefined;
+
+  const weights = candidates.map((candidate) =>
+    useTagAffinity
+      ? getRewardTagAffinityWeight(candidate.tags, ownedAbilityTags)
+      : 1,
+  );
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  let cursor = randomValue * totalWeight;
+  let selectedIndex = weights.length - 1;
+
+  for (let index = 0; index < weights.length; index += 1) {
+    cursor -= weights[index];
+    if (cursor < 0) {
+      selectedIndex = index;
+      break;
+    }
+  }
+
+  return candidates.splice(selectedIndex, 1)[0];
 }
 
 function drawWeightedCategory<T extends string>(
@@ -195,6 +267,7 @@ function drawStandardOffers(
       ABILITIES[abilityId].ranks[2] !== undefined,
   );
   const rankTwoCategoryWeight = getRankTwoCategoryWeight(state);
+  const newAbilityCategoryWeight = getNewAbilityCategoryWeight(state);
   const offers: (
     | StatRewardOffer
     | PassiveRewardOffer
@@ -203,8 +276,13 @@ function drawStandardOffers(
 
   const offerCount = options.offerCount ?? OFFERS_PER_CHARACTER;
   const allowRankTwo = options.allowRankTwo ?? true;
+  const affinitySlotRoll = nextRandom(nextSeed);
+  nextSeed = affinitySlotRoll.nextSeed;
+  const affinitySlotIndex = Math.floor(affinitySlotRoll.value * offerCount);
+  const ownedAbilityTags = getOwnedAbilityTags(state, characterId);
 
   while (offers.length < offerCount) {
+    const useTagAffinity = offers.length === affinitySlotIndex;
     const availableCategories = [
       ...(statOffers.length > 0
         ? [{ id: "stat" as const, weight: STANDARD_REWARD_CATEGORY_WEIGHT }]
@@ -221,7 +299,7 @@ function drawStandardOffers(
         ? [
             {
               id: "newAbility" as const,
-              weight: NEW_ABILITY_CATEGORY_WEIGHT,
+              weight: newAbilityCategoryWeight,
             },
           ]
         : []),
@@ -249,26 +327,38 @@ function drawStandardOffers(
     nextSeed = selectionRoll.nextSeed;
 
     if (category === "passive") {
-      const index = Math.floor(selectionRoll.value * passiveOffers.length);
-      const [passive] = passiveOffers.splice(index, 1);
+      const passive = takeWeightedTaggedCandidate(
+        passiveOffers,
+        selectionRoll.value,
+        ownedAbilityTags,
+        useTagAffinity,
+      );
       if (passive) offers.push(createPassiveRewardOffer(passive));
     } else if (category === "stat") {
-      const index = Math.floor(selectionRoll.value * statOffers.length);
-      const [stat] = statOffers.splice(index, 1);
+      const stat = takeWeightedTaggedCandidate(
+        statOffers,
+        selectionRoll.value,
+        ownedAbilityTags,
+        useTagAffinity,
+      );
       if (stat) offers.push(stat);
     } else if (category === "newAbility") {
-      const index = Math.floor(
-        selectionRoll.value * newAbilityDefinitions.length,
+      const definition = takeWeightedTaggedCandidate(
+        newAbilityDefinitions,
+        selectionRoll.value,
+        ownedAbilityTags,
+        useTagAffinity,
       );
-      const [definition] = newAbilityDefinitions.splice(index, 1);
       if (definition) {
         offers.push(createAbilityRewardOffer(definition));
       }
     } else {
-      const index = Math.floor(
-        selectionRoll.value * rankTwoDefinitions.length,
+      const definition = takeWeightedTaggedCandidate(
+        rankTwoDefinitions,
+        selectionRoll.value,
+        ownedAbilityTags,
+        useTagAffinity,
       );
-      const [definition] = rankTwoDefinitions.splice(index, 1);
       if (definition) {
         offers.push(createAbilityRewardOffer(definition, 2));
       }

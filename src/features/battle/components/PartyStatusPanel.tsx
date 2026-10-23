@@ -61,7 +61,7 @@ function CharacterStatusCard({
   );
   const goatChargeMark = character.statuses.find(
     (status) =>
-      status.id === "cracked" && status.readiedAbilityId === "goatCharge",
+      status.id === "goatMarked" && status.readiedAbilityId === "goatCharge",
   );
   const poisonDamage =
     poisonStatus?.tickBasePower ??
@@ -191,10 +191,10 @@ function CharacterStatusCard({
             {goatChargeMark && (
               <span
                 className="statusCard__turnPriority"
-                aria-label="Cracked: marked for the next goat Charge"
-                title="Cracked: Marked for the next goat Charge. Defense and Resistance are reduced by 5 until it hits."
+                aria-label="Focused: Targeted by the next goat Charge"
+                title="Focused: Targeted by the next goat Charge."
               >
-                🪨−5
+                🎯 FOCUSED
               </span>
             )}
             {swiftWingIsActive && (

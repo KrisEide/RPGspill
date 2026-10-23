@@ -195,9 +195,17 @@ function prepareRockwhistlerIntents(state: CombatState): CombatState {
         : { abilityId: "rockwhistlerPackAttack", targetId: focusTarget, targetIds: [focusTarget] };
     }
   } else if (cycleRound === 1) {
-    const burrowers = surfacePack.length > 1
-      ? surfacePack.filter((enemy) => enemy !== caller).slice(0, 2)
-      : [];
+    const burrowCandidates = surfacePack.filter((enemy) => enemy !== caller);
+    const burrowers: typeof burrowCandidates = [];
+    while (burrowCandidates.length > 0 && burrowers.length < 2) {
+      const roll = nextRandom(randomSeed);
+      randomSeed = roll.nextSeed;
+      const selectedIndex = Math.floor(roll.value * burrowCandidates.length);
+      const [selected] = burrowCandidates.splice(selectedIndex, 1);
+      if (selected) {
+        burrowers.push(selected);
+      }
+    }
     for (const enemy of surfacePack) {
       if (enemy === caller) {
         enemyIntents[enemy.instanceId] = { abilityId: "rockwhistlerCall", targetId: enemy.instanceId, targetIds: [enemy.instanceId] };
@@ -287,7 +295,7 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
         ? livingCharacterIds.find((characterId) =>
             state.characters[characterId].statuses.some(
               (status) =>
-                status.id === "cracked" &&
+                status.id === "goatMarked" &&
                 status.readiedAbilityId === "goatCharge",
             ),
           )

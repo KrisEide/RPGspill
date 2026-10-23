@@ -385,7 +385,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 2,
     isBoss: false,
     stats: {
-      maxHp: 90,
+      maxHp: 70,
       maxPp: 0,
       criticalChance: 0,
       attack: 0,
@@ -401,5 +401,27 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       rockwhistlerAmbush: 1,
       rockwhistlerCall: 1,
     },
+  },
+  rockhideLizard: {
+    id: "rockhideLizard",
+    name: "Rockhide Lizard",
+    level: 3,
+    isBoss: true,
+    stats: {
+      maxHp: 240,
+      maxPp: 0,
+      criticalChance: 0,
+      attack: 20,
+      defense: 24,
+      resistance: 5,
+      agility: 7,
+      elementalPower: { fire: 0, water: 0, earth: 0, wind: 0 },
+    },
+    abilityRanks: {
+      stonejawBite: 1,
+      groundSlam: 1,
+      rockScrape: 1,
+    },
+    repeatingActionPattern: ["stonejawBite", "groundSlam", "rockScrape"],
   },
 };

@@ -3,18 +3,15 @@ import {
   resolveImmediateWarhoundAutoAttack,
   resolveRound,
 } from "../combat/resolveRound";
-import { selectBloodpactRoles } from "../combat/bloodpact";
 import {
   areAllLivingPlayersReady,
   createEmptyRoundSelections,
   selectPlayerItem,
   selectPlayerAction,
 } from "../combat/playerActions";
-import { shouldAutoResolveRockwhistlerAmbush } from "../combat/rockwhistler";
 import { isCharacterInstanceId } from "../playerControl";
 import type {
   AbilityId,
-  CharacterInstanceId,
   ClientBattleState,
   CombatState,
   CombatantId,
@@ -31,11 +28,6 @@ import type {
 } from "../types";
 
 export type GameAction =
-  | {
-      type: "selectBloodpactRoles";
-      playerId: PlayerId;
-      sacrificeId: CharacterInstanceId;
-    }
   | {
       type: "resolveAutomaticRound";
     }
@@ -75,14 +67,6 @@ export function gameReducer(
   state: ClientBattleState,
   action: GameAction,
 ): ClientBattleState {
-  if (action.type === "selectBloodpactRoles") {
-    const combat = selectBloodpactRoles(
-      state.combat,
-      action.playerId,
-      action.sacrificeId,
-    );
-    return combat ? { ...state, combat, phase: combat.phase } : state;
-  }
   if (action.type === "applyCurrentCombatEvent") {
     return applyCurrentCombatEvent(state);
   }
@@ -123,8 +107,7 @@ export function gameReducer(
   }
 
   if (action.type === "resolveAutomaticRound") {
-    if (!areAllLivingPlayersReady(state.combat, state.roundSelections) &&
-        !shouldAutoResolveRockwhistlerAmbush(state.combat)) {
+    if (!areAllLivingPlayersReady(state.combat, state.roundSelections)) {
       return state;
     }
 
@@ -340,6 +323,8 @@ function applyDamageEvent(
             [event.targetId]: {
               ...combatAfterStatuses.characters[event.targetId],
               ...event.characterState,
+              statuses:
+                combatAfterStatuses.characters[event.targetId].statuses,
             },
           },
         }
@@ -654,12 +639,15 @@ function applyCurrentCombatEvent(
       : event.type === "enemySummoned"
         ? { ...state.combat, enemies: [...state.combat.enemies, ...event.summonedEnemies] }
       : event.type === "earthDemonHit"
-        ? {
-            ...state.combat,
-            earthDemon: state.combat.earthDemon && !event.destroyed
-              ? { ...state.combat.earthDemon, hp: event.remainingHp }
-              : null,
-          }
+        ? applyStatusChanges(
+            {
+              ...state.combat,
+              earthDemon: state.combat.earthDemon && !event.destroyed
+                ? { ...state.combat.earthDemon, hp: event.remainingHp }
+                : null,
+            },
+            event.statusChanges,
+          )
       : event.type === "earthDemonAttack"
         ? {
             ...state.combat,
@@ -695,8 +683,33 @@ function applyCurrentCombatEvent(
                     (combat, impact) => applyItemImpact(combat, impact),
                     state.combat,
                   )
+                : event.type === "wait"
+                  ? (() => {
+                      const combatAfterStatuses = applyStatusChanges(
+                        state.combat,
+                        event.statusChanges,
+                      );
+                      return {
+                        ...combatAfterStatuses,
+                        enemies: combatAfterStatuses.enemies.map((enemy) =>
+                          enemy.instanceId === event.targetId &&
+                          (event.remainingDefense !== undefined ||
+                            event.remainingHp !== undefined)
+                            ? {
+                                ...enemy,
+                                hp: event.remainingHp ?? enemy.hp,
+                                stats: {
+                                  ...enemy.stats,
+                                  defense:
+                                    event.remainingDefense ??
+                                    enemy.stats.defense,
+                                },
+                              }
+                            : enemy,
+                        ),
+                      };
+                    })()
                 : event.type === "wake" ||
-                    event.type === "wait" ||
                     event.type === "skipTurn" ||
                     event.type === "statusApplied" ||
                     event.type === "charge"

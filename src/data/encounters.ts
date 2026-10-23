@@ -199,13 +199,23 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     kind: "combat",
     number: 15,
     title: "Rockwhistler Ridge",
-    nextEncounterId: null,
+    nextEncounterId: "rockhideCavern",
     enemies: [
       { enemyId: "rockwhistler", instanceId: "enemy-1" },
       { enemyId: "rockwhistler", instanceId: "enemy-2" },
       { enemyId: "rockwhistler", instanceId: "enemy-3" },
       { enemyId: "rockwhistler", instanceId: "enemy-4" },
       { enemyId: "rockwhistler", instanceId: "enemy-5" },
+    ],
+  },
+  rockhideCavern: {
+    id: "rockhideCavern",
+    kind: "combat",
+    number: 16,
+    title: "Rockhide Cavern",
+    nextEncounterId: null,
+    enemies: [
+      { enemyId: "rockhideLizard", instanceId: "enemy-1" },
     ],
   },
 };

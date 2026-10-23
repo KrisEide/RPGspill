@@ -103,6 +103,13 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
       resistance: 5,
     },
   },
+  goatMarked: {
+    id: "goatMarked",
+    name: "Focused",
+    stackingRule: "refresh",
+    maxStacks: 1,
+    durationRounds: 2,
+  },
   wet: {
     id: "wet",
     name: "Wet",

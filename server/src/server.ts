@@ -27,8 +27,6 @@ import {
   getItemUseProfile,
 } from "../../src/data/items";
 import { createInitialCombatState } from "../../src/game/state/initialState";
-import { selectBloodpactRoles } from "../../src/game/combat/bloodpact";
-import { shouldAutoResolveRockwhistlerAmbush } from "../../src/game/combat/rockwhistler";
 import { startEncounter } from "../../src/game/state/encounterState";
 import { reformGhost } from "../../src/game/ghost/ghostSystem";
 import {
@@ -76,6 +74,7 @@ type GameRoom = {
   roundSelections: RoundSelections;
   upgradeSelections: Record<PlayerId, RewardChoiceId | null>;
   actTransitionReadyPlayerIds: PlayerId[];
+  roundStallStartedAt: number | null;
 };
 
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -84,6 +83,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? "http://localhost:5173";
 const DIST_DIRECTORY = resolve(process.cwd(), "dist");
 const REST_RECOVERY_PRESENTATION_DURATION_MS = 6000;
+const FORCE_ROUND_DELAY_MS = 30_000;
 
 function restoredPartyResources(before: CombatState, after: CombatState) {
   return CHARACTER_ORDER.some(
@@ -205,12 +205,22 @@ function createPlayerReadinessState(room: GameRoom): PlayerReadinessState {
   };
 }
 
+function updateRoundStallTimer(room: GameRoom) {
+  const readyPlayerIds = createPlayerReadinessState(room).readyPlayerIds;
+
+  if (readyPlayerIds.length === 1) {
+    room.roundStallStartedAt ??= Date.now();
+    return;
+  }
+
+  room.roundStallStartedAt = null;
+}
+
 function resolveReadyCombatRound(room: GameRoom) {
   if (
     !room.combatState ||
     room.combatState.phase !== "selectingActions" ||
-    (!areAllLivingPlayersReady(room.combatState, room.roundSelections) &&
-      !shouldAutoResolveRockwhistlerAmbush(room.combatState))
+    !areAllLivingPlayersReady(room.combatState, room.roundSelections)
   ) {
     return false;
   }
@@ -218,6 +228,8 @@ function resolveReadyCombatRound(room: GameRoom) {
   const result = resolveRound(room.combatState, room.roundSelections);
   room.combatState = result.nextState;
   room.roundSelections = createEmptyRoundSelections();
+  room.roundStallStartedAt = null;
+  updateRoundStallTimer(room);
   io.to(room.code).emit("roundResolved", result);
   io.to(room.code).emit(
     "playerReadinessUpdated",
@@ -286,28 +298,11 @@ function startBattleIfReady(room: GameRoom) {
 
   room.combatState = createInitialCombatState(setup);
   room.roundSelections = createEmptyRoundSelections();
+  room.roundStallStartedAt = null;
   io.to(room.code).emit("gameStarted", room.combatState);
 }
 
 io.on("connection", (socket) => {
-  socket.on("selectBloodpact", (request, respond) => {
-    const roomCode = socket.data.roomCode;
-    const playerId = socket.data.playerId;
-    const room = roomCode ? rooms.get(roomCode) : undefined;
-    if (!room?.combatState || !playerId ||
-      request?.encounterId !== room.combatState.encounterId) {
-      respond(false);
-      return;
-    }
-    const nextState = selectBloodpactRoles(room.combatState, playerId, request.sacrificeId);
-    if (!nextState) {
-      respond(false);
-      return;
-    }
-    room.combatState = nextState;
-    respond(true);
-    io.to(room.code).emit("bloodpactUpdated", nextState);
-  });
   socket.on("createRoom", async (request, respond) => {
     const roomCode = createRoomCode();
     const room: GameRoom = {
@@ -327,6 +322,7 @@ io.on("connection", (socket) => {
         player2: null,
       },
       actTransitionReadyPlayerIds: [],
+      roundStallStartedAt: null,
     };
 
     rooms.set(roomCode, room);
@@ -504,6 +500,7 @@ io.on("connection", (socket) => {
     }
 
     room.roundSelections = roundSelections;
+    updateRoundStallTimer(room);
     respond({
       accepted: true,
       playerReady: !doesCharacterNeedAction(
@@ -536,6 +533,43 @@ io.on("connection", (socket) => {
     }
 
     respond(resolveReadyCombatRound(room));
+  });
+
+  socket.on("forceRound", (request, respond) => {
+    const roomCode = socket.data.roomCode;
+    const room = roomCode ? rooms.get(roomCode) : undefined;
+
+    if (
+      !room?.combatState ||
+      !socket.data.playerId ||
+      room.combatState.phase !== "selectingActions" ||
+      request.round !== room.combatState.round ||
+      room.roundStallStartedAt === null
+    ) {
+      respond(false);
+      return;
+    }
+
+    const { readyPlayerIds } = createPlayerReadinessState(room);
+    if (
+      readyPlayerIds.length !== 1 ||
+      Date.now() - room.roundStallStartedAt < FORCE_ROUND_DELAY_MS
+    ) {
+      respond(false);
+      return;
+    }
+
+    const result = resolveRound(room.combatState, room.roundSelections);
+    room.combatState = result.nextState;
+    room.roundSelections = createEmptyRoundSelections();
+    room.roundStallStartedAt = null;
+    updateRoundStallTimer(room);
+    respond(true);
+    io.to(room.code).emit("roundResolved", result);
+    io.to(room.code).emit(
+      "playerReadinessUpdated",
+      createPlayerReadinessState(room),
+    );
   });
 
   socket.on("selectItem", (request, respond) => {
@@ -608,6 +642,7 @@ io.on("connection", (socket) => {
     }
 
     room.roundSelections = roundSelections;
+    updateRoundStallTimer(room);
     respond({ accepted: true, resolvedImmediately: false });
     io.to(room.code).emit(
       "playerReadinessUpdated",
@@ -735,6 +770,7 @@ io.on("connection", (socket) => {
     );
 
     room.roundSelections = createEmptyRoundSelections();
+    room.roundStallStartedAt = null;
     room.upgradeSelections = {
       player1: null,
       player2: null,

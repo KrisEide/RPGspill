@@ -42,6 +42,9 @@ import rockwhistlerIdleSprite from "../../../assets/sprites/act2monsters/rockwhi
 import rockwhistlerAttackSprite from "../../../assets/sprites/act2monsters/rockwhistler_attack.png";
 import rockwhistlerBurrowSprite from "../../../assets/sprites/act2monsters/rockwhistler_burrow.png";
 import rockwhistlerCallSprite from "../../../assets/sprites/act2monsters/rockwhistler_call.png";
+import rockhideLizardIdleSprite from "../../../assets/sprites/act2monsters/rockhidelizard_idl.png";
+import rockhideLizardAttackSprite from "../../../assets/sprites/act2monsters/rockhidelizard_attack.png";
+import rockhideLizardStompSprite from "../../../assets/sprites/act2monsters/rockhidelizard_stomp.png";
 import type { AbilityId, EnemyId } from "../../../game/types";
 
 type EnemySpriteAdjustment = {
@@ -108,6 +111,27 @@ const rockwhistlerAttackSpriteAdjustment = createAnchoredEnemySpriteAdjustment({
   displayScale: 0.14,
 });
 
+const rockhideLizardIdleAdjustment = createAnchoredEnemySpriteAdjustment({
+  sourceSize: { width: 1858, height: 846 },
+  sourceAnchor: { x: 929, y: 800 },
+  targetAnchor: { x: 275, y: 330 },
+  displayScale: 0.3,
+});
+
+const rockhideLizardAttackAdjustment = createAnchoredEnemySpriteAdjustment({
+  sourceSize: { width: 1774, height: 887 },
+  sourceAnchor: { x: 887, y: 840 },
+  targetAnchor: { x: 110, y: 340 },
+  displayScale: 0.3,
+});
+
+const rockhideLizardStompAdjustment = createAnchoredEnemySpriteAdjustment({
+  sourceSize: { width: 1448, height: 1086 },
+  sourceAnchor: { x: 724, y: 1010 },
+  targetAnchor: { x: 275, y: 375 },
+  displayScale: 0.39,
+});
+
 type EnemyVisualDefinition = {
   idleSpriteSrc: string;
   sleepingSpriteSrc?: string;
@@ -133,8 +157,10 @@ type EnemyVisualDefinition = {
           | "healing"
           | "bossAction"
           | "rest"
+          | "burrow"
           | "charge"
-          | "heavySweep";
+          | "heavySweep"
+          | "stationaryAction";
         frames: Array<{
           spriteSrc: string;
           adjustment?: EnemySpriteAdjustment;
@@ -677,8 +703,55 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
     abilitySpriteSequences: {
       rockwhistlerAttack: { variant: "bossAction", frames: [{ spriteSrc: rockwhistlerAttackSprite, adjustment: rockwhistlerAttackSpriteAdjustment }] },
       rockwhistlerPackAttack: { variant: "bossAction", frames: [{ spriteSrc: rockwhistlerAttackSprite, adjustment: rockwhistlerAttackSpriteAdjustment }] },
-      rockwhistlerBurrow: { variant: "rest", frames: [{ spriteSrc: rockwhistlerBurrowSprite, adjustment: rockwhistlerSpriteAdjustment }] },
+      rockwhistlerBurrow: { variant: "burrow", frames: [{ spriteSrc: rockwhistlerBurrowSprite, adjustment: rockwhistlerSpriteAdjustment }] },
       rockwhistlerCall: { variant: "healing", frames: [{ spriteSrc: rockwhistlerCallSprite, adjustment: rockwhistlerSpriteAdjustment }] },
+    },
+  },
+  rockhideLizard: {
+    idleSpriteSrc: rockhideLizardIdleSprite,
+    autoAttackSpriteSrc: rockhideLizardAttackSprite,
+    attackAnimationVariant: "stationaryStrike",
+    attackAnimationDurationMs: 2800,
+    baseFilter: "brightness(0.9) contrast(0.9) saturate(0.92)",
+    statusTop: "42px",
+    idleSpriteAdjustment: rockhideLizardIdleAdjustment,
+    attackSpriteAdjustment: rockhideLizardAttackAdjustment,
+    hitboxAdjustment: {
+      left: "50%",
+      top: "215px",
+      width: "560px",
+      height: "270px",
+    },
+    damageAnchorAdjustment: { x: "-12px", y: "-30px" },
+    impactAnchor: { xRatio: 0.38, yRatio: 0.58 },
+    abilitySpriteSequences: {
+      stonejawBite: {
+        variant: "bossAction",
+        frames: [
+          {
+            spriteSrc: rockhideLizardAttackSprite,
+            adjustment: rockhideLizardAttackAdjustment,
+          },
+        ],
+      },
+      groundSlam: {
+        variant: "stationaryAction",
+        frames: [
+          {
+            spriteSrc: rockhideLizardStompSprite,
+            adjustment: rockhideLizardStompAdjustment,
+          },
+        ],
+      },
+      rockScrape: {
+        variant: "rest",
+        frames: [
+          {
+            spriteSrc: rockhideLizardIdleSprite,
+            adjustment: rockhideLizardIdleAdjustment,
+          },
+        ],
+      },
     },
   },
 };

@@ -10,16 +10,16 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "A powerful strike that costs 10 HP.",
+        shortDescription: "A powerful strike that costs 5 HP.",
         description:
-          "Deal heavy Physical damage to one enemy, then lose 10 HP. The HP loss bypasses Barrier and can send you into Ghost Form. This ability can critically hit.",
+          "Lose 5 HP, then deal heavy Physical damage to one enemy. The HP loss bypasses Barrier and can send you into Ghost Form. This ability can critically hit.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 17,
-            attackScaling: 0.7,
+            basePower: 22,
+            attackScaling: 1,
             elementalPowerScaling: 0,
             criticalHit: {
               chance: 0.05,
@@ -28,8 +28,35 @@ export const PHYSICAL_ABILITY_DEFINITIONS = {
           },
           {
             type: "selfHpDamage",
-            amount: 10,
-            timing: "afterDamage",
+            amount: 5,
+            timing: "beforeDamage",
+          },
+        ],
+      },
+      2: {
+        shortDescription: "A stronger sacrifice that applies Bleed.",
+        description:
+          "Lose 7 HP, then deal heavy Physical damage and apply Bleed to one enemy. The HP loss bypasses Barrier and can send you into Ghost Form. This ability can critically hit.",
+        newEffectDescription:
+          "Damage increases, the HP cost becomes 7, and the target is guaranteed to Bleed.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 25,
+            attackScaling: 1.1,
+            elementalPowerScaling: 0,
+            criticalHit: {
+              chance: 0.05,
+              damageMultiplier: 1.5,
+            },
+            statusOnHit: { statusId: "bleed" },
+          },
+          {
+            type: "selfHpDamage",
+            amount: 7,
+            timing: "beforeDamage",
           },
         ],
       },

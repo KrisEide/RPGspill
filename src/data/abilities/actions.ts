@@ -594,9 +594,9 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Mark one hero with Cracked.",
+        shortDescription: "Mark one hero for the next Charge.",
         description:
-          "Mark one random living hero with Cracked. This goat Charges that hero next round.",
+          "Mark one random living hero for the next Charge and reduce their Defense by 5 until it hits.",
         ppCost: 0,
         effects: [{ type: "goatStompMark" }],
       },
@@ -612,8 +612,8 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Heavy Physical damage to the Cracked hero.",
-        description: "Charge the hero marked by the other goat's Stomp.",
+        shortDescription: "Heavy Physical damage to the Focused hero.",
+        description: "Charge the hero made Focused by the other goat's Stomp.",
         ppCost: 0,
         effects: [
           {
@@ -649,13 +649,86 @@ export const ACTION_ABILITY_DEFINITIONS = {
     id: "rockwhistlerAmbush", name: "Ambush", category: "action", resolutionPriority: 900,
     target: "singleEnemy", element: null, aiTargeting: "randomLivingCharacter",
     ranks: { 1: { shortDescription: "Erupt from below.", description: "Return from underground and strike a random hero.", ppCost: 0,
-      effects: [{ type: "damage", damageType: "physical", basePower: 10, attackScaling: 0.6, elementalPowerScaling: 0 }] } },
+      effects: [{ type: "damage", damageType: "physical", basePower: 23, attackScaling: 0.6, elementalPowerScaling: 0 }] } },
   },
   rockwhistlerCall: {
     id: "rockwhistlerCall", name: "Call", category: "action", resolutionPriority: 950,
     target: "self", element: null,
     ranks: { 1: { shortDescription: "Call two packmates.", description: "Summon two Rockwhistlers. Can happen once.", ppCost: 0,
       effects: [{ type: "summonEnemies", enemyId: "rockwhistler", count: 2 }] } },
+  },
+  stonejawBite: {
+    id: "stonejawBite",
+    name: "Stonejaw Bite",
+    category: "action",
+    resolutionPriority: 0,
+    target: "singleEnemy",
+    element: null,
+    aiTargeting: "randomLivingCharacter",
+    ranks: {
+      1: {
+        shortDescription: "Heavy Physical damage to one hero.",
+        description: "Bite one random living hero for heavy Physical damage.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 12,
+            attackScaling: 1,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  groundSlam: {
+    id: "groundSlam",
+    name: "Ground Slam",
+    category: "action",
+    resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Moderate Physical damage to both heroes.",
+        description: "Slam the ground and deal moderate Physical damage to both heroes.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 8,
+            attackScaling: 0.75,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  rockScrape: {
+    id: "rockScrape",
+    name: "Rock Scrape",
+    category: "action",
+    resolutionPriority: 0,
+    target: "self",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Restore 20 HP, cleanse debuffs, and shed 4 Defense.",
+        description: "Restore 20 HP, remove all debuffs, and permanently lose 4 Defense, down to 8.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "wait",
+            cleansesNegativeStatuses: true,
+            healingAmount: 20,
+            defenseReduction: 4,
+            minimumDefense: 8,
+          },
+        ],
+      },
+    },
   },
 } satisfies Record<
   | "autoAttack"
@@ -689,6 +762,9 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "rockwhistlerPackAttack"
   | "rockwhistlerBurrow"
   | "rockwhistlerAmbush"
-  | "rockwhistlerCall",
+  | "rockwhistlerCall"
+  | "stonejawBite"
+  | "groundSlam"
+  | "rockScrape",
   AbilityDefinition
 >;

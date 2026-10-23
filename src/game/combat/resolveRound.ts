@@ -86,6 +86,20 @@ import type {
   SpiritId,
 } from "../types";
 
+const CLEANSABLE_NEGATIVE_STATUS_IDS = new Set<StatusId>([
+  "burn",
+  "poison",
+  "cinderCurse",
+  "rootseed",
+  "bleed",
+  "cracked",
+  "wet",
+  "exposed",
+  "weakened",
+  "stunned",
+  "sleeping",
+]);
+
 function getCombatant(state: CombatState, id: CombatantId) {
   if (isCharacterInstanceId(id)) {
     return state.characters[id];
@@ -311,6 +325,49 @@ function consumeItem(
         inventory: {
           ...character.inventory,
           [itemId]: currentQuantity - 1,
+        },
+      },
+    },
+  };
+}
+
+function hasFreeIronquillSteelDart(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+) {
+  const character = state.characters[characterId];
+  const ironquill = character.spirits.ironquill;
+
+  return Boolean(
+    character.form === "living" &&
+      ironquill?.freeSteelDartAvailable &&
+      getSpiritPassive(ironquill).freeSteelDartEachRound,
+  );
+}
+
+function consumeFreeIronquillSteelDart(
+  state: CombatState,
+  characterId: CharacterInstanceId,
+): CombatState {
+  const character = state.characters[characterId];
+  const ironquill = character.spirits.ironquill;
+
+  if (!ironquill?.freeSteelDartAvailable) {
+    return state;
+  }
+
+  return {
+    ...state,
+    characters: {
+      ...state.characters,
+      [characterId]: {
+        ...character,
+        spirits: {
+          ...character.spirits,
+          ironquill: {
+            ...ironquill,
+            freeSteelDartAvailable: false,
+          },
         },
       },
     },
@@ -566,6 +623,43 @@ function clearSteelDartAbilityBonusStacks(
       },
     },
   };
+}
+
+function refreshFreeIronquillSteelDarts(state: CombatState): CombatState {
+  let nextState = state;
+
+  for (const characterId of CHARACTER_ORDER) {
+    const character = nextState.characters[characterId];
+    const ironquill = character.spirits.ironquill;
+
+    if (!ironquill) {
+      continue;
+    }
+
+    const freeSteelDartAvailable = Boolean(
+      character.form === "living" &&
+        getSpiritPassive(ironquill).freeSteelDartEachRound,
+    );
+
+    nextState = {
+      ...nextState,
+      characters: {
+        ...nextState.characters,
+        [characterId]: {
+          ...character,
+          spirits: {
+            ...character.spirits,
+            ironquill: {
+              ...ironquill,
+              freeSteelDartAvailable,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  return nextState;
 }
 
 function markSpiritEncounterPassiveTriggered(
@@ -833,6 +927,7 @@ function resolveBloodpact(
   ownerId: CharacterInstanceId,
   hpCost: number,
   barrierAmount: number,
+  ppRestore: number,
   active: boolean,
   events: CombatEvent[],
 ): CombatState {
@@ -840,7 +935,12 @@ function resolveBloodpact(
   if (!roles) return state;
 
   const sacrifice = state.characters[roles.sacrificeId];
-  let nextState = updateHp(state, roles.sacrificeId, sacrifice.hp - hpCost);
+  const restoredPp = Math.min(
+    getCharacterMaxPp(sacrifice),
+    sacrifice.pp + ppRestore,
+  );
+  let nextState = updatePp(state, roles.sacrificeId, restoredPp);
+  nextState = updateHp(nextState, roles.sacrificeId, sacrifice.hp - hpCost);
   const afterCost = nextState.characters[roles.sacrificeId];
   events.push({
     type: "bloodpact",
@@ -851,8 +951,10 @@ function resolveBloodpact(
     stage: "sacrifice",
     active,
     hpLoss: Math.min(sacrifice.hp, hpCost),
+    ppRestored: restoredPp - sacrifice.pp,
     barrierAmount: 0,
     remainingHp: afterCost.hp,
+    remainingPp: afterCost.pp,
     remainingBarrier: afterCost.barrier,
     characterState: getCharacterEventState(afterCost),
   });
@@ -873,8 +975,10 @@ function resolveBloodpact(
     stage: "protected",
     active,
     hpLoss: 0,
+    ppRestored: 0,
     barrierAmount: barrierResult.grantedAmount,
     remainingHp: protectedCharacter.hp,
+    remainingPp: protectedCharacter.pp,
     remainingBarrier: protectedCharacter.barrier,
     characterState: getCharacterEventState(protectedCharacter),
     secondaryImpacts: barrierResult.sourceBarrierGranted > 0
@@ -1621,12 +1725,16 @@ function resolveItemUse(
   const useProfile = definition
     ? getItemUseProfile(definition, actor.form)
     : null;
+  const usesFreeIronquillSteelDart =
+    action.itemId === "steelDart" &&
+    hasFreeIronquillSteelDart(state, action.actorId);
 
   if (
     !definition ||
     (!options.allowDefeatedActor && !useProfile) ||
     (!options.itemAlreadyConsumed &&
-      (actor.inventory[action.itemId] ?? 0) <= 0)
+      (actor.inventory[action.itemId] ?? 0) <= 0 &&
+      !usesFreeIronquillSteelDart)
   ) {
     return null;
   }
@@ -1659,6 +1767,8 @@ function resolveItemUse(
 
   let nextState = options.itemAlreadyConsumed
     ? state
+    : usesFreeIronquillSteelDart
+      ? consumeFreeIronquillSteelDart(state, action.actorId)
     : consumeItem(state, action.actorId, action.itemId);
   const impacts: ItemUseImpact[] = [];
   const phoenixRebirthEvents: PhoenixRebirthEvent[] = [];
@@ -2400,6 +2510,7 @@ export function resolveRound(
         ownerId,
         bloodpactPassive.hpCost,
         bloodpactPassive.barrierAmount,
+        bloodpactPassive.ppRestore,
         false,
         events,
       );
@@ -2613,6 +2724,7 @@ export function resolveRound(
     if (!actor || actor.hp <= 0 || !ability) {
       continue;
     }
+    const actionEventStartIndex = events.length;
 
     const partnerId = isCharacterInstanceId(action.actorId)
       ? CHARACTER_ORDER.find(
@@ -3018,7 +3130,7 @@ export function resolveRound(
     if (bloodpactEffect && characterActorId) {
       nextState = resolveBloodpact(
         nextState, characterActorId,
-        bloodpactEffect.hpCost, bloodpactEffect.barrierAmount, true, events,
+        bloodpactEffect.hpCost, bloodpactEffect.barrierAmount, 0, true, events,
       );
       const guardDogResult = resolveGuardDogPassive(
         nextState, characterActorId, randomSeed,
@@ -3883,12 +3995,14 @@ export function resolveRound(
 
       if (effect.type === "wait") {
         const waitingActor = getCombatant(nextState, action.actorId);
-        const statusesToCleanse = effect.cleansesDamageStatuses
-          ? (waitingActor?.statuses.filter(
-              (status) =>
-                STATUS_DEFINITIONS[status.id].endOfRoundDamage !== undefined,
-            ) ?? [])
-          : [];
+        const statusesToCleanse =
+          waitingActor?.statuses.filter(
+            (status) =>
+              (effect.cleansesDamageStatuses &&
+                STATUS_DEFINITIONS[status.id].endOfRoundDamage !== undefined) ||
+              (effect.cleansesNegativeStatuses &&
+                CLEANSABLE_NEGATIVE_STATUS_IDS.has(status.id)),
+          ) ?? [];
         const statusChanges: StatusChange[] = statusesToCleanse.map(
           (status) => ({
             type: "removed",
@@ -3911,6 +4025,62 @@ export function resolveRound(
           );
         }
 
+        let defenseReduced = 0;
+        let remainingDefense = waitingActor?.stats.defense;
+        let healingAmount = 0;
+        let remainingHp = waitingActor?.hp;
+
+        if (waitingActor && effect.healingAmount) {
+          remainingHp = Math.min(
+            waitingActor.stats.maxHp,
+            waitingActor.hp + effect.healingAmount,
+          );
+          healingAmount = remainingHp - waitingActor.hp;
+          nextState = isCharacterInstanceId(action.actorId)
+            ? {
+                ...nextState,
+                characters: {
+                  ...nextState.characters,
+                  [action.actorId]: {
+                    ...nextState.characters[action.actorId],
+                    hp: remainingHp,
+                  },
+                },
+              }
+            : {
+                ...nextState,
+                enemies: nextState.enemies.map((enemy) =>
+                  enemy.instanceId === action.actorId
+                    ? { ...enemy, hp: remainingHp! }
+                    : enemy,
+                ),
+              };
+        }
+
+        if (
+          waitingActor &&
+          !isCharacterInstanceId(action.actorId) &&
+          effect.defenseReduction
+        ) {
+          const minimumDefense = effect.minimumDefense ?? 0;
+          remainingDefense = Math.max(
+            minimumDefense,
+            waitingActor.stats.defense - effect.defenseReduction,
+          );
+          defenseReduced = waitingActor.stats.defense - remainingDefense;
+          nextState = {
+            ...nextState,
+            enemies: nextState.enemies.map((enemy) =>
+              enemy.instanceId === action.actorId
+                ? {
+                    ...enemy,
+                    stats: { ...enemy.stats, defense: remainingDefense! },
+                  }
+                : enemy,
+            ),
+          };
+        }
+
         events.push({
           type: "wait",
           actorId: action.actorId,
@@ -3918,6 +4088,10 @@ export function resolveRound(
           abilityId: action.abilityId,
           abilityRank: ability.rank,
           statusChanges,
+          ...(effect.healingAmount ? { healingAmount, remainingHp } : {}),
+          ...(effect.defenseReduction
+            ? { defenseReduced, remainingDefense }
+            : {}),
         });
         continue;
       }
@@ -3999,7 +4173,7 @@ export function resolveRound(
           ...createStatusFromSource(
             nextState,
             action.actorId,
-            "cracked",
+            "goatMarked",
           ),
           readiedAbilityId: "goatCharge",
         };
@@ -4399,6 +4573,7 @@ export function resolveRound(
           amount = applyDamageVariance(normalDamage, varianceResult.value);
         }
         const statusChanges: StatusChange[] = [
+          ...chargeReleaseStatusChanges,
           ...(preHitStatusChanges.get(targetId) ?? []),
         ];
         let immediateStatusTick: ActiveStatus | null = null;
@@ -4526,7 +4701,7 @@ export function resolveRound(
           action.abilityId === "goatCharge"
             ? currentTarget.statuses.find(
                 (status) =>
-                  status.id === "cracked" &&
+                  status.id === "goatMarked" &&
                   status.readiedAbilityId === "goatCharge",
               )
             : undefined;
@@ -4547,7 +4722,7 @@ export function resolveRound(
             target.statuses.filter(
               (status) =>
                 !(
-                  status.id === "cracked" &&
+                  status.id === "goatMarked" &&
                   status.readiedAbilityId === "goatCharge"
                 ),
             ),
@@ -4555,7 +4730,7 @@ export function resolveRound(
           statusChanges.push({
             type: "removed",
             combatantId: targetId,
-            statusId: "cracked",
+            statusId: "goatMarked",
             sourceId: goatChargeMark.sourceId,
           });
         };
@@ -4581,6 +4756,7 @@ export function resolveRound(
             remainingHp,
             maxHp: currentDemon.maxHp,
             destroyed,
+            statusChanges: chargeReleaseStatusChanges,
           });
           continue;
         }
@@ -5671,7 +5847,7 @@ export function resolveRound(
           characterAfterCost,
         );
 
-        events.push({
+        const selfDamageEvents: CombatEvent[] = [{
           type: "selfDamage",
           actorId: action.actorId,
           targetId: action.actorId,
@@ -5685,9 +5861,15 @@ export function resolveRound(
           characterState: getCharacterEventState(
             phoenixRebirth ? characterBeforeCost : characterAfterCost,
           ),
-        });
+        }];
         if (phoenixRebirth) {
-          events.push(phoenixRebirth);
+          selfDamageEvents.push(phoenixRebirth);
+        }
+
+        if (selfHpDamageEffect.timing === "beforeDamage") {
+          events.splice(actionEventStartIndex, 0, ...selfDamageEvents);
+        } else {
+          events.push(...selfDamageEvents);
         }
       }
     }
@@ -5866,6 +6048,7 @@ export function resolveRound(
   };
 
   if (resolvedPhase === "selectingActions") {
+    resolvedState = refreshFreeIronquillSteelDarts(resolvedState);
     resolvedState = prepareEnemyIntents(
       prepareRoundTurnPriorities(resolvedState),
     );

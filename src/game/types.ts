@@ -36,7 +36,8 @@ export type EnemyId =
   | "gorakBoss"
   | "goat1"
   | "goat2"
-  | "rockwhistler";
+  | "rockwhistler"
+  | "rockhideLizard";
 
 export type EncounterId =
   | "slimeTrail"
@@ -54,7 +55,8 @@ export type EncounterId =
   | "forestRest"
   | "orcBrothers"
   | "mountainPass"
-  | "rockwhistlerRidge";
+  | "rockwhistlerRidge"
+  | "rockhideCavern";
 
 export type StatUpgradeId =
   | "vitality"
@@ -366,6 +368,9 @@ export type AbilityId =
   | "rockwhistlerBurrow"
   | "rockwhistlerAmbush"
   | "rockwhistlerCall"
+  | "stonejawBite"
+  | "groundSlam"
+  | "rockScrape"
   | "cinderburst"
   | "stoneback"
   | "swiftWing"
@@ -411,10 +416,7 @@ export type SpiritState = {
   passiveTriggeredThisEncounter: boolean;
   roundPriorityActive: boolean;
   steelDartAbilityBonusStacks: number;
-  bloodpactRoles?: {
-    sacrificeId: CharacterInstanceId;
-    protectedId: CharacterInstanceId;
-  } | null;
+  freeSteelDartAvailable: boolean;
 };
 
 export type KnownSpirits = Partial<Record<SpiritId, SpiritState>>;
@@ -428,6 +430,7 @@ export type StatusId =
   | "abilityCharge"
   | "bleed"
   | "cracked"
+  | "goatMarked"
   | "wet"
   | "exposed"
   | "weakened"
@@ -728,7 +731,7 @@ export type GhostHpCostEffect = {
 export type SelfHpDamageEffect = {
   type: "selfHpDamage";
   amount: number;
-  timing: "afterDamage";
+  timing: "beforeDamage" | "afterDamage";
 };
 
 export type GrantAdditionalActionEffect = {
@@ -771,6 +774,10 @@ export type WakeEnemyEffect = {
 export type WaitEffect = {
   type: "wait";
   cleansesDamageStatuses?: boolean;
+  cleansesNegativeStatuses?: boolean;
+  healingAmount?: number;
+  defenseReduction?: number;
+  minimumDefense?: number;
 };
 
 export type GainRandomItemEffect = {
@@ -882,7 +889,8 @@ export type SpiritPassiveDefinition = {
   steelDartAbilityAmplifier?: {
     damageBonusPerDart: number;
   };
-  roundStartBloodpact?: { hpCost: number; barrierAmount: number };
+  freeSteelDartEachRound?: true;
+  roundStartBloodpact?: { hpCost: number; barrierAmount: number; ppRestore: number };
   roundStartHealing?: { amount: number };
   phoenixTonicReviveBonus?: { amount: number };
 };
@@ -1171,6 +1179,10 @@ export type WaitEvent = {
   abilityId: AbilityId;
   abilityRank: AbilityRank;
   statusChanges: StatusChange[];
+  healingAmount?: number;
+  remainingHp?: number;
+  defenseReduced?: number;
+  remainingDefense?: number;
 };
 
 export type SkipTurnEvent = {
@@ -1326,8 +1338,10 @@ export type BloodpactEvent = {
   stage: "sacrifice" | "protected";
   active: boolean;
   hpLoss: number;
+  ppRestored: number;
   barrierAmount: number;
   remainingHp: number;
+  remainingPp: number;
   remainingBarrier: number;
   characterState: CharacterEventState;
   secondaryImpacts?: MultiTargetSupportImpact[];
@@ -1392,6 +1406,7 @@ export type EarthDemonEvent =
       remainingHp: number;
       maxHp: number;
       destroyed: boolean;
+      statusChanges: StatusChange[];
     }
   | {
       type: "earthDemonAttack";
@@ -1440,7 +1455,6 @@ export type CombatEvent =
   | SkipTurnEvent;
 
 export type RoundOutcomePhase =
-  | "selectingBloodpact"
   | "selectingActions"
   | "victory"
   | "defeat"

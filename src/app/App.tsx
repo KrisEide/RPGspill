@@ -281,6 +281,7 @@ export default function App() {
         key={roomConnection.lobby.roomCode}
         initialCombatState={multiplayerCombatState}
         localPlayerId={roomConnection.playerId}
+        sessionEnded={sessionEnded}
         onReturnToStart={returnToStartScreen}
       />
     );

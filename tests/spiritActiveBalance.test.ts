@@ -31,7 +31,7 @@ test("Stoneback active grants 8 + 25% Earth Power Barrier to both heroes", () =>
   ]);
 });
 
-test("Swift Wing active deals 20 + 60% Wind Power while retaining priority", () => {
+test("Swift Wing active deals 22 + 65% Wind Power while retaining priority", () => {
   const ability = ABILITIES.swiftWing;
 
   assert.equal(ability.resolutionPriority, 300);
@@ -39,20 +39,20 @@ test("Swift Wing active deals 20 + 60% Wind Power while retaining priority", () 
     {
       type: "damage",
       damageType: "elemental",
-      basePower: 20,
+      basePower: 22,
       attackScaling: 0,
-      elementalPowerScaling: 0.6,
+      elementalPowerScaling: 0.65,
     },
   ]);
 });
 
-test("Warhound active deals 22 + 80% Attack Physical damage", () => {
+test("Warhound active deals 25 + 90% Attack Physical damage", () => {
   assert.deepEqual(ABILITIES.warhound.ranks[1].effects, [
     {
       type: "damage",
       damageType: "physical",
-      basePower: 22,
-      attackScaling: 0.8,
+      basePower: 25,
+      attackScaling: 0.9,
       elementalPowerScaling: 0,
     },
   ]);

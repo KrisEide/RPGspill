@@ -21,6 +21,7 @@ import earthDemonIdle from "../../assets/sprites/summons/earthsummon.png";
 import earthDemonAttack from "../../assets/sprites/summons/earthsummon_attack.png";
 import {
   getSpiritForActiveAbility,
+  getSpiritPassive,
   SPIRIT_DEFINITIONS,
 } from "../../data/spirits";
 import CommandBar from "./components/CommandBar";
@@ -55,8 +56,7 @@ import {
   ITEM_PROJECTILE_VISUALS,
 } from "./data/itemVisuals";
 import { resolveImmediateItemUse } from "../../game/combat/resolveRound";
-import { getActiveBloodpactRoles, getPendingBloodpactOwners } from "../../game/combat/bloodpact";
-import BloodpactSelection from "./components/BloodpactSelection";
+import { getActiveBloodpactRoles } from "../../game/combat/bloodpact";
 import {
   areAllLivingPlayersReady,
   doesCharacterNeedAction,
@@ -71,7 +71,6 @@ import {
   isEnemySleeping,
   isEnemyTargetable,
 } from "../../game/combat/targeting";
-import { shouldAutoResolveRockwhistlerAmbush } from "../../game/combat/rockwhistler";
 import {
   getAbilityScalingDescription,
   getKnownAbilityIds,
@@ -86,9 +85,8 @@ import {
 import { getCharacterPortraitSource } from "../characterSelect/data/characterOptions";
 import {
   resolveMultiplayerAutomaticRound,
+  submitMultiplayerForceRound,
   submitMultiplayerAction,
-  submitMultiplayerBloodpact,
-  subscribeToBloodpact,
   submitMultiplayerItem,
   submitMultiplayerReform,
   submitMultiplayerUpgrade,
@@ -135,6 +133,7 @@ type Props = (
     }
 ) & {
   onReturnToStart: () => void;
+  sessionEnded?: boolean;
 };
 
 const COMBAT_IMPACT_DELAY_MS = 550;
@@ -180,6 +179,9 @@ const MYSTERIOUS_POTION_IMPACT_DELAY_MS = 1150;
 const REST_RESOURCE_GAIN_DURATION_MS = 4500;
 const REST_RECOVERY_PRESENTATION_DURATION_MS = 6000;
 const REST_CHOICE_PAUSE_MS = 900;
+const SACRIFICIAL_STRIKE_COST_IMPACT_DELAY_MS = 350;
+const SACRIFICIAL_STRIKE_COST_EVENT_DURATION_MS = 2100;
+const SACRIFICIAL_STRIKE_COST_NUMBER_DURATION_MS = 1750;
 
 function restoredPartyResources(before: CombatState, after: CombatState) {
   return (["character-1", "character-2"] as const).some(
@@ -502,6 +504,30 @@ function getTargetEffectForTarget(
     return null;
   }
 
+  const reflectedDamage =
+    event.type === "damage"
+      ? event.reflectedDamage
+      : event.type === "multiTargetDamage"
+        ? event.impacts.find(
+            (impact) => impact.reflectedDamage?.targetId === targetId,
+          )?.reflectedDamage
+        : undefined;
+
+  if (
+    reflectedDamage?.targetId === targetId &&
+    reflectedDamage.passiveIds.includes("guardDog")
+  ) {
+    const guardDogEffect = ABILITY_VISUALS.warhound?.targetEffect;
+
+    return guardDogEffect
+      ? {
+          ...guardDogEffect,
+          variant: "guardDogCounter" as const,
+          durationMs: 1900,
+        }
+      : null;
+  }
+
   if (event.type === "statusApplied" && event.targetId === targetId) {
     return ABILITY_VISUALS[event.abilityId]?.targetEffect ?? null;
   }
@@ -522,6 +548,14 @@ function getTargetEffectForTarget(
     if ((impact?.healingAmount ?? 0) > 0) {
       return ABILITY_VISUALS[event.abilityId]?.supportEffect ?? null;
     }
+  }
+
+  if (
+    event.type === "wait" &&
+    event.abilityId === "rockScrape" &&
+    event.targetId === targetId
+  ) {
+    return ABILITY_VISUALS.rockScrape?.targetEffect ?? null;
   }
 
   if (
@@ -673,8 +707,6 @@ function resolveCharacterAction(
 
 export default function BattleScreen(props: Props) {
   const tabHeld = useTabHeld();
-  const [bloodpactSubmitting, setBloodpactSubmitting] = useState(false);
-  const [bloodpactError, setBloodpactError] = useState<string | null>(null);
   const [gameState, dispatch] = useReducer(
     gameReducer,
     props,
@@ -708,6 +740,11 @@ export default function BattleScreen(props: Props) {
       "character-2": null,
     });
   const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [forceRoundAvailable, setForceRoundAvailable] = useState(false);
+  const [forceRoundSubmitting, setForceRoundSubmitting] = useState(false);
+  const [multiplayerActionError, setMultiplayerActionError] = useState<
+    string | null
+  >(null);
   const [upgradeSubmitting, setUpgradeSubmitting] = useState(false);
   const [restPreviewCombatState, setRestPreviewCombatState] =
     useState<CombatState | null>(null);
@@ -736,7 +773,6 @@ export default function BattleScreen(props: Props) {
   const isMultiplayer = "localPlayerId" in props;
   const localPlayerId = isMultiplayer ? props.localPlayerId : null;
   const combatState = gameState.combat;
-  const pendingBloodpactOwnerId = getPendingBloodpactOwners(combatState)[0] ?? null;
   const encounterIntroPhase =
     encounterIntroState.encounterId === combatState.encounterId
       ? encounterIntroState.phase
@@ -936,6 +972,7 @@ export default function BattleScreen(props: Props) {
         }
 
         const definition = SPIRIT_DEFINITIONS[spirit.id];
+        const passive = getSpiritPassive(spirit);
         const active = resolveAbility(definition.activeAbilityId, spirit.rank);
 
         return active
@@ -944,8 +981,8 @@ export default function BattleScreen(props: Props) {
                 id: definition.id,
                 name: definition.name,
                 icon: definition.icon,
-                passiveName: definition.passive.name,
-                passiveDescription: definition.passive.description,
+                passiveName: passive.name,
+                passiveDescription: passive.description,
                 activeAbilityId: definition.activeAbilityId,
                 activeName: active.name,
                 activeShortDescription: active.shortDescription,
@@ -965,22 +1002,41 @@ export default function BattleScreen(props: Props) {
     knownSpirits.every((spirit) => spirit.usesRemaining <= 0);
   const inventoryItems = commandCharacter
     ? commandCharacter.form === "living"
-      ? getInventoryEntries(commandCharacter.inventory).map(
-        ({ definition, quantity }) => ({
-          id: definition.id,
-          name: definition.name,
-          menuName: definition.menuName,
-          icon: ITEM_ICONS[definition.id],
-          description: definition.description,
-          quantity: Math.max(
-            0,
-            quantity - (queuedItemCounts[definition.id] ?? 0),
-          ),
-          useTiming:
-            getItemUseProfile(definition, commandCharacter.form)?.useTiming ??
-            definition.useTiming,
-        }),
-        )
+      ? (() => {
+          const freeSteelDart = commandCharacter.spirits.ironquill
+            ?.freeSteelDartAvailable
+            ? 1
+            : 0;
+          const entries = getInventoryEntries(commandCharacter.inventory);
+          const visibleEntries =
+            freeSteelDart > 0 &&
+            !entries.some(({ definition }) => definition.id === "steelDart")
+              ? [
+                  ...entries,
+                  { definition: ITEM_DEFINITIONS.steelDart, quantity: 0 },
+                ]
+              : entries;
+
+          return visibleEntries.map(({ definition, quantity }) => ({
+            id: definition.id,
+            name: definition.name,
+            menuName: definition.menuName,
+            icon: ITEM_ICONS[definition.id],
+            description:
+              definition.id === "steelDart" && freeSteelDart > 0
+                ? `Free Ironquill use this round. ${definition.description}`
+                : definition.description,
+            quantity: Math.max(
+              0,
+              quantity +
+                (definition.id === "steelDart" ? freeSteelDart : 0) -
+                (queuedItemCounts[definition.id] ?? 0),
+            ),
+            useTiming:
+              getItemUseProfile(definition, commandCharacter.form)
+                ?.useTiming ?? definition.useTiming,
+          }));
+        })()
       : []
     : [];
   const mysteriousPotionQuantity =
@@ -1074,7 +1130,18 @@ export default function BattleScreen(props: Props) {
   const appliedCombatEvent = gameState.pendingRound?.currentEventApplied
     ? currentCombatEvent
     : null;
+  const currentEventHasGuardDogCounter = Boolean(
+    currentCombatEvent &&
+      (currentCombatEvent.type === "damage"
+        ? currentCombatEvent.reflectedDamage?.passiveIds.includes("guardDog")
+        : currentCombatEvent.type === "multiTargetDamage"
+          ? currentCombatEvent.impacts.some((impact) =>
+              impact.reflectedDamage?.passiveIds.includes("guardDog"),
+            )
+          : false),
+  );
   const currentTargetEffectEvent =
+    currentEventHasGuardDogCounter ||
     currentAbilityVisuals?.targetEffect?.startsOnImpact
       ? appliedCombatEvent
       : currentCombatEvent;
@@ -1192,14 +1259,40 @@ export default function BattleScreen(props: Props) {
         (status) => status.id === "abilityCharge",
       ),
   );
-  const autoRockwhistlerAmbush =
-    shouldAutoResolveRockwhistlerAmbush(combatState);
+  const multiplayerRoundHasSingleReadyPlayer = Boolean(
+    isMultiplayer &&
+      playerReadiness?.round === combatState.round &&
+      playerReadiness.readyPlayerIds.length === 1,
+  );
+
+  useEffect(() => {
+    setForceRoundAvailable(false);
+
+    if (
+      !multiplayerRoundHasSingleReadyPlayer ||
+      gameState.phase !== "selectingActions" ||
+      props.sessionEnded
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setForceRoundAvailable(true);
+    }, 30_000);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    combatState.round,
+    gameState.phase,
+    multiplayerRoundHasSingleReadyPlayer,
+    props.sessionEnded,
+  ]);
 
   useEffect(() => {
     if (
       !encounterIntroComplete ||
       gameState.phase !== "selectingActions" ||
-      (!hasReadiedAbility && !autoRockwhistlerAmbush)
+      !hasReadiedAbility
     ) {
       return;
     }
@@ -1212,11 +1305,10 @@ export default function BattleScreen(props: Props) {
 
     if (isMultiplayer) {
       const serverSaysEveryoneIsReady =
-        autoRockwhistlerAmbush ||
-        (playerReadiness?.round === combatState.round &&
+        playerReadiness?.round === combatState.round &&
         PLAYER_ORDER.every((playerId) =>
           playerReadiness.readyPlayerIds.includes(playerId),
-        ));
+        );
 
       if (!serverSaysEveryoneIsReady) {
         return;
@@ -1229,13 +1321,7 @@ export default function BattleScreen(props: Props) {
       return;
     }
 
-    if (
-      !autoRockwhistlerAmbush &&
-      !areAllLivingPlayersReady(
-        combatState,
-        gameState.roundSelections,
-      )
-    ) {
+    if (!areAllLivingPlayersReady(combatState, gameState.roundSelections)) {
       return;
     }
 
@@ -1247,7 +1333,6 @@ export default function BattleScreen(props: Props) {
     gameState.phase,
     gameState.roundSelections,
     hasReadiedAbility,
-    autoRockwhistlerAmbush,
     isMultiplayer,
     playerReadiness,
   ]);
@@ -1493,6 +1578,9 @@ export default function BattleScreen(props: Props) {
 
     const isDefendEvent = currentCombatEvent.type === "defend";
     const isSelfDamageEvent = currentCombatEvent.type === "selfDamage";
+    const isSacrificialStrikeCostEvent =
+      isSelfDamageEvent &&
+      currentCombatEvent.abilityId === "sacrificialStrike";
     const isStatusDamageEvent =
       currentCombatEvent.type === "statusDamage" ||
       currentCombatEvent.type === "spiritDamage";
@@ -1529,6 +1617,15 @@ export default function BattleScreen(props: Props) {
       currentCombatEvent.type === "damage" &&
       currentCombatEvent.abilityId === "backwind" &&
       currentCombatEvent.backwindBonus === true;
+    const isGuardDogCounterEvent =
+      currentCombatEvent.type === "damage"
+        ? currentCombatEvent.reflectedDamage?.passiveIds.includes("guardDog") ??
+          false
+        : currentCombatEvent.type === "multiTargetDamage"
+          ? currentCombatEvent.impacts.some((impact) =>
+              impact.reflectedDamage?.passiveIds.includes("guardDog"),
+            )
+          : false;
     const currentItem =
       currentCombatEvent.type === "itemUse"
         ? ITEM_DEFINITIONS[currentCombatEvent.itemId]
@@ -1565,7 +1662,9 @@ export default function BattleScreen(props: Props) {
       : isDefendEvent
       ? DEFEND_EFFECT_DELAY_MS
       : isSelfDamageEvent
-        ? 250
+        ? isSacrificialStrikeCostEvent
+          ? SACRIFICIAL_STRIKE_COST_IMPACT_DELAY_MS
+          : 250
       : isCinderCurseTick
         ? CINDER_CURSE_TICK_IMPACT_DELAY_MS
       : isRootseedTick
@@ -1612,7 +1711,9 @@ export default function BattleScreen(props: Props) {
       : isDefendEvent
       ? DEFEND_EVENT_DURATION_MS
       : isSelfDamageEvent
-        ? 1400
+        ? isSacrificialStrikeCostEvent
+          ? SACRIFICIAL_STRIKE_COST_EVENT_DURATION_MS
+          : 1400
       : isCinderCurseTick
         ? CINDER_CURSE_TICK_EVENT_DURATION_MS
       : isRootseedTick
@@ -1630,15 +1731,18 @@ export default function BattleScreen(props: Props) {
             )
         : (currentAbilityVisuals?.timing?.eventDurationMs ??
           COMBAT_EVENT_DURATION_MS);
+    const pacedEventDuration = isGuardDogCounterEvent
+      ? Math.max(baseEventDuration, impactDelay + 2200)
+      : baseEventDuration;
     const eventDuration = combatEventDefeatsEnemy(currentCombatEvent)
       ? Math.max(
-          baseEventDuration,
+          pacedEventDuration,
           impactDelay +
             ENEMY_DEATH_FADE_DELAY_MS +
             ENEMY_DEATH_FADE_DURATION_MS +
             ENEMY_DEATH_NEXT_ACTION_PAUSE_MS,
         )
-      : baseEventDuration;
+      : pacedEventDuration;
     const impactTimer = window.setTimeout(
       () => {
         dispatch({ type: "applyCurrentCombatEvent" });
@@ -1677,12 +1781,10 @@ export default function BattleScreen(props: Props) {
     const unsubscribeFromReadiness = subscribeToPlayerReadiness(
       setPlayerReadiness,
     );
-    const unsubscribeFromBloodpact = subscribeToBloodpact((combatState) => {
-      setBloodpactError(null);
-      dispatch({ type: "syncCombatState", combatState });
-    });
     const unsubscribeFromRound = subscribeToRoundResolved((result) => {
       setPlayerReadiness(null);
+      setForceRoundAvailable(false);
+      setForceRoundSubmitting(false);
       setSelectedAbilityId(null);
       setSelectedPrimaryTargetId(null);
       setSelectedItemId(null);
@@ -1741,7 +1843,6 @@ export default function BattleScreen(props: Props) {
 
     return () => {
       unsubscribeFromReadiness();
-      unsubscribeFromBloodpact();
       unsubscribeFromRound();
       unsubscribeFromImmediateItem();
       unsubscribeFromGhostReformed();
@@ -1807,30 +1908,46 @@ export default function BattleScreen(props: Props) {
 
     if (isMultiplayer) {
       setActionSubmitting(true);
-      const result = await submitMultiplayerAction({
-        round: combatState.round,
-        abilityId,
-        targetId,
-        secondaryTargetId,
-      });
+      setMultiplayerActionError(null);
 
-      if (result.accepted && result.playerReady && localPlayerId) {
-        setPlayerReadiness((currentReadiness) => ({
+      try {
+        const result = await submitMultiplayerAction({
           round: combatState.round,
-          readyPlayerIds: Array.from(
-            new Set([
-              ...(currentReadiness?.round === combatState.round
-                ? currentReadiness.readyPlayerIds
-                : []),
-              localPlayerId,
-            ]),
-          ),
-        }));
-      }
+          abilityId,
+          targetId,
+          secondaryTargetId,
+        });
 
-      setActionSubmitting(false);
-      setSelectedAbilityId(null);
-      setSelectedPrimaryTargetId(null);
+        if (!result.accepted) {
+          setMultiplayerActionError(
+            "Action could not be submitted. Select it and try again.",
+          );
+          return;
+        }
+
+        if (result.playerReady && localPlayerId) {
+          setPlayerReadiness((currentReadiness) => ({
+            round: combatState.round,
+            readyPlayerIds: Array.from(
+              new Set([
+                ...(currentReadiness?.round === combatState.round
+                  ? currentReadiness.readyPlayerIds
+                  : []),
+                localPlayerId,
+              ]),
+            ),
+          }));
+        }
+
+        setSelectedAbilityId(null);
+        setSelectedPrimaryTargetId(null);
+      } catch {
+        setMultiplayerActionError(
+          "Action could not be submitted. Check the connection and try again.",
+        );
+      } finally {
+        setActionSubmitting(false);
+      }
       return;
     }
 
@@ -1867,48 +1984,63 @@ export default function BattleScreen(props: Props) {
 
     if (isMultiplayer) {
       setActionSubmitting(true);
-      const result = await submitMultiplayerItem({
-        round: combatState.round,
-        itemId,
-        targetId,
-      });
+      setMultiplayerActionError(null);
 
-      if (
-        result.accepted &&
-        !result.resolvedImmediately &&
-        useProfile.useTiming === "action" &&
-        localPlayerId
-      ) {
-        setPlayerReadiness((currentReadiness) => ({
+      try {
+        const result = await submitMultiplayerItem({
           round: combatState.round,
-          readyPlayerIds: Array.from(
-            new Set([
-              ...(currentReadiness?.round === combatState.round
-                ? currentReadiness.readyPlayerIds
-                : []),
-              localPlayerId,
-            ]),
-          ),
-        }));
-      }
-
-      if (result.accepted && !result.resolvedImmediately) {
-        setQueuedItemState((current) => {
-          const counts =
-            current.scope === itemQueueScope ? current.counts : {};
-
-          return {
-            scope: itemQueueScope,
-            counts: {
-              ...counts,
-              [itemId]: (counts[itemId] ?? 0) + 1,
-            },
-          };
+          itemId,
+          targetId,
         });
-      }
 
-      setActionSubmitting(false);
-      setSelectedItemId(null);
+        if (!result.accepted) {
+          setMultiplayerActionError(
+            "Item could not be submitted. Select it and try again.",
+          );
+          return;
+        }
+
+        if (
+          !result.resolvedImmediately &&
+          useProfile.useTiming === "action" &&
+          localPlayerId
+        ) {
+          setPlayerReadiness((currentReadiness) => ({
+            round: combatState.round,
+            readyPlayerIds: Array.from(
+              new Set([
+                ...(currentReadiness?.round === combatState.round
+                  ? currentReadiness.readyPlayerIds
+                  : []),
+                localPlayerId,
+              ]),
+            ),
+          }));
+        }
+
+        if (!result.resolvedImmediately) {
+          setQueuedItemState((current) => {
+            const counts =
+              current.scope === itemQueueScope ? current.counts : {};
+
+            return {
+              scope: itemQueueScope,
+              counts: {
+                ...counts,
+                [itemId]: (counts[itemId] ?? 0) + 1,
+              },
+            };
+          });
+        }
+
+        setSelectedItemId(null);
+      } catch {
+        setMultiplayerActionError(
+          "Item could not be submitted. Check the connection and try again.",
+        );
+      } finally {
+        setActionSubmitting(false);
+      }
       return;
     }
 
@@ -2049,6 +2181,38 @@ export default function BattleScreen(props: Props) {
     setSelectedAbilityId(null);
     setSelectedPrimaryTargetId(null);
     setSelectedItemId(null);
+  };
+
+  const forceStalledRound = async () => {
+    if (
+      !isMultiplayer ||
+      !forceRoundAvailable ||
+      forceRoundSubmitting ||
+      props.sessionEnded
+    ) {
+      return;
+    }
+
+    setForceRoundSubmitting(true);
+    setMultiplayerActionError(null);
+
+    try {
+      const accepted = await submitMultiplayerForceRound({
+        round: combatState.round,
+      });
+
+      if (!accepted) {
+        setMultiplayerActionError(
+          "Pass Round is not ready yet. Wait a moment and try again.",
+        );
+      }
+    } catch {
+      setMultiplayerActionError(
+        "Pass Round could not reach the server. Check the connection.",
+      );
+    } finally {
+      setForceRoundSubmitting(false);
+    }
   };
 
   const selectUpgrade = async (choiceId: RewardChoiceId) => {
@@ -2286,13 +2450,15 @@ export default function BattleScreen(props: Props) {
           : currentCombatEvent?.type === "phoenixRebirth"
             ? `${getCombatantName(currentCombatEvent.targetId)} is reborn...`
           : currentCombatEvent?.type === "bloodpact"
-            ? `Bloodpact${currentCombatEvent.active ? " active" : ""} · ${getCombatantName(currentCombatEvent.targetId)} ${currentCombatEvent.stage === "sacrifice" ? `sacrifices ${currentCombatEvent.hpLoss} HP` : `gains ${currentCombatEvent.barrierAmount} Barrier`}…`
+            ? `Bloodpact${currentCombatEvent.active ? " active" : ""} · ${getCombatantName(currentCombatEvent.targetId)} ${currentCombatEvent.stage === "sacrifice" ? `sacrifices ${currentCombatEvent.hpLoss} HP${currentCombatEvent.ppRestored > 0 ? ` and restores ${currentCombatEvent.ppRestored} PP` : ""}` : `gains ${currentCombatEvent.barrierAmount} Barrier`}…`
           : currentCombatEvent?.type === "barrierRemoved"
             ? `${getCombatantName(currentCombatEvent.actorId)} uses Shatter Ward...`
           : currentCombatEvent?.type === "wake"
             ? `${getCombatantName(currentCombatEvent.actorId)} wakes ${getCombatantName(currentCombatEvent.targetId)}...`
           : currentCombatEvent?.type === "wait"
-            ? `${getCombatantName(currentCombatEvent.actorId)} catches their breath...`
+            ? currentCombatEvent.abilityId === "rockScrape"
+              ? `${getCombatantName(currentCombatEvent.actorId)} scrapes away its rocky armor...`
+              : `${getCombatantName(currentCombatEvent.actorId)} catches their breath...`
           : currentCombatEvent?.type === "defend"
             ? `${getCombatantName(currentCombatEvent.actorId)} defends...`
           : currentCombatEvent?.type === "earthDemonSummoned"
@@ -2310,7 +2476,9 @@ export default function BattleScreen(props: Props) {
             : currentCombatEvent?.type === "statusDamage"
               ? `${getCombatantName(currentCombatEvent.targetId)} takes damage from ${STATUS_DEFINITIONS[currentCombatEvent.statusId].name}...`
             : currentCombatEvent?.type === "statusApplied"
-              ? `${getCombatantName(currentCombatEvent.actorId)} uses ${resolveAbility(currentCombatEvent.abilityId, currentCombatEvent.abilityRank)?.name ?? "an ability"} on ${getCombatantName(currentCombatEvent.targetId)}...`
+              ? currentCombatEvent.abilityId === "goatStomp"
+                ? `${getCombatantName(currentCombatEvent.targetId)} is marked for the next Charge · Defense −5...`
+                : `${getCombatantName(currentCombatEvent.actorId)} uses ${resolveAbility(currentCombatEvent.abilityId, currentCombatEvent.abilityRank)?.name ?? "an ability"} on ${getCombatantName(currentCombatEvent.targetId)}...`
             : currentCombatEvent?.type === "spiritDamage"
               ? `${SPIRIT_DEFINITIONS[currentCombatEvent.spiritId].name} strikes ${getCombatantName(currentCombatEvent.targetId)}...`
             : currentCombatEvent?.type === "charge"
@@ -2399,6 +2567,29 @@ export default function BattleScreen(props: Props) {
         </div>
       )}
 
+      {isMultiplayer && props.sessionEnded && (
+        <div className="gameOverOverlay">
+          <section
+            className="gameOverDialog connectionLostDialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="connection-lost-title"
+          >
+            <h1 id="connection-lost-title">CONNECTION LOST</h1>
+            <p>The multiplayer session has ended.</p>
+            <button type="button" onClick={props.onReturnToStart}>
+              RETURN TO START
+            </button>
+          </section>
+        </div>
+      )}
+
+      {multiplayerActionError && !props.sessionEnded && (
+        <div className="multiplayerActionError" role="alert">
+          {multiplayerActionError}
+        </div>
+      )}
+
       {ghostTransitionIsRevealed && (
         <section
           className={`ghostTransitionNotice${ghostTransitionEndsInDefeat ? " ghostTransitionNotice--defeat" : ""}`}
@@ -2452,35 +2643,6 @@ export default function BattleScreen(props: Props) {
             <span>Soul Link Broken</span>
           </div>
         </div>
-      )}
-
-      {encounterIntroComplete && gameState.phase === "selectingBloodpact" && pendingBloodpactOwnerId && (
-        <BloodpactSelection
-          key={`${combatState.encounterId}:${pendingBloodpactOwnerId}`}
-          state={combatState}
-          ownerId={pendingBloodpactOwnerId}
-          canChoose={!isMultiplayer || localCharacterId === pendingBloodpactOwnerId}
-          submitting={bloodpactSubmitting}
-          error={bloodpactError}
-          onChoose={async (sacrificeId) => {
-            if (bloodpactSubmitting) return;
-            const playerId = combatState.characters[pendingBloodpactOwnerId].ownerId;
-            if (!isMultiplayer) {
-              dispatch({ type: "selectBloodpactRoles", playerId, sacrificeId });
-              return;
-            }
-            setBloodpactSubmitting(true);
-            setBloodpactError(null);
-            try {
-              const accepted = await submitMultiplayerBloodpact({ encounterId: combatState.encounterId, sacrificeId });
-              if (!accepted) setBloodpactError("The pact could not be selected. Please try again.");
-            } catch (error) {
-              setBloodpactError(error instanceof Error ? error.message : "Could not select Bloodpact.");
-            } finally {
-              setBloodpactSubmitting(false);
-            }
-          }}
-        />
       )}
 
       {encounterIntroPhase === "announcement" && (
@@ -2671,6 +2833,12 @@ export default function BattleScreen(props: Props) {
           displayedImpactEvent,
           characterId,
         );
+        const isSacrificialStrikeCost = Boolean(
+          receivedDamage &&
+            appliedCombatEvent?.type === "selfDamage" &&
+            appliedCombatEvent.abilityId === "sacrificialStrike" &&
+            appliedCombatEvent.targetId === characterId,
+        );
         const receivedImpactVisuals =
           receivedDamage &&
           appliedCombatEvent &&
@@ -2713,6 +2881,10 @@ export default function BattleScreen(props: Props) {
                   impact.barrierRemoved > 0,
               ) ?? null)
             : null;
+        const goatStompMarkImpact =
+          appliedCombatEvent?.type === "statusApplied" &&
+          appliedCombatEvent.abilityId === "goatStomp" &&
+          appliedCombatEvent.targetId === characterId;
         const hasEarthBarrierImpact = Boolean(
           supportImpact &&
             supportImpact.barrierAmount > 0 &&
@@ -2771,7 +2943,7 @@ export default function BattleScreen(props: Props) {
                 combatantElementRefs.current.delete(characterId);
               }
             }}
-            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${isBarrierAbilityCast ? "battleScene__playerUnit--stationaryCast" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""} ${isGhostTransitionCharacter && ghostTransitionIsRevealed ? "battleScene__playerUnit--ghostTransition" : ""} ${isSoulTransferGhost ? "battleScene__playerUnit--soulTransferGhost" : ""} ${isSoulTransferTarget ? "battleScene__playerUnit--soulTransferTarget" : ""} ${isPhoenixRebirthTarget ? "battleScene__playerUnit--phoenixRebirth" : ""} ${isTwinFlamesGhostRecovery ? "battleScene__playerUnit--twinFlamesGhostRecovery" : ""} ${hasPowerTonicBuff ? "battleScene__playerUnit--powerBuff" : ""} ${hasTailwindBuff ? "battleScene__playerUnit--tailwind" : ""} ${hasBodyguardProtection ? "battleScene__playerUnit--bodyguard" : ""} ${shatterWardImpact ? "battleScene__playerUnit--shatterWardImpact" : ""}`}
+            className={`battleScene__playerUnit battleScene__playerUnit--${index === 0 ? "one" : "two"} battleScene__playerUnit--${character.form} ${unitEntranceClass} ${isPerformingAction ? "battleScene__playerUnit--acting" : ""} ${isAttacking ? `battleScene__playerUnit--ability-${currentCombatEvent.abilityId}` : ""} ${isUsingItemVisual && isUsingItem ? `battleScene__playerUnit--usingItem battleScene__playerUnit--item-${currentItemCastEvent.itemId}` : ""} ${isAttacking && !isCasting && !isUsingWhirlwind ? "battleScene__playerUnit--attacking" : ""} ${isCasting ? "battleScene__playerUnit--casting" : ""} ${isBarrierAbilityCast ? "battleScene__playerUnit--stationaryCast" : ""} ${castVariant ? `battleScene__playerUnit--casting-${castVariant}` : ""} ${isReleasingProjectile ? "battleScene__playerUnit--projectile-casting" : ""} ${isUsingWhirlwind ? "battleScene__playerUnit--whirlwind" : ""} ${isDefending ? "battleScene__playerUnit--defending" : ""} ${isStunned ? "battleScene__playerUnit--stunned" : ""} ${isDarkImpact ? "battleScene__playerUnit--darkImpact" : ""} ${isShieldChargeImpact ? "battleScene__playerUnit--shieldChargeImpact" : ""} ${isBurnImpact ? "battleScene__playerUnit--burnImpact" : ""} ${isSacrificialStrikeCost ? "battleScene__playerUnit--sacrificialCost" : ""} ${supportImpact && currentCombatEvent?.type !== "bloodpact" ? `battleScene__playerUnit--supportImpact battleScene__playerUnit--supportImpact-${"abilityId" in supportImpact ? (ABILITY_VISUALS[supportImpact.abilityId]?.impact ?? "water") : "water"}` : ""} ${canTargetAlly ? "battleScene__playerUnit--selectableAlly" : ""} ${isGhostTransitionCharacter && ghostTransitionIsRevealed ? "battleScene__playerUnit--ghostTransition" : ""} ${isSoulTransferGhost ? "battleScene__playerUnit--soulTransferGhost" : ""} ${isSoulTransferTarget ? "battleScene__playerUnit--soulTransferTarget" : ""} ${isPhoenixRebirthTarget ? "battleScene__playerUnit--phoenixRebirth" : ""} ${isTwinFlamesGhostRecovery ? "battleScene__playerUnit--twinFlamesGhostRecovery" : ""} ${hasPowerTonicBuff ? "battleScene__playerUnit--powerBuff" : ""} ${hasTailwindBuff ? "battleScene__playerUnit--tailwind" : ""} ${hasBodyguardProtection ? "battleScene__playerUnit--bodyguard" : ""} ${shatterWardImpact ? "battleScene__playerUnit--shatterWardImpact" : ""}`}
             style={
               activeAbilityVisuals?.timing
                 ? ({
@@ -2796,6 +2968,13 @@ export default function BattleScreen(props: Props) {
                 <span className="shatterWardBreak__amount">
                   −{shatterWardImpact.barrierRemoved} Barrier
                 </span>
+              </div>
+            )}
+            {goatStompMarkImpact && (
+              <div className="goatStompMarkEffect" aria-hidden="true">
+                <i className="goatStompMarkEffect__arrow" />
+                <i className="goatStompMarkEffect__ring" />
+                <span>FOCUSED</span>
               </div>
             )}
             {isPhoenixRebirthTarget && (
@@ -2926,13 +3105,18 @@ export default function BattleScreen(props: Props) {
               <DamageNumber
                 amount={receivedDamage.amount}
                 isCritical={receivedDamage.isCritical}
+                variant={
+                  isSacrificialStrikeCost ? "sacrifice" : undefined
+                }
                 isBlocked={receivedDamage.statusChanges.some(
                   (change) =>
                     change.type === "removed" &&
                     change.statusId === "bodyguard",
                 )}
                 durationMs={
-                  appliedCombatEvent?.type === "statusDamage" &&
+                  isSacrificialStrikeCost
+                    ? SACRIFICIAL_STRIKE_COST_NUMBER_DURATION_MS
+                    : appliedCombatEvent?.type === "statusDamage" &&
                   appliedCombatEvent.statusId === "cinderCurse"
                     ? CINDER_CURSE_TICK_DAMAGE_NUMBER_DURATION_MS
                     : receivedImpactVisuals?.timing?.damageNumberDurationMs
@@ -3066,7 +3250,17 @@ export default function BattleScreen(props: Props) {
         </div>
       )}
       {combatState.enemies.map((enemy, index) => {
-        if (enemy.statuses.some((status) => status.id === "burrowed")) {
+        const ambushHasLanded =
+          currentCombatEvent !== null &&
+          "abilityId" in currentCombatEvent &&
+          "actorId" in currentCombatEvent &&
+          currentCombatEvent.abilityId === "rockwhistlerAmbush" &&
+          currentCombatEvent.actorId === enemy.instanceId &&
+          Boolean(gameState.pendingRound?.currentEventApplied);
+        if (
+          enemy.statuses.some((status) => status.id === "burrowed") &&
+          !ambushHasLanded
+        ) {
           return null;
         }
         const hpPercent = Math.max(
@@ -3093,10 +3287,7 @@ export default function BattleScreen(props: Props) {
             currentCombatEvent?.type === "wake" ||
             currentCombatEvent?.type === "wait") &&
           currentCombatEvent.actorId === enemy.instanceId &&
-          !(
-            currentCombatEvent.abilityId === "rockwhistlerAmbush" &&
-            gameState.pendingRound?.currentEventApplied
-          );
+          !ambushHasLanded;
         const visuals = ENEMY_VISUALS[enemy.enemyId];
         const enemyDefinition = ENEMY_DEFINITIONS[enemy.enemyId];
         const burnStatus = enemy.statuses.find(
@@ -3211,6 +3402,14 @@ export default function BattleScreen(props: Props) {
           displayedImpactEvent,
           enemy.instanceId,
         );
+        const rockScrapeImpact =
+          appliedCombatEvent?.type === "wait" &&
+          appliedCombatEvent.abilityId === "rockScrape" &&
+          appliedCombatEvent.targetId === enemy.instanceId &&
+          ((appliedCombatEvent.defenseReduced ?? 0) > 0 ||
+            (appliedCombatEvent.healingAmount ?? 0) > 0)
+            ? appliedCombatEvent
+            : null;
         const currentTargetEffect = getTargetEffectForTarget(
           currentTargetEffectEvent,
           enemy.instanceId,
@@ -3425,6 +3624,19 @@ export default function BattleScreen(props: Props) {
                   {enemy.hp} / {enemy.stats.maxHp}
                 </span>
               </div>
+              {rockScrapeImpact && (
+                <div className="enemyStatus__rockScrapeResult" role="status">
+                  <span>
+                    +{rockScrapeImpact.healingAmount ?? 0} HP
+                  </span>
+                  {(rockScrapeImpact.defenseReduced ?? 0) > 0 &&
+                    rockScrapeImpact.remainingDefense !== undefined && (
+                      <span>
+                        −{rockScrapeImpact.defenseReduced} Defense
+                      </span>
+                    )}
+                </div>
+              )}
             </div>
             <div className="battleScene__enemySpriteStage">
               {Object.values(visuals.abilitySpriteSequences ?? {})
@@ -3516,6 +3728,20 @@ export default function BattleScreen(props: Props) {
                 )}
                 {supportImpact.barrierAmount > 0 && (
                   <span>🛡 +{supportImpact.barrierAmount}</span>
+                )}
+              </div>
+            )}
+            {rockScrapeImpact && (
+              <div className="rockScrapeDefenseLoss" role="status">
+                {(rockScrapeImpact.healingAmount ?? 0) > 0 && (
+                  <span className="rockScrapeDefenseLoss__heal">
+                    +{rockScrapeImpact.healingAmount} HP
+                  </span>
+                )}
+                {(rockScrapeImpact.defenseReduced ?? 0) > 0 && (
+                  <span>
+                    −{rockScrapeImpact.defenseReduced} Defense
+                  </span>
                 )}
               </div>
             )}
@@ -3789,6 +4015,16 @@ export default function BattleScreen(props: Props) {
       {encounter.kind === "combat" && (
         <>
           <div className="battlePrompt">{prompt}</div>
+          {forceRoundAvailable && !props.sessionEnded && (
+            <button
+              type="button"
+              className="forceRoundButton"
+              disabled={forceRoundSubmitting}
+              onClick={() => void forceStalledRound()}
+            >
+              {forceRoundSubmitting ? "PASSING..." : "PASS ROUND"}
+            </button>
+          )}
           <CommandBar
         portraitSrc={getCharacterPortraitSource(
           commandCharacter ?? combatState.characters["character-1"],

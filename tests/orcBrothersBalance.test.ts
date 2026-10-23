@@ -8,7 +8,11 @@ import {
   selectPlayerAction,
 } from "../src/game/combat/playerActions";
 import { resolveRound } from "../src/game/combat/resolveRound";
-import { createInitialCombatState } from "../src/game/state/initialState";
+import { gameReducer } from "../src/game/state/gameReducer";
+import {
+  createClientBattleState,
+  createInitialCombatState,
+} from "../src/game/state/initialState";
 import type { CombatState, GameSetup } from "../src/game/types";
 
 const setup: GameSetup = {
@@ -164,6 +168,43 @@ test("Shield Charge stuns a slower hero and skips their queued action", () => {
         event.actorId === "character-1" &&
         event.reason === "stunned",
     ),
+  );
+});
+
+test("the client shows Stun as soon as Shield Charge hits", () => {
+  const state = prepareShieldCharge(10);
+  const result = resolveRound(
+    state,
+    attackWithRowanAndDefendWithLyra(state),
+  );
+  let client = gameReducer(createClientBattleState(state), {
+    type: "receiveRoundResult",
+    result,
+  });
+
+  while (true) {
+    const pendingRound = client.pendingRound;
+    assert.ok(pendingRound);
+    const event = pendingRound.result.events[pendingRound.nextEventIndex];
+    if (event.type === "damage" && event.abilityId === "shieldCharge") {
+      break;
+    }
+    client = gameReducer(client, { type: "applyCurrentCombatEvent" });
+    client = gameReducer(client, { type: "advanceCombatEvent" });
+  }
+
+  assert.equal(
+    client.combat.characters["character-1"].statuses.some(
+      (status) => status.id === "stunned",
+    ),
+    false,
+  );
+  client = gameReducer(client, { type: "applyCurrentCombatEvent" });
+  assert.equal(
+    client.combat.characters["character-1"].statuses.some(
+      (status) => status.id === "stunned",
+    ),
+    true,
   );
 });
 

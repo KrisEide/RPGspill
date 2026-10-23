@@ -62,8 +62,11 @@ export type AbilityVisualDefinition = {
       | "cycloneHit2"
       | "cycloneHit3"
       | "lacerate"
+      | "earthquakeImpact"
+      | "rockScrapeRecovery"
       | "stonebreaker"
       | "warhound"
+      | "guardDogCounter"
       | "rockwhistlerAmbush";
     durationMs?: number;
   };
@@ -98,6 +101,59 @@ export type AbilityVisualDefinition = {
 export const ABILITY_VISUALS: Partial<
   Record<AbilityId, AbilityVisualDefinition>
 > = {
+  goatStomp: {
+    icon: "🪨",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 4600,
+      impactDelayMs: 900,
+      eventDurationMs: 5200,
+    },
+  },
+  stonejawBite: {
+    icon: "🦷",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 2800,
+      impactDelayMs: 1650,
+      eventDurationMs: 3300,
+      damageNumberDurationMs: 1650,
+    },
+  },
+  groundSlam: {
+    icon: "🪨",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 4500,
+      impactDelayMs: 700,
+      eventDurationMs: 5300,
+      damageNumberDurationMs: 3200,
+    },
+    targetEffect: {
+      spriteSrc: earthSpellEffect,
+      width: 470,
+      startsOnImpact: true,
+      variant: "earthquakeImpact",
+      durationMs: 2400,
+    },
+  },
+  rockScrape: {
+    icon: "⬇",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 10200,
+      impactDelayMs: 2800,
+      eventDurationMs: 11000,
+      damageNumberDurationMs: 8000,
+    },
+    targetEffect: {
+      spriteSrc: healEffect,
+      width: 280,
+      startsOnImpact: true,
+      variant: "rockScrapeRecovery",
+      durationMs: 5200,
+    },
+  },
   rockwhistlerAttack: {
     icon: "⚔",
     animation: "melee",
@@ -122,9 +178,9 @@ export const ABILITY_VISUALS: Partial<
     icon: "▼",
     animation: "melee",
     timing: {
-      animationDurationMs: 3800,
-      impactDelayMs: 3000,
-      eventDurationMs: 4400,
+      animationDurationMs: 4300,
+      impactDelayMs: 3600,
+      eventDurationMs: 4900,
     },
   },
   rockwhistlerAmbush: {

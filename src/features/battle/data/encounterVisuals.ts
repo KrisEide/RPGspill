@@ -4,6 +4,7 @@ import forestCampBackground from "../../../assets/backgrounds/background_forest_
 import forestBossBackground from "../../../assets/backgrounds/background_forest_boss.png";
 import actTwoMountainBackground from "../../../assets/backgrounds/act2backgrounds/act2background1.png";
 import actTwoRockwhistlerBackground from "../../../assets/backgrounds/act2backgrounds/act2background2.png";
+import actTwoRockhideBackground from "../../../assets/backgrounds/act2backgrounds/act2background3.png";
 import type { EncounterId } from "../../../game/types";
 import type { EnemyFormationPosition } from "../layout/enemyFormation";
 
@@ -104,6 +105,12 @@ export const ENCOUNTER_VISUALS: Record<
       { xPercent: 78, yPercent: 57, scale: 0.66, zIndex: 10 },
       { xPercent: 52, yPercent: 57, scale: 0.64, zIndex: 10 },
       { xPercent: 88, yPercent: 57, scale: 0.64, zIndex: 10 },
+    ],
+  },
+  rockhideCavern: {
+    backgroundImageSrc: actTwoRockhideBackground,
+    enemyFormation: [
+      { xPercent: 70, yPercent: 40, scale: 1.08, zIndex: 10 },
     ],
   },
 };

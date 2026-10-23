@@ -71,7 +71,7 @@ export default function CombatLog({ events, getCombatantName }: Props) {
             <>
               Bloodpact{event.active ? " active" : ""}: {getCombatantName(event.targetId)}
               {event.stage === "sacrifice"
-                ? ` lost ${event.hpLoss} HP as Sacrifice.`
+                ? ` lost ${event.hpLoss} HP as Sacrifice${event.ppRestored > 0 ? ` and restored ${event.ppRestored} PP` : ""}.`
                 : ` gained ${event.barrierAmount} Barrier as Protected.`}
               {event.stage === "sacrifice" && event.characterState.form === "ghost"
                 ? " Entered Ghost Form. The pact is paused."
@@ -111,7 +111,15 @@ export default function CombatLog({ events, getCombatantName }: Props) {
               {getCombatantName(event.targetId)}.
             </>
           ) : event.type === "wait" ? (
-            <>{getCombatantName(event.actorId)} caught their breath.</>
+            event.abilityId === "rockScrape" ? (
+              <>
+                {getCombatantName(event.actorId)} used Rock Scrape, restored{" "}
+                {event.healingAmount ?? 0} HP, cleansed all debuffs, and lost{" "}
+                {event.defenseReduced ?? 0} Defense permanently.
+              </>
+            ) : (
+              <>{getCombatantName(event.actorId)} caught their breath.</>
+            )
           ) : event.type === "defend" ? (
             <>
               {getCombatantName(event.actorId)} is defending.
@@ -158,6 +166,11 @@ export default function CombatLog({ events, getCombatantName }: Props) {
               <>
                 {getCombatantName(event.actorId)} increased its damage to +
                 {getEmpoweredDamageBonus(event)}%.
+              </>
+            ) : event.abilityId === "goatStomp" ? (
+              <>
+                {getCombatantName(event.targetId)} was marked for the next
+                Charge and lost 5 Defense.
               </>
             ) : (
               <>
