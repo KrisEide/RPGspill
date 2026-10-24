@@ -151,13 +151,13 @@ const items = [
     effects: [
       {
         type: "cleanse",
+        includeDefenseReductions: true,
         statusIds: [
           "burn",
           "poison",
           "cinderCurse",
           "rootseed",
           "bleed",
-          "cracked",
           "goatMarked",
           "wet",
           "exposed",

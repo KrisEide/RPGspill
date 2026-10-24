@@ -105,10 +105,22 @@ export const STATUS_DEFINITIONS: Record<StatusId, StatusDefinition> = {
   },
   goatMarked: {
     id: "goatMarked",
-    name: "Focused",
+    name: "Charge Target",
     stackingRule: "refresh",
     maxStacks: 1,
     durationRounds: 2,
+  },
+  goatDefenseBreak: {
+    id: "goatDefenseBreak",
+    name: "Shaken Defense",
+    stackingRule: "increaseMagnitude",
+    maxStacks: 4,
+    maxMagnitude: 4,
+    persistsUntilCombatEnd: true,
+    defensiveStatReduction: {
+      defense: 5,
+      resistance: 0,
+    },
   },
   wet: {
     id: "wet",

@@ -11,11 +11,21 @@ export type EncounterDefinition = {
   rewardType?: "openingAbilities" | "spirits";
   skipRewardsBeforeRest?: boolean;
   number: number;
+  actNumber?: number;
+  scenarioNumber?: number;
   title: string;
   enemies: EncounterEnemy[];
   nextEncounterId: EncounterId | null;
   fullPartyRestore?: boolean;
 };
+
+export function getEncounterDisplayLabel(encounter: EncounterDefinition) {
+  if (encounter.actNumber && encounter.scenarioNumber) {
+    return `Act ${encounter.actNumber} · Scenario ${encounter.scenarioNumber}`;
+  }
+
+  return `Encounter ${encounter.number}`;
+}
 
 export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
   slimeTrail: {
@@ -186,6 +196,8 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     id: "mountainPass",
     kind: "combat",
     number: 14,
+    actNumber: 2,
+    scenarioNumber: 1,
     title: "The Mountain Pass",
     nextEncounterId: "rockwhistlerRidge",
     fullPartyRestore: true,
@@ -198,6 +210,8 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     id: "rockwhistlerRidge",
     kind: "combat",
     number: 15,
+    actNumber: 2,
+    scenarioNumber: 2,
     title: "Rockwhistler Ridge",
     nextEncounterId: "rockhideCavern",
     enemies: [
@@ -212,6 +226,8 @@ export const ENCOUNTER_DEFINITIONS: Record<EncounterId, EncounterDefinition> = {
     id: "rockhideCavern",
     kind: "combat",
     number: 16,
+    actNumber: 2,
+    scenarioNumber: 3,
     title: "Rockhide Cavern",
     nextEncounterId: null,
     enemies: [

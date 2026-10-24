@@ -1,6 +1,9 @@
 import { useState } from "react";
 import startBackground from "../../assets/backgrounds/menu/startscreen.png";
-import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
+import {
+  ENCOUNTER_DEFINITIONS,
+  getEncounterDisplayLabel,
+} from "../../data/encounters";
 import { PASSIVE_REWARD_POOL } from "../../data/passives";
 import type {
   CharacterInstanceId,
@@ -439,7 +442,7 @@ export default function StartScreen({
                   >
                     <span className="font-bold">{encounter.title}</span>
                     <span className="ml-3 text-sm text-white/60">
-                      {encounter.number}
+                      {getEncounterDisplayLabel(encounter)}
                     </span>
                   </button>
                 ))}

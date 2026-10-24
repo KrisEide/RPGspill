@@ -362,6 +362,7 @@ export type AbilityId =
   | "smash"
   | "catchBreath"
   | "goatStomp"
+  | "goatChargeUp"
   | "goatCharge"
   | "rockwhistlerAttack"
   | "rockwhistlerPackAttack"
@@ -431,6 +432,7 @@ export type StatusId =
   | "bleed"
   | "cracked"
   | "goatMarked"
+  | "goatDefenseBreak"
   | "wet"
   | "exposed"
   | "weakened"
@@ -485,6 +487,7 @@ export type ItemEffect =
   | {
       type: "cleanse";
       statusIds: StatusId[] | "all";
+      includeDefenseReductions?: boolean;
     }
   | {
       type: "applyStatus";
@@ -801,8 +804,8 @@ export type SummonEarthDemonEffect = {
   attackScaling: number;
 };
 
-export type GoatStompMarkEffect = {
-  type: "goatStompMark";
+export type GoatChargeUpEffect = {
+  type: "goatChargeUp";
 };
 
 export type AbilityEffect =
@@ -825,7 +828,7 @@ export type AbilityEffect =
   | GainRandomItemEffect
   | CountAsItemUseEffect
   | SummonEarthDemonEffect
-  | GoatStompMarkEffect
+  | GoatChargeUpEffect
   | SummonEnemiesEffect;
 
 export type AbilityRankDefinition = {

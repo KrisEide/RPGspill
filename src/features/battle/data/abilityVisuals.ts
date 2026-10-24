@@ -110,6 +110,15 @@ export const ABILITY_VISUALS: Partial<
       eventDurationMs: 5200,
     },
   },
+  goatChargeUp: {
+    icon: "🔻",
+    animation: "melee",
+    timing: {
+      animationDurationMs: 5200,
+      impactDelayMs: 2400,
+      eventDurationMs: 5600,
+    },
+  },
   stonejawBite: {
     icon: "🦷",
     animation: "melee",

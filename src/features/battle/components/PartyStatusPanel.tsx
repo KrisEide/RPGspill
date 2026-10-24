@@ -63,6 +63,10 @@ function CharacterStatusCard({
     (status) =>
       status.id === "goatMarked" && status.readiedAbilityId === "goatCharge",
   );
+  const goatDefenseBreak = character.statuses.find(
+    (status) => status.id === "goatDefenseBreak",
+  );
+  const goatDefenseReduction = (goatDefenseBreak?.magnitude ?? 0) * 5;
   const poisonDamage =
     poisonStatus?.tickBasePower ??
     STATUS_DEFINITIONS.poison.endOfRoundDamage?.basePower ??
@@ -191,10 +195,19 @@ function CharacterStatusCard({
             {goatChargeMark && (
               <span
                 className="statusCard__turnPriority"
-                aria-label="Focused: Targeted by the next goat Charge"
-                title="Focused: Targeted by the next goat Charge."
+                aria-label="Charge Target: Targeted by the next goat Charge"
+                title="Charge Target: Targeted by the next goat Charge."
               >
-                🎯 FOCUSED
+                🎯 CHARGE TARGET
+              </span>
+            )}
+            {goatDefenseReduction > 0 && (
+              <span
+                className="statusCard__turnPriority"
+                aria-label={`Shaken Defense: Defense reduced by ${goatDefenseReduction}`}
+                title={`Shaken Defense: −${goatDefenseReduction} Defense for this encounter.`}
+              >
+                🛡 DEF −{goatDefenseReduction}
               </span>
             )}
             {swiftWingIsActive && (

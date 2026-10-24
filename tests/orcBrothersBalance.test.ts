@@ -3,6 +3,9 @@ import test from "node:test";
 
 import { ABILITIES } from "../src/data/abilities";
 import { ENEMY_DEFINITIONS } from "../src/data/monsters";
+import { CHARACTER_PRESETS } from "../src/data/presets";
+import { calculateDamage } from "../src/game/combat/calculateDamage";
+import { applyDamageVariance } from "../src/game/combat/damageVariance";
 import {
   createEmptyRoundSelections,
   selectPlayerAction,
@@ -41,6 +44,27 @@ function getDamageBasePower(abilityId: keyof typeof ABILITIES) {
 
   assert.ok(effect && effect.type === "damage");
   return effect.basePower;
+}
+
+function getDamageRangeAgainstRowan(
+  abilityId: "gorakAutoAttack" | "smash",
+  enemyId: "gorakBoss" | "brakkBoss",
+) {
+  const ability = ABILITIES[abilityId];
+  const effect = ability.ranks[1].effects[0];
+  assert.ok(effect.type === "damage");
+
+  const mitigatedDamage = calculateDamage({
+    attacker: ENEMY_DEFINITIONS[enemyId].stats,
+    defender: CHARACTER_PRESETS.char1.stats,
+    element: ability.element,
+    effect,
+  });
+
+  return [
+    applyDamageVariance(mitigatedDamage, 0),
+    applyDamageVariance(mitigatedDamage, 0.999_999),
+  ];
 }
 
 function defendWithBoth(state: CombatState) {
@@ -93,15 +117,25 @@ test("the Orc Brothers use their original boss health totals", () => {
   assert.equal(ENEMY_DEFINITIONS.gorakBoss.stats.maxHp, 180);
 });
 
-test("the Orc Brothers use their five-percent stronger attack power", () => {
-  assert.equal(getDamageBasePower("gorakAutoAttack"), 15);
+test("Gorak's basic attack and both of Brakk's attacks use their stronger values", () => {
+  assert.equal(getDamageBasePower("gorakAutoAttack"), 24);
   assert.equal(getDamageBasePower("shieldCharge"), 19);
-  assert.equal(getDamageBasePower("bloodCleave"), 17);
-  assert.equal(getDamageBasePower("smash"), 28);
+  assert.equal(getDamageBasePower("bloodCleave"), 20);
+  assert.equal(getDamageBasePower("smash"), 40);
 
+  const gorakAttack = ABILITIES.gorakAutoAttack.ranks[1].effects[0];
   const shieldCharge = ABILITIES.shieldCharge.ranks[1].effects[0];
   const bloodCleave = ABILITIES.bloodCleave.ranks[1].effects[0];
 
+  assert.ok(gorakAttack.type === "damage");
+  assert.deepEqual(gorakAttack.criticalHit, {
+    chance: 0.2,
+    damageMultiplier: 1.5,
+  });
+  assert.deepEqual(getDamageRangeAgainstRowan("gorakAutoAttack", "gorakBoss"), [
+    14, 17,
+  ]);
+  assert.deepEqual(getDamageRangeAgainstRowan("smash", "brakkBoss"), [23, 28]);
   assert.ok(shieldCharge.type === "damage");
   assert.deepEqual(shieldCharge.statusOnHpDamage, { statusId: "stunned" });
   assert.ok(bloodCleave.type === "damage");
@@ -250,6 +284,7 @@ test("Catch Breath cleanses Brakk's damage-over-time effects but keeps other deb
   const state = createInitialCombatState(setup);
   const brakk = state.enemies[0];
   state.enemies[1].hp = 0;
+  brakk.hp = 150;
   brakk.statuses = [
     { id: "burn", sourceId: "character-1", appliedRound: 1, remainingRounds: 2 },
     { id: "poison", sourceId: "character-1", appliedRound: 1 },
@@ -278,4 +313,7 @@ test("Catch Breath cleanses Brakk's damage-over-time effects but keeps other deb
   assert.deepEqual(remainingStatusIds.sort(), ["cracked", "weakened"]);
   assert.ok(rest && rest.type === "wait");
   assert.equal(rest.statusChanges.length, 5);
+  assert.equal(rest.healingAmount, 10);
+  assert.equal(rest.remainingHp, 160);
+  assert.equal(result.nextState.enemies[0].hp, 160);
 });

@@ -122,8 +122,8 @@ test("Rank 2 Spirit actives use the stronger values", () => {
   });
   assert.equal(ABILITIES.cinderburst.ranks[2]?.effects[0].basePower, 14);
   assert.equal(ABILITIES.cinderburst.ranks[2]?.effects[0].elementalPowerScaling, 0.55);
-  assert.equal(ABILITIES.stoneback.ranks[2]?.effects[0].amount, 12);
-  assert.equal(ABILITIES.stoneback.ranks[2]?.effects[0].elementalPowerScaling, 0.35);
+  assert.equal(ABILITIES.stoneback.ranks[2]?.effects[0].amount, 9);
+  assert.equal(ABILITIES.stoneback.ranks[2]?.effects[0].elementalPowerScaling, 0.5);
   assert.equal(ABILITIES.swiftWing.ranks[2]?.effects[0].basePower, 34);
   assert.equal(ABILITIES.swiftWing.ranks[2]?.effects[0].elementalPowerScaling, 1);
   assert.equal(ABILITIES.riverheart.ranks[2]?.effects[0].basePower, 28);

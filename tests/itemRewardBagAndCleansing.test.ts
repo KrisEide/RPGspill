@@ -125,6 +125,13 @@ test("Cleansing Tonic is immediate, targets either hero, heals 10, and preserves
   assert.equal(definition.target, "singleAlly");
   assert.equal(definition.useTiming, "quickAction");
   assert.equal(definition.resolutionTiming, "preRound");
+  assert.equal(
+    definition.effects.some(
+      (effect) =>
+        effect.type === "cleanse" && effect.includeDefenseReductions === true,
+    ),
+    true,
+  );
 
   const state = createInitialCombatState(setup);
   state.characters["character-1"].inventory.cleansingTonic = 1;
@@ -135,6 +142,18 @@ test("Cleansing Tonic is immediate, targets either hero, heals 10, and preserves
       sourceId: "enemy-1",
       appliedRound: 1,
       remainingRounds: 2,
+    },
+    {
+      id: "cracked",
+      sourceId: "enemy-1",
+      appliedRound: 1,
+      remainingRounds: 2,
+    },
+    {
+      id: "goatDefenseBreak",
+      sourceId: "enemy-1",
+      appliedRound: 1,
+      magnitude: 4,
     },
     {
       id: "empowered",
@@ -163,6 +182,16 @@ test("Cleansing Tonic is immediate, targets either hero, heals 10, and preserves
       type: "removed",
       combatantId: "character-2",
       statusId: "bleed",
+    },
+    {
+      type: "removed",
+      combatantId: "character-2",
+      statusId: "cracked",
+    },
+    {
+      type: "removed",
+      combatantId: "character-2",
+      statusId: "goatDefenseBreak",
     },
   ]);
 });

@@ -34,7 +34,8 @@ function getEffectiveDefensiveStat(
   const totalReduction = statuses.reduce(
     (sum, status) =>
       sum +
-      (STATUS_DEFINITIONS[status.id].defensiveStatReduction?.[stat] ?? 0),
+      (STATUS_DEFINITIONS[status.id].defensiveStatReduction?.[stat] ?? 0) *
+        (status.magnitude ?? 1),
     0,
   );
 

@@ -118,7 +118,10 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 {event.defenseReduced ?? 0} Defense permanently.
               </>
             ) : (
-              <>{getCombatantName(event.actorId)} caught their breath.</>
+              <>
+                {getCombatantName(event.actorId)} caught their breath and
+                restored {event.healingAmount ?? 0} HP.
+              </>
             )
           ) : event.type === "defend" ? (
             <>
@@ -167,7 +170,7 @@ export default function CombatLog({ events, getCombatantName }: Props) {
                 {getCombatantName(event.actorId)} increased its damage to +
                 {getEmpoweredDamageBonus(event)}%.
               </>
-            ) : event.abilityId === "goatStomp" ? (
+            ) : event.abilityId === "goatChargeUp" ? (
               <>
                 {getCombatantName(event.targetId)} was marked for the next
                 Charge and lost 5 Defense.

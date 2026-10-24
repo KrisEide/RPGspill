@@ -160,7 +160,7 @@ test("focus rounds alternate to the other living hero", () => {
   assert.notEqual(fourthTargets[0], firstTarget);
 });
 
-test("Defend is especially effective against the focused Pack Attack", () => {
+test("Defend reduces Bite and focused Pack Attack by the same normal 50 percent", () => {
   const createDefendedState = (abilityId: "rockwhistlerAttack" | "rockwhistlerPackAttack") => {
     const state = createInitialCombatState(setup);
     state.enemies = state.enemies.slice(0, 1);
@@ -181,7 +181,37 @@ test("Defend is especially effective against the focused Pack Attack", () => {
     (event) => event.type === "damage",
   );
   assert.ok(normalHit?.type === "damage" && focusedHit?.type === "damage");
-  assert.ok(focusedHit.amount < normalHit.amount);
+  assert.equal(focusedHit.amount, normalHit.amount);
+  assert.ok(
+    focusedHit.amount >= 3 && focusedHit.amount <= 5,
+    `expected a defended hit around 4 damage, received ${focusedHit.amount}`,
+  );
+});
+
+test("Bite and focused Pack Attack deal around 8 damage without Defend", () => {
+  for (const abilityId of [
+    "rockwhistlerAttack",
+    "rockwhistlerPackAttack",
+  ] as const) {
+    const state = createInitialCombatState(setup);
+    state.enemies = state.enemies.slice(0, 1);
+    state.enemyIntents = {
+      "enemy-1": {
+        abilityId,
+        targetId: "character-1",
+        targetIds: ["character-1"],
+      },
+    };
+
+    const hit = resolveRound(state, createEmptyRoundSelections()).events.find(
+      (event) => event.type === "damage",
+    );
+    assert.ok(hit?.type === "damage");
+    assert.ok(
+      hit.amount >= 6 && hit.amount <= 10,
+      `expected ${abilityId} around 8 damage, received ${hit.amount}`,
+    );
+  }
 });
 
 test("Rockwhistler Ambush deals around 14 damage after Rowan's Defense", () => {

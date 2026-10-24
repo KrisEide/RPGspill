@@ -150,14 +150,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Lower Physical damage to both heroes.",
-        description: "Strike both heroes for lower Physical damage.",
+        shortDescription: "Physical damage to both heroes.",
+        description: "Strike both heroes for Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 6,
+            basePower: 9,
             attackScaling: 0.25,
             elementalPowerScaling: 0,
           },
@@ -456,18 +456,18 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 15 raw Physical damage.",
-        description: "Strike one random hero for 15 raw Physical damage.",
+        shortDescription: "Deal 24 raw Physical damage.",
+        description: "Strike one random hero for 24 raw Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 15,
+            basePower: 24,
             attackScaling: 0,
             elementalPowerScaling: 0,
             criticalHit: {
-              chance: 0.05,
+              chance: 0.2,
               damageMultiplier: 1.5,
             },
           },
@@ -527,15 +527,15 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Deal 17 raw Physical damage to both heroes.",
+        shortDescription: "Deal 20 raw Physical damage to both heroes.",
         description:
-          "Deal 17 raw Physical damage to both heroes. HP damage always applies Bleed.",
+          "Deal 20 raw Physical damage to both heroes. HP damage always applies Bleed.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 17,
+            basePower: 20,
             attackScaling: 0,
             elementalPowerScaling: 0,
             statusOnHpDamage: { statusId: "bleed", chance: 1 },
@@ -554,14 +554,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Deal 28 raw Physical damage.",
-        description: "Smash one random hero for 28 raw Physical damage.",
+        shortDescription: "Deal 40 raw Physical damage.",
+        description: "Smash one random hero for 40 raw Physical damage.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 28,
+            basePower: 40,
             attackScaling: 0,
             elementalPowerScaling: 0,
           },
@@ -578,10 +578,17 @@ export const ACTION_ABILITY_DEFINITIONS = {
     element: null,
     ranks: {
       1: {
-        shortDescription: "Rest.",
-        description: "Brakk rests and sheds ongoing damage effects.",
+        shortDescription: "Rest and restore 10 HP.",
+        description:
+          "Brakk rests, restores 10 HP, and sheds ongoing damage effects.",
         ppCost: 0,
-        effects: [{ type: "wait", cleansesDamageStatuses: true }],
+        effects: [
+          {
+            type: "wait",
+            cleansesDamageStatuses: true,
+            healingAmount: 10,
+          },
+        ],
       },
     },
   },
@@ -590,15 +597,39 @@ export const ACTION_ABILITY_DEFINITIONS = {
     name: "Stomp",
     category: "action",
     resolutionPriority: 0,
+    target: "allEnemies",
+    element: null,
+    ranks: {
+      1: {
+        shortDescription: "Physical damage to both heroes.",
+        description: "Stomp the ground and damage both heroes.",
+        ppCost: 0,
+        effects: [
+          {
+            type: "damage",
+            damageType: "physical",
+            basePower: 5,
+            attackScaling: 1,
+            elementalPowerScaling: 0,
+          },
+        ],
+      },
+    },
+  },
+  goatChargeUp: {
+    id: "goatChargeUp",
+    name: "Charge Up",
+    category: "action",
+    resolutionPriority: 0,
     target: "self",
     element: null,
     ranks: {
       1: {
-        shortDescription: "Mark one hero for the next Charge.",
+        shortDescription: "Prepare a Charge and weaken its target.",
         description:
-          "Mark one random living hero for the next Charge and reduce their Defense by 5 until it hits.",
+          "Choose one random living hero for the next Charge and reduce their Defense by 5 for this encounter, stacking to 20.",
         ppCost: 0,
-        effects: [{ type: "goatStompMark" }],
+        effects: [{ type: "goatChargeUp" }],
       },
     },
   },
@@ -612,14 +643,14 @@ export const ACTION_ABILITY_DEFINITIONS = {
     aiTargeting: "randomLivingCharacter",
     ranks: {
       1: {
-        shortDescription: "Heavy Physical damage to the Focused hero.",
-        description: "Charge the hero made Focused by the other goat's Stomp.",
+        shortDescription: "Heavy Physical damage to the Charge Target.",
+        description: "Charge the hero selected during this goat's Charge Up.",
         ppCost: 0,
         effects: [
           {
             type: "damage",
             damageType: "physical",
-            basePower: 13,
+            basePower: 11,
             attackScaling: 1,
             elementalPowerScaling: 0,
           },
@@ -631,13 +662,13 @@ export const ACTION_ABILITY_DEFINITIONS = {
     id: "rockwhistlerAttack", name: "Bite", category: "action", resolutionPriority: 0,
     target: "singleEnemy", element: null, aiTargeting: "randomLivingCharacter",
     ranks: { 1: { shortDescription: "Physical damage.", description: "Bite one hero.", ppCost: 0,
-      effects: [{ type: "damage", damageType: "physical", basePower: 6, attackScaling: 0.5, elementalPowerScaling: 0 }] } },
+      effects: [{ type: "damage", damageType: "physical", basePower: 12, attackScaling: 0.5, elementalPowerScaling: 0 }] } },
   },
   rockwhistlerPackAttack: {
     id: "rockwhistlerPackAttack", name: "Pack Attack", category: "action", resolutionPriority: 0,
     target: "singleEnemy", element: null,
-    ranks: { 1: { shortDescription: "The pack focuses one hero.", description: "Attack the pack's marked hero. Defend is especially effective.", ppCost: 0,
-      effects: [{ type: "damage", damageType: "physical", basePower: 6, attackScaling: 0.5, elementalPowerScaling: 0 }] } },
+    ranks: { 1: { shortDescription: "The pack focuses one hero.", description: "Attack the pack's marked hero.", ppCost: 0,
+      effects: [{ type: "damage", damageType: "physical", basePower: 12, attackScaling: 0.5, elementalPowerScaling: 0 }] } },
   },
   rockwhistlerBurrow: {
     id: "rockwhistlerBurrow", name: "Burrow", category: "action", resolutionPriority: 900,
@@ -757,6 +788,7 @@ export const ACTION_ABILITY_DEFINITIONS = {
   | "smash"
   | "catchBreath"
   | "goatStomp"
+  | "goatChargeUp"
   | "goatCharge"
   | "rockwhistlerAttack"
   | "rockwhistlerPackAttack"

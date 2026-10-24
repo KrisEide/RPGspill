@@ -6,7 +6,10 @@ import {
   useState,
 } from "react";
 import type { CSSProperties } from "react";
-import { ENCOUNTER_DEFINITIONS } from "../../data/encounters";
+import {
+  ENCOUNTER_DEFINITIONS,
+  getEncounterDisplayLabel,
+} from "../../data/encounters";
 import { ENEMY_DEFINITIONS } from "../../data/monsters";
 import { ITEM_DEFINITIONS, getItemUseProfile } from "../../data/items";
 import { STATUS_DEFINITIONS } from "../../data/statuses";
@@ -2476,7 +2479,7 @@ export default function BattleScreen(props: Props) {
             : currentCombatEvent?.type === "statusDamage"
               ? `${getCombatantName(currentCombatEvent.targetId)} takes damage from ${STATUS_DEFINITIONS[currentCombatEvent.statusId].name}...`
             : currentCombatEvent?.type === "statusApplied"
-              ? currentCombatEvent.abilityId === "goatStomp"
+              ? currentCombatEvent.abilityId === "goatChargeUp"
                 ? `${getCombatantName(currentCombatEvent.targetId)} is marked for the next Charge · Defense −5...`
                 : `${getCombatantName(currentCombatEvent.actorId)} uses ${resolveAbility(currentCombatEvent.abilityId, currentCombatEvent.abilityRank)?.name ?? "an ability"} on ${getCombatantName(currentCombatEvent.targetId)}...`
             : currentCombatEvent?.type === "spiritDamage"
@@ -2655,7 +2658,7 @@ export default function BattleScreen(props: Props) {
             <div className="encounterAnnouncement__label">
               {encounter.kind === "rest"
                 ? "Rest"
-                : `Encounter ${encounter.number}`}
+                : getEncounterDisplayLabel(encounter)}
             </div>
             <div className="encounterAnnouncement__title">
               {encounter.title}
@@ -2881,10 +2884,16 @@ export default function BattleScreen(props: Props) {
                   impact.barrierRemoved > 0,
               ) ?? null)
             : null;
-        const goatStompMarkImpact =
+        const goatChargeUpImpact =
           appliedCombatEvent?.type === "statusApplied" &&
-          appliedCombatEvent.abilityId === "goatStomp" &&
-          appliedCombatEvent.targetId === characterId;
+          appliedCombatEvent.abilityId === "goatChargeUp" &&
+          appliedCombatEvent.targetId === characterId
+            ? appliedCombatEvent.statusChanges.find(
+                (change): change is Extract<StatusChange, { type: "applied" }> =>
+                  change.type === "applied" &&
+                  change.status.id === "goatDefenseBreak",
+              )
+            : undefined;
         const hasEarthBarrierImpact = Boolean(
           supportImpact &&
             supportImpact.barrierAmount > 0 &&
@@ -2970,11 +2979,12 @@ export default function BattleScreen(props: Props) {
                 </span>
               </div>
             )}
-            {goatStompMarkImpact && (
-              <div className="goatStompMarkEffect" aria-hidden="true">
-                <i className="goatStompMarkEffect__arrow" />
-                <i className="goatStompMarkEffect__ring" />
-                <span>FOCUSED</span>
+            {goatChargeUpImpact && (
+              <div className="goatChargeUpTargetEffect" aria-hidden="true">
+                <i className="goatChargeUpTargetEffect__arrow" />
+                <i className="goatChargeUpTargetEffect__ring" />
+                <span>CHARGE TARGET</span>
+                <strong>−5 DEFENSE</strong>
               </div>
             )}
             {isPhoenixRebirthTarget && (
@@ -3410,6 +3420,13 @@ export default function BattleScreen(props: Props) {
             (appliedCombatEvent.healingAmount ?? 0) > 0)
             ? appliedCombatEvent
             : null;
+        const catchBreathImpact =
+          appliedCombatEvent?.type === "wait" &&
+          appliedCombatEvent.abilityId === "catchBreath" &&
+          appliedCombatEvent.targetId === enemy.instanceId &&
+          (appliedCombatEvent.healingAmount ?? 0) > 0
+            ? appliedCombatEvent
+            : null;
         const currentTargetEffect = getTargetEffectForTarget(
           currentTargetEffectEvent,
           enemy.instanceId,
@@ -3637,6 +3654,11 @@ export default function BattleScreen(props: Props) {
                     )}
                 </div>
               )}
+              {catchBreathImpact && (
+                <div className="enemyStatus__rockScrapeResult" role="status">
+                  <span>+{catchBreathImpact.healingAmount} HP</span>
+                </div>
+              )}
             </div>
             <div className="battleScene__enemySpriteStage">
               {Object.values(visuals.abilitySpriteSequences ?? {})
@@ -3743,6 +3765,13 @@ export default function BattleScreen(props: Props) {
                     −{rockScrapeImpact.defenseReduced} Defense
                   </span>
                 )}
+              </div>
+            )}
+            {catchBreathImpact && (
+              <div className="rockScrapeDefenseLoss" role="status">
+                <span className="rockScrapeDefenseLoss__heal">
+                  +{catchBreathImpact.healingAmount} HP
+                </span>
               </div>
             )}
             <button
@@ -3933,8 +3962,8 @@ export default function BattleScreen(props: Props) {
         combatState.actTransitionStage === "restoration" && (
           <section className="actRestoration" aria-live="polite">
             <div className="actRestoration__panel">
-              <div className="actRestoration__eyebrow">Act II</div>
-              <h1 className="actRestoration__title">Fully Restored</h1>
+              <div className="actRestoration__eyebrow">Fully Restored</div>
+              <h1 className="actRestoration__title">ACT 2</h1>
               <div className="actRestoration__party">
                 {PLAYER_ORDER.map((playerId) => {
                   const character =

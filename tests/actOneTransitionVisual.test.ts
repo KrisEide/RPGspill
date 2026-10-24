@@ -31,6 +31,10 @@ test("Act 1 completion clearly presents Spirit Rank 2 and full restoration", () 
   assert.match(upgradeSelection, /Passive/);
   assert.match(upgradeSelection, /Continue/);
   assert.match(battleScreen, /actTransitionStage === "restoration"/);
+  assert.match(
+    battleScreen,
+    /<h1 className="actRestoration__title">ACT 2<\/h1>/,
+  );
   assert.match(battleScreen, /Fully Restored/);
   assert.match(battleScreen, /HP.*\/.*PP/s);
   assert.match(styles, /\.actRestoration/);

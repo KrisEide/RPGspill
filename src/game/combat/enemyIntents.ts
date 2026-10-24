@@ -296,7 +296,8 @@ export function prepareEnemyIntents(state: CombatState): CombatState {
             state.characters[characterId].statuses.some(
               (status) =>
                 status.id === "goatMarked" &&
-                status.readiedAbilityId === "goatCharge",
+                status.readiedAbilityId === "goatCharge" &&
+                status.sourceId === enemy.instanceId,
             ),
           )
         : undefined;

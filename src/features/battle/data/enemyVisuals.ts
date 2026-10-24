@@ -617,6 +617,20 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
       displayScale: 0.28,
     }),
     abilitySpriteSequences: {
+      goatChargeUp: {
+        variant: "stationaryAction",
+        frames: [
+          {
+            spriteSrc: goatOneIdleSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1122, height: 1402 },
+              sourceAnchor: { x: 650, y: 1250 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.28,
+            }),
+          },
+        ],
+      },
       goatStomp: {
         variant: "bossAction",
         frames: [
@@ -661,6 +675,20 @@ export const ENEMY_VISUALS: Record<EnemyId, EnemyVisualDefinition> = {
       displayScale: 0.29,
     }),
     abilitySpriteSequences: {
+      goatChargeUp: {
+        variant: "stationaryAction",
+        frames: [
+          {
+            spriteSrc: goatTwoIdleSprite,
+            adjustment: createAnchoredEnemySpriteAdjustment({
+              sourceSize: { width: 1122, height: 1402 },
+              sourceAnchor: { x: 650, y: 1250 },
+              targetAnchor: { x: 275, y: 330 },
+              displayScale: 0.29,
+            }),
+          },
+        ],
+      },
       goatStomp: {
         variant: "bossAction",
         frames: [

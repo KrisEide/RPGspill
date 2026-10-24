@@ -83,13 +83,13 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Grant Barrier to both heroes.",
         description:
-          "Grant 8 + 25% of Earth Power as Barrier to both heroes.",
+          "Grant 4 + 50% of Earth Power as Barrier to both heroes.",
         ppCost: 0,
         effects: [
           {
             type: "barrier",
-            amount: 8,
-            elementalPowerScaling: 0.25,
+            amount: 4,
+            elementalPowerScaling: 0.5,
           },
         ],
       },
@@ -97,9 +97,9 @@ export const SPIRIT_ABILITY_DEFINITIONS = {
         newEffectDescription: "Stronger Barrier for both heroes.",
         shortDescription: "Grant stronger Barrier to both heroes.",
         description:
-          "Grant 12 + 35% of Earth Power as Barrier to both heroes.",
+          "Grant 9 + 50% of Earth Power as Barrier to both heroes.",
         ppCost: 0,
-        effects: [{ type: "barrier", amount: 12, elementalPowerScaling: 0.35 }],
+        effects: [{ type: "barrier", amount: 9, elementalPowerScaling: 0.5 }],
       },
     },
   },

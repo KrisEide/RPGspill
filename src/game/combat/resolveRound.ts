@@ -832,6 +832,7 @@ function grantBarrierToTarget(
   targetId: CombatantId,
   requestedAmount: number,
   sourceId?: CombatantId,
+  triggerSpiritPassives = true,
 ) {
   const target = getCombatant(state, targetId);
 
@@ -849,6 +850,7 @@ function grantBarrierToTarget(
 
   if (
     baseRemainingBarrier > target.barrier &&
+    triggerSpiritPassives &&
     isCharacterInstanceId(targetId) &&
     nextState.characters[targetId].form === "living"
   ) {
@@ -2001,8 +2003,12 @@ function resolveItemUse(
         const statusesToRemove =
           effect.statusIds === "all"
             ? currentTarget.statuses
-            : currentTarget.statuses.filter((status) =>
-                effect.statusIds.includes(status.id),
+            : currentTarget.statuses.filter(
+                (status) =>
+                  effect.statusIds.includes(status.id) ||
+                  (effect.includeDefenseReductions === true &&
+                    (STATUS_DEFINITIONS[status.id].defensiveStatReduction
+                      ?.defense ?? 0) > 0),
               );
 
         if (statusesToRemove.length > 0) {
@@ -3568,6 +3574,7 @@ export function resolveRound(
               supportTargetId,
               scaledBarrierAmount,
               action.actorId,
+              ability.id !== "stoneback",
             );
             nextState = result.state;
             barrierAmount += result.grantedAmount;
@@ -4154,7 +4161,7 @@ export function resolveRound(
         continue;
       }
 
-      if (effect.type === "goatStompMark") {
+      if (effect.type === "goatChargeUp") {
         const livingCharacterIds = CHARACTER_ORDER.filter(
           (characterId) => nextState.characters[characterId].hp > 0,
         );
@@ -4177,14 +4184,27 @@ export function resolveRound(
           ),
           readiedAbilityId: "goatCharge",
         };
-        const result = applyStatusToTarget(
+        const focusResult = applyStatusToTarget(
           nextState,
           targetId,
           incomingStatus,
         );
-        nextState = result.state;
+        nextState = focusResult.state;
+        const defenseBreakResult = applyStatusToTarget(
+          nextState,
+          targetId,
+          {
+            ...createStatusFromSource(
+              nextState,
+              action.actorId,
+              "goatDefenseBreak",
+            ),
+            magnitude: 1,
+          },
+        );
+        nextState = defenseBreakResult.state;
 
-        if (result.status) {
+        if (focusResult.status || defenseBreakResult.status) {
           events.push({
             type: "statusApplied",
             actorId: action.actorId,
@@ -4192,11 +4212,16 @@ export function resolveRound(
             abilityId: action.abilityId,
             abilityRank: ability.rank,
             statusChanges: [
-              {
+              ...(focusResult.status ? [{
                 type: "applied",
                 combatantId: targetId,
-                status: result.status,
-              },
+                status: focusResult.status,
+              } as const] : []),
+              ...(defenseBreakResult.status ? [{
+                type: "applied",
+                combatantId: targetId,
+                status: defenseBreakResult.status,
+              } as const] : []),
             ],
           });
         }
@@ -4493,12 +4518,7 @@ export function resolveRound(
           continue;
         }
 
-        const baseDamageReductions = activeDamageReductions.get(targetId) ?? [];
-        const damageReductions =
-          action.abilityId === "rockwhistlerPackAttack" &&
-          baseDamageReductions.length > 0
-            ? [...baseDamageReductions, 0.5]
-            : baseDamageReductions;
+        const damageReductions = activeDamageReductions.get(targetId) ?? [];
         const earthDemonWillIntercept = Boolean(
           nextState.earthDemon &&
             !isCharacterInstanceId(action.actorId) &&
@@ -4702,7 +4722,8 @@ export function resolveRound(
             ? currentTarget.statuses.find(
                 (status) =>
                   status.id === "goatMarked" &&
-                  status.readiedAbilityId === "goatCharge",
+                  status.readiedAbilityId === "goatCharge" &&
+                  status.sourceId === action.actorId,
               )
             : undefined;
 
@@ -4723,7 +4744,8 @@ export function resolveRound(
               (status) =>
                 !(
                   status.id === "goatMarked" &&
-                  status.readiedAbilityId === "goatCharge"
+                  status.readiedAbilityId === "goatCharge" &&
+                  status.sourceId === action.actorId
                 ),
             ),
           );

@@ -349,7 +349,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 2,
     isBoss: false,
     stats: {
-      maxHp: 145,
+      maxHp: 130,
       maxPp: 0,
       criticalChance: 0,
       attack: 15,
@@ -358,8 +358,8 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       agility: 15,
       elementalPower: { fire: 0, water: 0, earth: 0, wind: 0 },
     },
-    abilityRanks: { goatStomp: 1, goatCharge: 1 },
-    repeatingActionPattern: ["goatStomp", "goatCharge"],
+    abilityRanks: { goatStomp: 1, goatChargeUp: 1, goatCharge: 1 },
+    repeatingActionPattern: ["goatStomp", "goatChargeUp", "goatCharge"],
   },
   goat2: {
     id: "goat2",
@@ -367,7 +367,7 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
     level: 2,
     isBoss: false,
     stats: {
-      maxHp: 165,
+      maxHp: 150,
       maxPp: 0,
       criticalChance: 0,
       attack: 18,
@@ -376,8 +376,8 @@ export const ENEMY_DEFINITIONS: Record<EnemyId, EnemyDefinition> = {
       agility: 9,
       elementalPower: { fire: 0, water: 0, earth: 0, wind: 0 },
     },
-    abilityRanks: { goatStomp: 1, goatCharge: 1 },
-    repeatingActionPattern: ["goatCharge", "goatStomp"],
+    abilityRanks: { goatStomp: 1, goatChargeUp: 1, goatCharge: 1 },
+    repeatingActionPattern: ["goatCharge", "goatStomp", "goatChargeUp"],
   },
   rockwhistler: {
     id: "rockwhistler",

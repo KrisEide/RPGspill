@@ -169,8 +169,8 @@ export const WATER_ABILITY_DEFINITIONS = {
       1: {
         shortDescription: "Charge, then restore a large amount of HP.",
         description:
-          "Pay 9 PP and charge for one round. On your next turn, restore 30 + 50% of Water Power as HP to yourself or your partner. Dying or becoming Stunned interrupts the charge.",
-        ppCost: 9,
+          "Pay 11 PP and charge for one round. On your next turn, restore 30 + 50% of Water Power as HP to yourself or your partner. Dying or becoming Stunned interrupts the charge.",
+        ppCost: 11,
         effects: [
           {
             type: "charge",
@@ -186,10 +186,9 @@ export const WATER_ABILITY_DEFINITIONS = {
       2: {
         shortDescription: "Charge, then restore even more HP.",
         description:
-          "Pay 9 PP and charge for one round. On your next turn, restore 40 + 50% of Water Power as HP to yourself or your partner. Dying or becoming Stunned interrupts the charge.",
-        newEffectDescription:
-          "Base healing increases from 30 to 40. The PP cost and charge risk are unchanged.",
-        ppCost: 9,
+          "Pay 12 PP and charge for one round. On your next turn, restore 40 + 50% of Water Power as HP to yourself or your partner. Dying or becoming Stunned interrupts the charge.",
+        newEffectDescription: "Base healing increases from 30 to 40.",
+        ppCost: 12,
         effects: [
           {
             type: "charge",
